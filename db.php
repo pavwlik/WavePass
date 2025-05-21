@@ -20,6 +20,7 @@ try {
 }
 ?>
 <head>
+    <link rel="icon" href="imgs/logo.png" type="image/x-icon"> 
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <meta name="author" content="Pavel Bureš">
 </head>
