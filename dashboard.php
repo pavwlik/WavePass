@@ -455,7 +455,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         const nextDayBtn = document.getElementById('nextDayBtn');
 
         function navigateToDate(dateString) {
-            window.location.href = `dashboard2.php?date=${dateString}`;
+            window.location.href = `dashboard.php?date=${dateString}`;
         }
 
         if (dateSelector) {

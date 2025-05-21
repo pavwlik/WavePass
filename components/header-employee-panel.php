@@ -1,5 +1,5 @@
 <?php
-// This file is assumed to be included by other PHP pages like dashboard2.php, profile.php etc.
+// This file is assumed to be included by other PHP pages like dashboard.php, profile.php etc.
 // Session should already be started. $sessionUserId, $sessionFirstName, $sessionRole, $_SESSION['profile_photo'] should be available.
 // $currentPage should be defined by the including script.
 
@@ -33,7 +33,7 @@ if (isset($_SESSION["profile_photo"]) && !empty($_SESSION["profile_photo"])) {
                 Wave<span>Pass</span>
             </a>
             <ul class="nav-links">
-                <li><a href="dashboard2.php" class="<?php if ($currentPage === 'dashboard2.php') echo 'active-nav-link'; ?>">My Dashboard</a></li>
+                <li><a href="dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-nav-link'; ?>">My Dashboard</a></li>
                 <li><a href="my_attendance_log.php" class="<?php if ($currentPage === 'my_attendance_log.php') echo 'active-nav-link'; ?>">Attendance Log</a></li>
                 <li><a href="absences.php" class="<?php if ($currentPage === 'absences.php') echo 'active-nav-link'; ?>">Absence</a></li>
                 <li><a href="messages.php" class="<?php if ($currentPage === 'messages.php') echo 'active-nav-link'; ?>">Messages</a></li>
@@ -58,7 +58,7 @@ if (isset($_SESSION["profile_photo"]) && !empty($_SESSION["profile_photo"])) {
 <div class="mobile-menu" id="mobileMenu"> 
     <span class="close-btn" id="closeMenu"><i class="fas fa-times"></i></span>
     <ul class="mobile-links">
-         <li><a href="dashboard2.php" class="<?php if ($currentPage === 'dashboard2.php') echo 'active-nav-link'; ?>">My Dashboard</a></li>
+         <li><a href="dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-nav-link'; ?>">My Dashboard</a></li>
          <li><a href="my_attendance_log.php" class="<?php if ($currentPage === 'my_attendance_log.php') echo 'active-nav-link'; ?>">Attendance Log</a></li>
          <li><a href="absences.php" class="<?php if ($currentPage === 'absences.php') echo 'active-nav-link'; ?>">Absence</a></li>
          <li><a href="messages.php" class="<?php if ($currentPage === 'messages.php') echo 'active-nav-link'; ?>">Messages</a></li>

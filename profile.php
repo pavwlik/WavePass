@@ -396,7 +396,6 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
             border-radius: 10px; padding: 1.5rem; text-align: center; transition: var(--transition);
             box-shadow: 0 3px 12px rgba(0,0,0,0.05);
         }
-        .rfid-card-item:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.08); transform: translateY(-4px);}
         .rfid-card-image { width: 100%; max-width: 230px; height: auto; border-radius: 8px; margin-bottom: 1.2rem; border: 1px solid #d0d5dd; display:block; margin-left:auto; margin-right:auto; background-color:var(--light-gray);}
         .rfid-card-info h4 { font-size:1.1rem; color:var(--dark-color); margin-bottom:0.4rem; font-weight:600;}
         .rfid-card-info p { font-size:0.9rem; color:var(--gray-color); margin-bottom:0.3rem;}
