@@ -2,12 +2,17 @@
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-require_once 'db.php'; // Your database connection
+require_once 'db.php'; // Your database connection. Ensure PDO::ERRMODE_EXCEPTION is set in db.php
 
-// Initialize variables
+// Initialize variables for form fields
 $username = $password = $confirm_password = $email = $firstName = $lastName = $rfid = $phone = "";
+
+// Initialize variables for error messages
 $username_err = $password_err = $confirm_password_err = $email_err = $firstName_err = $lastName_err = $rfid_err = $phone_err = "";
-$registration_success = "";
+
+// Initialize variables for form submission feedback
+$feedback_message = "";
+$feedback_type = ""; // 'success' or 'error'
 
 // Redirect if already logged in
 if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true) {
@@ -22,20 +27,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (empty($trimmed_username)) {
         $username_err = "Please enter a username.";
     } else {
-        $sql = "SELECT userID FROM users WHERE username = :username";
-        if ($stmt = $pdo->prepare($sql)) {
-            $stmt->bindParam(":username", $trimmed_username, PDO::PARAM_STR);
-            if ($stmt->execute()) {
-                if ($stmt->rowCount() == 1) {
-                    $username_err = "This username is already taken.";
+        // It's good practice to wrap DB operations in try-catch if ERRMODE_EXCEPTION is on
+        try {
+            $sql = "SELECT userID FROM users WHERE username = :username";
+            if ($stmt = $pdo->prepare($sql)) {
+                $stmt->bindParam(":username", $trimmed_username, PDO::PARAM_STR);
+                if ($stmt->execute()) {
+                    if ($stmt->rowCount() == 1) {
+                        $username_err = "This username is already taken.";
+                    } else {
+                        $username = $trimmed_username;
+                    }
                 } else {
-                    $username = $trimmed_username;
+                    $username_err = "Oops! Something went wrong checking username.";
                 }
-            } else {
-                // Consider logging this error instead of echoing
-                $username_err = "Oops! Something went wrong checking username.";
+                unset($stmt);
             }
-            unset($stmt);
+        } catch (PDOException $e) {
+            error_log("PDOException in username check: " . $e->getMessage());
+            $username_err = "Error checking username. Please try again.";
         }
     }
 
@@ -62,19 +72,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     } elseif (!filter_var($trimmed_email, FILTER_VALIDATE_EMAIL)) {
         $email_err = "Please enter a valid email address.";
     } else {
-        $sql = "SELECT userID FROM users WHERE email = :email";
-        if ($stmt = $pdo->prepare($sql)) {
-            $stmt->bindParam(":email", $trimmed_email, PDO::PARAM_STR);
-            if ($stmt->execute()) {
-                if ($stmt->rowCount() == 1) {
-                    $email_err = "This email is already registered.";
+        try {
+            $sql = "SELECT userID FROM users WHERE email = :email";
+            if ($stmt = $pdo->prepare($sql)) {
+                $stmt->bindParam(":email", $trimmed_email, PDO::PARAM_STR);
+                if ($stmt->execute()) {
+                    if ($stmt->rowCount() == 1) {
+                        $email_err = "This email is already registered.";
+                    } else {
+                        $email = $trimmed_email;
+                    }
                 } else {
-                    $email = $trimmed_email;
+                    $email_err = "Oops! Something went wrong checking email.";
                 }
-            } else {
-                $email_err = "Oops! Something went wrong checking email.";
+                unset($stmt);
             }
-            unset($stmt);
+        } catch (PDOException $e) {
+            error_log("PDOException in email check: " . $e->getMessage());
+            $email_err = "Error checking email. Please try again.";
         }
     }
 
@@ -100,30 +115,39 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // Optional fields (RFID, Phone)
-    $rfid_input = isset($_POST["rfid"]) ? trim($_POST["rfid"]) : '';
+    $rfid_input = isset($_POST["rfid"]) ? trim($_POST["rfid"]) : ''; // Keep user input for redisplay
     $phone_input = isset($_POST["phone"]) ? trim($_POST["phone"]) : '';
     
-    // If RFID must be unique and is provided:
-    if (!empty($rfid_input)) {
-        $sql_check_rfid = "SELECT userID FROM users WHERE RFID = :rfid";
-        if ($stmt_check_rfid = $pdo->prepare($sql_check_rfid)) {
-            $stmt_check_rfid->bindParam(":rfid", $rfid_input, PDO::PARAM_STR);
-            if ($stmt_check_rfid->execute()) {
-                if ($stmt_check_rfid->rowCount() > 0) {
-                    $rfid_err = "This RFID tag is already in use.";
-                } else {
-                    $rfid = $rfid_input; // Assign only if no error
-                }
-            } else {
-                 $rfid_err = "Oops! Something went wrong with RFID check.";
-            }
-            unset($stmt_check_rfid);
-        }
-    } else {
-        $rfid = null; // Set to null if empty
-    }
+    $processed_rfid = null; // This will hold the integer RFID or null for DB
 
-    // For phone, assign directly if no specific validation is needed other than trim
+    if (!empty($rfid_input)) {
+        if (!filter_var($rfid_input, FILTER_VALIDATE_INT) && $rfid_input !== '0') { // Allow '0'
+            $rfid_err = "RFID must be a whole number.";
+        } else {
+            $rfid_int_val = intval($rfid_input);
+            try {
+                $sql_check_rfid = "SELECT userID FROM users WHERE RFID = :rfid";
+                if ($stmt_check_rfid = $pdo->prepare($sql_check_rfid)) {
+                    $stmt_check_rfid->bindParam(":rfid", $rfid_int_val, PDO::PARAM_INT); // Bind as INT
+                    if ($stmt_check_rfid->execute()) {
+                        if ($stmt_check_rfid->rowCount() > 0) {
+                            $rfid_err = "This RFID tag is already in use.";
+                        } else {
+                            $processed_rfid = $rfid_int_val; // Store validated integer RFID for DB
+                        }
+                    } else {
+                         $rfid_err = "Oops! Something went wrong with RFID check.";
+                    }
+                    unset($stmt_check_rfid);
+                }
+            } catch (PDOException $e) {
+                error_log("PDOException in RFID check: " . $e->getMessage());
+                $rfid_err = "Error checking RFID. Please try again.";
+            }
+        }
+    }
+    $rfid = $rfid_input; // For re-populating the form field with original input
+
     $phone = !empty($phone_input) ? $phone_input : null;
 
 
@@ -133,42 +157,59 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $sql = "INSERT INTO users (username, password, firstName, lastName, email, roleID, RFID, phone, absence) 
                 VALUES (:username, :password, :firstName, :lastName, :email, :roleID, :rfid, :phone, 0)";
         
-        if ($stmt = $pdo->prepare($sql)) {
-            $stmt->bindParam(":username", $param_username, PDO::PARAM_STR);
-            $stmt->bindParam(":password", $param_password, PDO::PARAM_STR);
-            $stmt->bindParam(":firstName", $param_firstName, PDO::PARAM_STR);
-            $stmt->bindParam(":lastName", $param_lastName, PDO::PARAM_STR);
-            $stmt->bindParam(":email", $param_email, PDO::PARAM_STR);
-            $stmt->bindParam(":roleID", $param_roleID, PDO::PARAM_STR);
-            
-            // Bind optional fields: use PDO::PARAM_NULL if value is null
-            if ($rfid === null) {
-                $stmt->bindParam(":rfid", $rfid, PDO::PARAM_NULL);
-            } else {
-                $stmt->bindParam(":rfid", $rfid, PDO::PARAM_STR);
-            }
+        try {
+            if ($stmt = $pdo->prepare($sql)) {
+                $stmt->bindParam(":username", $param_username, PDO::PARAM_STR);
+                $stmt->bindParam(":password", $param_password, PDO::PARAM_STR);
+                $stmt->bindParam(":firstName", $param_firstName, PDO::PARAM_STR);
+                $stmt->bindParam(":lastName", $param_lastName, PDO::PARAM_STR);
+                $stmt->bindParam(":email", $param_email, PDO::PARAM_STR);
+                $stmt->bindParam(":roleID", $param_roleID, PDO::PARAM_STR);
+                
+                if ($processed_rfid === null) {
+                    $stmt->bindParam(":rfid", $processed_rfid, PDO::PARAM_NULL);
+                } else {
+                    $stmt->bindParam(":rfid", $processed_rfid, PDO::PARAM_INT); // Bind as INT
+                }
 
-            if ($phone === null) {
-                $stmt->bindParam(":phone", $phone, PDO::PARAM_NULL);
+                if ($phone === null) {
+                    $stmt->bindParam(":phone", $phone, PDO::PARAM_NULL);
+                } else {
+                    $stmt->bindParam(":phone", $phone, PDO::PARAM_STR);
+                }
+                
+                $param_username = $username;
+                $param_password = password_hash($password, PASSWORD_DEFAULT);
+                $param_firstName = $firstName;
+                $param_lastName = $lastName;
+                $param_email = $email;
+                $param_roleID = 'employee'; // Default role from table structure too
+                
+                if ($stmt->execute()) {
+                    $feedback_message = "Registration successful! You can now <a href='login.php'>login</a>.";
+                    $feedback_type = "success";
+                    // Clear form fields after successful registration
+                    $username = $password = $confirm_password = $email = $firstName = $lastName = $rfid = $phone = ""; 
+                } else {
+                    // This else might not be reached if ERRMODE_EXCEPTION is on and execute fails
+                    $feedback_message = "Registration failed. Please try again. SQL execute error.";
+                    $feedback_type = "error";
+                    error_log("Registration failed: " . implode(";", $stmt->errorInfo()));
+                }
+                unset($stmt);
             } else {
-                $stmt->bindParam(":phone", $phone, PDO::PARAM_STR);
+                $feedback_message = "Registration failed. Please try again. SQL prepare error.";
+                $feedback_type = "error";
             }
-            
-            $param_username = $username;
-            $param_password = password_hash($password, PASSWORD_DEFAULT);
-            $param_firstName = $firstName;
-            $param_lastName = $lastName;
-            $param_email = $email;
-            $param_roleID = 'employee';
-            
-            if ($stmt->execute()) {
-                $registration_success = "Registration successful! You can now <a href='login.php'>login</a>.";
-                $username = $password = $confirm_password = $email = $firstName = $lastName = $rfid = $phone = ""; // Clear form
-            } else {
-                // More specific error handling might be needed here based on the actual SQL error
-                $registration_success = "<span style='color:var(--danger-color);'>Something went wrong with registration. Please try again.</span>";
-            }
-            unset($stmt);
+        } catch (PDOException $e) {
+            error_log("Registration SQL Error: " . $e->getMessage());
+            $feedback_message = "Something went wrong with registration. Please try again later.";
+            $feedback_type = "error";
+        }
+    } else {
+        if (empty($feedback_message)) { // Only set this if no major DB error message is already set
+            $feedback_message = "Please correct the errors in the form.";
+            $feedback_type = "error";
         }
     }
 }
@@ -239,9 +280,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         .register-container { background-color: var(--white); padding: 2.5rem 3rem; border-radius: 12px; box-shadow: var(--shadow); width: 100%; max-width: 550px; text-align: center; }
         .register-container h1 { font-size: 1.8rem; margin-bottom: 0.8rem; color: var(--dark-color); }
         .register-container .register-subtitle { font-size: 0.95rem; color: var(--gray-color); margin-bottom: 1.5rem; }
-        .form-error { color: var(--danger-color); font-size: 0.85rem; margin-top: 0.2rem; display: block; }
-        .form-success { background-color: rgba(40,167,69,0.1); color: var(--success-color-custom); border: 1px solid rgba(40,167,69,0.3); padding: 0.8rem 1rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.9rem; text-align: center; }
-        .form-success a { color: var(--primary-dark); font-weight: bold; }
+        
+        /* Form feedback messages (overall success/error) */
+        .form-feedback {
+            padding: 0.8rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+            text-align: center;
+            border: 1px solid transparent;
+        }
+        .form-feedback i { margin-right: 0.5em; }
+        .form-success { /* This is your existing class, used for success feedback */
+            background-color: rgba(40,167,69,0.1);
+            color: var(--success-color-custom);
+            border: 1px solid rgba(40,167,69,0.3);
+            /* padding, border-radius, margin-bottom, font-size, text-align are already here from your original .form-success */
+        }
+        .form-success a { color: var(--primary-dark); font-weight: bold; } /* Your existing style for links in success */
+        
+        .form-danger-msg { /* New class for error feedback box */
+            background-color: rgba(247,37,133,0.1); /* Using --danger-color */
+            color: var(--danger-color);
+            border-color: rgba(247,37,133,0.3);
+        }
+        .form-danger-msg a { color: var(--danger-color); font-weight: bold; }
+
+
         .form-group { margin-bottom: 1.2rem; text-align: left; }
         .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--dark-color); font-size: 0.9rem; }
         .form-group input[type="text"],
@@ -249,6 +314,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         .form-group input[type="password"] { width: 100%; padding: 0.8rem 1rem; border: 1px solid var(--light-gray); border-radius: 8px; font-size: 0.9rem; font-family: inherit; color: var(--dark-color); transition: border-color .3s ease, box-shadow .3s ease; background-color: #fdfdff; }
         .form-group input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(67,97,238,0.15); background-color: var(--white); }
         .form-group.has-error input { border-color: var(--danger-color); }
+        
+        .form-error { color: var(--danger-color); font-size: 0.85rem; margin-top: 0.2rem; display: block; }
+        .form-error i { margin-right: 4px; } /* Icon for inline errors */
+
         .register-container .btn { width: 100%; padding: 0.9rem 2rem; margin-top: 1rem; }
         .login-link { margin-top: 1.5rem; font-size: 0.9rem; }
         .login-link a { color: var(--primary-color); text-decoration: none; font-weight: 500; }
@@ -311,9 +380,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <h1>Create Account</h1>
                 <p class="register-subtitle">Join WavePass today! Fill out the form below to get started.</p>
 
-                <?php if(!empty($registration_success)): ?>
-                    <div class="form-success">
-                        <i class="fas fa-check-circle"></i> <?php echo $registration_success; ?>
+                <?php if(!empty($feedback_message)): ?>
+                    <div class="form-feedback <?php echo ($feedback_type === 'success') ? 'form-success' : 'form-danger-msg'; ?>">
+                        <?php if($feedback_type === 'success'): ?>
+                            <i class="fas fa-check-circle"></i>
+                        <?php else: // 'error' ?>
+                            <i class="fas fa-exclamation-triangle"></i>
+                        <?php endif; ?>
+                        <?php echo $feedback_message; ?>
                     </div>
                 <?php endif; ?>
 
@@ -321,49 +395,49 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <div class="form-group <?php echo (!empty($firstName_err)) ? 'has-error' : ''; ?>">
                         <label for="firstName">First Name</label>
                         <input type="text" name="firstName" id="firstName" value="<?php echo htmlspecialchars($firstName); ?>" required>
-                        <span class="form-error"><?php echo $firstName_err; ?></span>
+                        <span class="form-error"><?php if(!empty($firstName_err)) { echo '<i class="fas fa-exclamation-circle"></i> ' . $firstName_err; } ?></span>
                     </div>
 
                     <div class="form-group <?php echo (!empty($lastName_err)) ? 'has-error' : ''; ?>">
                         <label for="lastName">Last Name</label>
                         <input type="text" name="lastName" id="lastName" value="<?php echo htmlspecialchars($lastName); ?>" required>
-                        <span class="form-error"><?php echo $lastName_err; ?></span>
+                        <span class="form-error"><?php if(!empty($lastName_err)) { echo '<i class="fas fa-exclamation-circle"></i> ' . $lastName_err; } ?></span>
                     </div>
 
                     <div class="form-group <?php echo (!empty($username_err)) ? 'has-error' : ''; ?>">
                         <label for="username">Username</label>
                         <input type="text" name="username" id="username" value="<?php echo htmlspecialchars($username); ?>" required>
-                        <span class="form-error"><?php echo $username_err; ?></span>
+                        <span class="form-error"><?php if(!empty($username_err)) { echo '<i class="fas fa-exclamation-circle"></i> ' . $username_err; } ?></span>
                     </div>
 
                     <div class="form-group <?php echo (!empty($email_err)) ? 'has-error' : ''; ?>">
                         <label for="email">Email Address</label>
                         <input type="email" name="email" id="email" value="<?php echo htmlspecialchars($email); ?>" required>
-                        <span class="form-error"><?php echo $email_err; ?></span>
+                        <span class="form-error"><?php if(!empty($email_err)) { echo '<i class="fas fa-exclamation-circle"></i> ' . $email_err; } ?></span>
                     </div>
 
                     <div class="form-group <?php echo (!empty($password_err)) ? 'has-error' : ''; ?>">
                         <label for="password">Password (min. 6 characters)</label>
                         <input type="password" name="password" id="password" required>
-                        <span class="form-error"><?php echo $password_err; ?></span>
+                        <span class="form-error"><?php if(!empty($password_err)) { echo '<i class="fas fa-exclamation-circle"></i> ' . $password_err; } ?></span>
                     </div>
 
                     <div class="form-group <?php echo (!empty($confirm_password_err)) ? 'has-error' : ''; ?>">
                         <label for="confirm_password">Confirm Password</label>
                         <input type="password" name="confirm_password" id="confirm_password" required>
-                        <span class="form-error"><?php echo $confirm_password_err; ?></span>
+                        <span class="form-error"><?php if(!empty($confirm_password_err)) { echo '<i class="fas fa-exclamation-circle"></i> ' . $confirm_password_err; } ?></span>
                     </div>
                     
                     <div class="form-group <?php echo (!empty($rfid_err)) ? 'has-error' : ''; ?>">
-                        <label for="rfid">RFID Tag (Optional)</label>
+                        <label for="rfid">RFID Tag (Optional, numbers only)</label>
                         <input type="text" name="rfid" id="rfid" value="<?php echo htmlspecialchars($rfid); ?>">
-                        <span class="form-error"><?php echo $rfid_err; ?></span>
+                        <span class="form-error"><?php if(!empty($rfid_err)) { echo '<i class="fas fa-exclamation-circle"></i> ' . $rfid_err; } ?></span>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group <?php echo (!empty($phone_err)) ? 'has-error' : ''; ?>"> <!-- Added has-error for consistency if $phone_err is used -->
                         <label for="phone">Phone (Optional)</label>
                         <input type="text" name="phone" id="phone" value="<?php echo htmlspecialchars($phone); ?>">
-                        <span class="form-error"><?php echo $phone_err; ?></span>
+                        <span class="form-error"><?php if(!empty($phone_err)) { echo '<i class="fas fa-exclamation-circle"></i> ' . $phone_err; } ?></span>
                     </div>
 
                     <button type="submit" class="btn"><i class="fas fa-user-plus"></i> Register</button>
@@ -487,7 +561,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         function setActiveNavLink() {
             const navLinks = document.querySelectorAll('.nav-links a:not(.btn), .mobile-links a:not(.btn)');
             const currentPath = window.location.pathname.split('/').pop();
-            const navLoginBtn = document.querySelector('.nav-item-login a.btn'); // Keep this if you have specific styling for the login button parent
+            const navLoginBtn = document.querySelector('.nav-item-login a.btn'); 
             const mobileLoginBtn = document.querySelector('.mobile-menu a.btn[href="login.php"]');
 
             navLinks.forEach(link => {
@@ -500,8 +574,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     link.classList.remove('active-link');
                 }
             });
-            // For register.php, no specific nav item is "active" by default unless you add "Register" to nav
-            if (navLoginBtn) navLoginBtn.classList.remove('active-link'); // Login is not active on register page
+            
+            if (currentPath === 'register.php') { // Example: if you add a register link and want it active
+                // const registerLink = document.querySelector('a[href="register.php"]');
+                // if(registerLink) registerLink.classList.add('active-link');
+            }
+
+            if (navLoginBtn) navLoginBtn.classList.remove('active-link'); 
             if (mobileLoginBtn) mobileLoginBtn.classList.remove('active-link');
         }
         setActiveNavLink();

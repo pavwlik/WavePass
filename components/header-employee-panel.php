@@ -73,7 +73,7 @@ if (isset($_SESSION["profile_photo"]) && !empty($_SESSION["profile_photo"])) {
             </a>
         </li>
     </ul>
-    <a href="logout.php" class="btn btn-outline">Logout</a> 
+    <a href="logout.php" class="btn btn-outline">Log out</a> 
 </div>
 
 <style>
