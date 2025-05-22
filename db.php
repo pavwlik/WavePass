@@ -25,3 +25,12 @@ try {
 
 // No HTML output below this line in db.php
 ?>
+
+
+
+<?php
+$host = 'localhost';
+$db   = 'team01';
+$user = 'team01';
+$pass = '2Mingo@01';
+$charset = 'utf8mb4';

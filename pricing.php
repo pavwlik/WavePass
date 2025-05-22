@@ -52,7 +52,7 @@
         }
 
         .container {
-            max-width: 1200px; /* Standard container width */
+            max-width: 1400px; /* Standard container width */
             margin: 0 auto;
             padding: 0 20px;
         }

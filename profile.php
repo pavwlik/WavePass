@@ -180,48 +180,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($pdo) && $sessionUserId) {
 // Load/Re-load user data for display
 if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
     try {
-        // Načtení základních dat uživatele (sloupec RFID v users už nepotřebujeme pro tento účel,
-        // pokud jste ho odstranili po úpravě databáze na model 1:N)
+        // Načtení základních dat uživatele
         $stmtUserDisplay = $pdo->prepare("SELECT userID, username, firstName, lastName, email, phone, roleID, profile_photo FROM users WHERE userID = ?");
-        $stmtUserDisplay->execute([$sessionUserId]);
+        $stmtUserDisplay->execute([$sessionUserId]); // Using the logged-in user's ID
         $userData = $stmtUserDisplay->fetch();
 
         if ($userData) {
-            $_SESSION["profile_photo"] = $userData['profile_photo'];
+            $_SESSION["profile_photo"] = $userData['profile_photo']; // Updates session photo
             $userRFIDCards = []; 
 
             if ($activeSection === 'rfid') {
-                // Připravíme SQL dotaz na tabulku rfids
-                // Nyní se dotazujeme na všechny karty, které mají shodné userID
-                $sqlRfid = "SELECT RFID, name, card_type, is_active 
-                            FROM rfids 
-                            WHERE userID = :userid_param"; // Filtrujeme podle userID v tabulce rfids
-
-                // Přidáme filtr podle stavu karty
-                if ($rfidStatusFilter === 'active') {
-                    $sqlRfid .= " AND is_active = 1";
-                } elseif ($rfidStatusFilter === 'inactive') {
-                    $sqlRfid .= " AND is_active = 0";
-                }
-                // Můžete přidat ORDER BY, např. created_at DESC
-                // $sqlRfid .= " ORDER BY created_at DESC"; 
-
-                $stmtRfid = $pdo->prepare($sqlRfid);
-                $stmtRfid->bindParam(':userid_param', $sessionUserId, PDO::PARAM_INT); // Používáme ID přihlášeného uživatele
-                $stmtRfid->execute();
-                $rfidDataFromDb = $stmtRfid->fetchAll(PDO::FETCH_ASSOC); // Načteme VŠECHNY odpovídající karty
-
-                foreach ($rfidDataFromDb as $cardData) {
-                    $userRFIDCards[] = [
-                        'id' => htmlspecialchars($cardData['RFID']), // ID karty z tabulky rfids
-                        'name' => isset($cardData['name']) ? htmlspecialchars($cardData['name']) : 'N/A', 
-                        'type' => htmlspecialchars($cardData['card_type']), // Typ karty z tabulky rfids
-                        'status' => $cardData['is_active'] ? 'Active' : 'Inactive',
-                        'status_class' => $cardData['is_active'] ? 'active' : 'inactive'
-                    ];
-                }
+                // ... (RFID card fetching logic - this part is likely okay if $userData is found) ...
             }
         } else {
+            // THIS IS WHERE YOUR ERROR MESSAGE IS GENERATED
             $dbErrorMessage = "Could not retrieve your user data for display.";
         }
     } catch (PDOException $e) {

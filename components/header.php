@@ -60,5 +60,5 @@
         color: var(--dark-color); 
         font-weight: 600; 
     }
-    /* The rest of .logo span styling might need adjustment if your image + text "Wave" part differs significantly in height from the text "Pass" */
+    
         </style>

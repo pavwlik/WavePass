@@ -70,4 +70,21 @@
     margin-top: 25px;
     margin-bottom: 15px;
 }
+
+        /* Footer (Copied from existing styles) */
+        footer { background-color: var(--dark-color); color: var(--white); padding: 5rem 0 2rem; }
+        .footer-content { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 3rem; margin-bottom: 3rem; }
+        .footer-column h3 { font-size: 1.3rem; margin-bottom: 1.8rem; position: relative; padding-bottom: 0.8rem; }
+        .footer-column h3::after { content: ''; position: absolute; left: 0; bottom: 0; width: 50px; height: 3px; background-color: var(--primary-color); border-radius: 3px; }
+        .footer-links { list-style: none; }
+        .footer-links li { margin-bottom: 0.8rem; }
+        .footer-links a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); font-size: 0.95rem; display: inline-block; padding: 0.2rem 0; }
+        .footer-links a:hover { color: var(--white); transform: translateX(5px); }
+        .footer-links a i { margin-right: 0.5rem; width: 20px; text-align: center; }
+        .social-links { display: flex; gap: 1.2rem; margin-top: 1.5rem; }
+        .social-links a { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; background-color: rgba(255, 255, 255, 0.1); color: var(--white); border-radius: 50%; font-size: 1.1rem; transition: var(--transition); }
+        .social-links a:hover { background-color: var(--primary-color); transform: translateY(-3px); }
+        .footer-bottom { text-align: center; padding-top: 3rem; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.9rem; color: rgba(255, 255, 255, 0.6); }
+        .footer-bottom a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); }
+        .footer-bottom a:hover { color: var(--primary-color); }
     </style>

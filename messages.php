@@ -36,9 +36,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
             $stmtComment->bindParam(':comment_text', $commentText, PDO::PARAM_STR);
             if ($stmtComment->execute()) {
                 $successMessage = "Comment added successfully.";
-                // header("Location: messages.php?message_focus=" . $commentMessageID); // Přesměrování pro zobrazení nového komentáře
-                // exit;
-                // Prozatím nebudeme přesměrovávat, aby se zobrazil success message, ale AJAX by byl lepší.
             } else {
                 $dbErrorMessage = "Failed to add comment.";
             }
@@ -53,7 +50,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
 // Zpracování odeslání nové zprávy (pouze pro admina)
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['action'] == 'send_message' && $sessionRole == 'admin') {
     $msgTitle = trim(filter_input(INPUT_POST, 'message_title', FILTER_SANITIZE_SPECIAL_CHARS));
-    $msgContent = trim(filter_input(INPUT_POST, 'message_content', FILTER_SANITIZE_SPECIAL_CHARS)); // Můžete povolit omezené HTML pokud použijete jiný sanitizér
+    $msgContent = trim(filter_input(INPUT_POST, 'message_content', FILTER_SANITIZE_SPECIAL_CHARS));
     $msgTarget = filter_input(INPUT_POST, 'message_target', FILTER_SANITIZE_SPECIAL_CHARS);
     $msgTargetSpecificUser = filter_input(INPUT_POST, 'message_target_specific_user', FILTER_VALIDATE_INT);
     $msgType = filter_input(INPUT_POST, 'message_type', FILTER_SANITIZE_SPECIAL_CHARS);
@@ -75,7 +72,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
             $dbErrorMessage = "Invalid message target.";
         }
 
-        if (!$dbErrorMessage) { // Pokračovat pouze pokud není chyba v cílení
+        if (!$dbErrorMessage) {
             try {
                 $sqlNewMsg = "INSERT INTO messages (senderID, recipientID, recipientRole, title, content, message_type, is_urgent, is_system_message)
                               VALUES (:senderID, :recipientID, :recipientRole, :title, :content, :message_type, :is_urgent, 0)";
@@ -108,17 +105,26 @@ $currentFilter = isset($_GET['filter']) ? $_GET['filter'] : 'all'; // 'all', 'fo
 
 if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
     try {
+        // CORRECTED PARAMETER HANDLING:
+        $params = []; // Initialize empty params array
         $sqlWhereClauses = ["m.is_active = TRUE", "(m.expires_at IS NULL OR m.expires_at > NOW())"];
-        $params = [':currentUserID' => $sessionUserId, ':currentUserRole' => $sessionRole];
+
+        // Parameter for the JOIN condition on user_message_read_status is always needed
+        $params[':currentUserID_for_join'] = $sessionUserId;
 
         if ($currentFilter == 'for_you') {
-            $sqlWhereClauses[] = "m.recipientID = :currentUserID";
+            $sqlWhereClauses[] = "m.recipientID = :currentUserID_for_filter";
+            $params[':currentUserID_for_filter'] = $sessionUserId;
         } elseif ($currentFilter == 'for_everyone') {
             $sqlWhereClauses[] = "m.recipientRole = 'everyone'";
+            // No additional user-specific parameters needed in WHERE for this filter
         } else { // 'all' - výchozí
-            $sqlWhereClauses[] = "(m.recipientID = :currentUserID OR m.recipientRole = :currentUserRole OR m.recipientRole = 'everyone')";
+            $sqlWhereClauses[] = "(m.recipientID = :currentUserID_for_filter OR m.recipientRole = :currentUserRole_for_filter OR m.recipientRole = 'everyone')";
+            $params[':currentUserID_for_filter'] = $sessionUserId;
+            $params[':currentUserRole_for_filter'] = $sessionRole;
         }
         
+        // Note the use of :currentUserID_for_join in the LEFT JOIN
         $sql = "SELECT
                     m.messageID, m.title, m.content, m.message_type, m.is_urgent, m.created_at,
                     m.senderID, u_sender.firstName AS sender_firstName, u_sender.lastName AS sender_lastName,
@@ -126,12 +132,12 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                     COALESCE(umrs.is_read, 0) AS is_read_by_user
                 FROM messages m
                 LEFT JOIN users u_sender ON m.senderID = u_sender.userID
-                LEFT JOIN user_message_read_status umrs ON m.messageID = umrs.messageID AND umrs.userID = :currentUserID
+                LEFT JOIN user_message_read_status umrs ON m.messageID = umrs.messageID AND umrs.userID = :currentUserID_for_join
                 WHERE " . implode(" AND ", $sqlWhereClauses) . "
                 ORDER BY m.is_urgent DESC, m.created_at DESC";
         
         $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
+        $stmt->execute($params); // Execute with the dynamically built $params array
         $fetchedMessages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $unreadMessageIDsToMark = [];
@@ -146,7 +152,7 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
             } elseif ($msg['recipientRole'] == $sessionRole) {
                 $messageData['target_audience_display'] = 'For all ' . htmlspecialchars(ucfirst($sessionRole)) . 's';
             } else {
-                $messageData['target_audience_display'] = 'General';
+                $messageData['target_audience_display'] = 'General'; // Should ideally not happen with current logic
             }
             
             if ($msg['senderID']) {
@@ -174,7 +180,6 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
 
         // Označení zobrazených nepřečtených zpráv jako přečtené
         if (!empty($unreadMessageIDsToMark) && $sessionUserId) {
-            // ... (kód pro označení jako přečtené zůstává stejný jako v předchozí verzi) ...
             $markReadSql = "INSERT INTO user_message_read_status (userID, messageID, is_read, read_at) VALUES (:userID, :messageID, 1, NOW())
                             ON DUPLICATE KEY UPDATE is_read = 1, read_at = NOW()";
             $stmtMarkRead = $pdo->prepare($markReadSql);
@@ -192,14 +197,14 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
             $usersForAdminForm = $stmtUsers->fetchAll(PDO::FETCH_ASSOC);
         }
 
-
     } catch (PDOException $e) {
-        $dbErrorMessage = "Database Query Error: " . $e->getMessage();
+        // For debugging (shows SQL and params, remove or simplify for production)
+        // $dbErrorMessage = "Database Query Error: " . $e->getMessage() . " (SQL: " . $sql . ", Params: " . print_r($params, true) . ")";
+        $dbErrorMessage = "Database Query Error: " . $e->getMessage(); // Simpler error for user
     } catch (Exception $e) {
         $dbErrorMessage = "An application error occurred: " . $e->getMessage();
     }
 } else {
-    // ... (chybové zprávy pro DB a session zůstávají stejné) ...
     if (!isset($pdo) || !($pdo instanceof PDO)) $dbErrorMessage = ($dbErrorMessage ? $dbErrorMessage . "<br>" : "") . "Database connection is not available.";
     if (!$sessionUserId) $dbErrorMessage = ($dbErrorMessage ? $dbErrorMessage . "<br>" : "") . "User session is invalid.";
 }
@@ -242,121 +247,67 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             margin-top: 1.5rem; /* Odsazení shora jako u obsahu */
         }
 
-        /*header */
-        /* Basic Header Styling (ensure it's fixed or sticky as desired) */
+/* (These are from the previous response, ensure they are the active ones) */
 header {
-    background-color: var(--white); /* Or your header background */
+    background-color: var(--white);
     box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    position: fixed; /* This makes the header stay at the top */
+    position: fixed;
     width: 100%;
     top: 0;
-    z-index: 1000; /* Ensure it's above other content, but below active mobile menu if menu is separate */
+    z-index: 1000;
 }
 
-.navbar { /* Container for logo, nav-links, hamburger */
+.navbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    height: 80px; /* Adjust to your header height */
-    /* Assuming .container class inside header handles width/padding */
+    height: 80px; /* Or your preferred height */
+    /* Make sure there's a .container inside .navbar for width control if header is full-width */
+    /* e.g., <header><div class="container"><nav class="navbar">...</nav></div></header> */
 }
 
-/* Desktop Navigation Links */
-.nav-links {
-    display: flex; /* Visible on desktop */
+.nav-links { /* For desktop */
+    display: flex;
     list-style: none;
     align-items: center;
-    /* Add your existing .nav-links styling here (gap, link colors, etc.) */
+    gap: 0.5rem; /* Or your preferred gap */
+    /* ... other nav-links styles (colors, padding, etc.) ... */
 }
 
-/* Hamburger Icon */
 .hamburger {
-    display: none; /* Hidden by default on desktop */
+    display: none; /* Hidden on desktop */
     cursor: pointer;
-    /* Add your existing .hamburger styling (size, bar styles, active state for 'X') */
-    /* Example for basic structure */
-    flex-direction: column;
-    justify-content: space-around; /* Or space-between */
-    width: 30px; /* Adjust */
-    height: 24px; /* Adjust */
-    z-index: 1001; /* Needs to be above mobile menu if menu is also fixed */
+    /* ... hamburger icon styles (spans, active state) ... */
 }
 
-.hamburger span {
-    display: block;
-    width: 100%;
-    height: 3px;
-    background-color: var(--dark-color); /* Or your hamburger bar color */
-    border-radius: 3px;
-    transition: all 0.3s linear;
-}
-
-/* Mobile Menu Container - CRITICAL for fixing the issue */
 .mobile-menu {
-    position: fixed; /* Makes it an overlay, removed from normal document flow */
+    position: fixed;
     top: 0;
-    left: 0; /* Start from left edge for translateX */
-    width: 100%; /* Full width overlay */
-    height: 100vh; /* Full height overlay */
-    background-color: var(--white); /* Or your mobile menu background */
-    z-index: 1000; /* High z-index to be on top of page content */
-    
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background-color: var(--white);
+    z-index: 1000; /* Or higher if needed */
     display: flex;
     flex-direction: column;
-    /* Adjust alignment as per your design (e.g., for centered links) */
-    align-items: center; 
-    justify-content: center; /* Or flex-start if you have a close button at top */
-    padding: 2rem; /* Example padding */
-
-    transform: translateX(-100%); /* Hides the menu off-screen to the left by default */
-    transition: transform 0.3s ease-in-out; /* Smooth transition for sliding in/out */
-    overflow-y: auto; /* Allow scrolling if mobile menu content is long */
+    align-items: center;
+    justify-content: center;
+    transform: translateX(-100%); /* Hidden by default */
+    transition: transform 0.3s ease-in-out;
+    /* ... other mobile menu styles (links, close button) ... */
 }
 
 .mobile-menu.active {
-    transform: translateX(0); /* Slides the menu into view when .active class is added by JS */
+    transform: translateX(0); /* Show menu */
 }
 
-/* Mobile Menu Links Styling */
-.mobile-menu .mobile-links {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    text-align: center; /* Or left, depending on your design */
-    /* Add your existing .mobile-links styling (width, etc.) */
-}
-
-.mobile-menu .mobile-links li {
-    margin-bottom: 1rem; /* Example spacing */
-}
-
-.mobile-menu .mobile-links a {
-    display: block; /* Make links easy to tap */
-    padding: 0.8rem 1rem; /* Example padding */
-    text-decoration: none;
-    color: var(--dark-color); /* Link color */
-    font-size: 1.1rem; /* Example font size */
-    /* Add your existing .mobile-links a styling (hover effects, active link style) */
-}
-
-/* Close button inside mobile menu (if you have one) */
-.mobile-menu .close-btn {
-    position: absolute;
-    top: 20px; /* Adjust as needed */
-    right: 20px; /* Adjust as needed */
-    cursor: pointer;
-    /* Add styling for your close icon (font size, color) */
-}
-
-/* Media Query for Responsive Behavior - CRITICAL */
-@media (max-width: 992px) { /* Adjust this breakpoint to match your design */
+@media (max-width: 992px) { /* Your breakpoint */
     .nav-links {
-        display: none; /* Hide desktop links on smaller screens */
+        display: none;
     }
     .hamburger {
-        display: flex; /* Show hamburger icon on smaller screens */
+        display: flex; /* Or block, depending on its internal structure */
     }
-    /* If .mobile-menu is not full width, you might need to adjust its appearance here */
 }
         
         .messages-sidebar h3 { font-size: 1.2rem; margin-bottom: 1rem; color: var(--dark-color); padding-bottom: 0.5rem; border-bottom: 1px solid var(--light-gray); }
@@ -453,22 +404,110 @@ header {
         .form-group .btn-send-message:hover { opacity:0.9; transform: translateY(-1px); }
         #specificUserSelectContainer { display: none; margin-top: 0.5rem; }
 
-        /* Footer styly (převzít z dashboard.php) */
-        footer { background-color: var(--dark-color); color: var(--white); padding: 3rem 0 2rem; margin-top:auto;}
-        /* ... zbytek footer stylů ... */
-        .footer-content { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
-        .footer-column h3 { font-size: 1.1rem; margin-bottom: 1rem; position: relative; padding-bottom: 0.5rem; }
-        .footer-column h3::after { content: ''; position: absolute; left: 0; bottom: 0; width: 40px; height: 2px; background-color: var(--primary-color); }
-        .footer-links { list-style: none; padding:0; } .footer-links li { margin-bottom: 0.6rem; }
-        .footer-links a { color: rgba(255, 255, 255, 0.7); text-decoration: none; transition: var(--transition); font-size: 0.9rem; }
-        .footer-links a:hover { color: var(--white); }
-        .footer-links a i { margin-right: 0.4rem; width: 18px; text-align: center; } 
-        .social-links { display: flex; gap: 1rem; margin-top: 1rem; padding:0; }
-        .social-links a { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; background-color: rgba(255, 255, 255, 0.1); color: var(--white); border-radius: 50%; font-size: 1rem; transition: var(--transition); }
-        .social-links a:hover { background-color: var(--primary-color); }
-        .footer-bottom { text-align: center; padding-top: 2rem; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.85rem; color: rgba(255, 255, 255, 0.6); }
-        .footer-bottom a { color: rgba(255, 255, 255, 0.7); text-decoration: none; } .footer-bottom a:hover { color: var(--primary-color); }
+/* Footer Styles (already present in your index.php CSS) */
+footer {
+    background-color: var(--dark-color);
+    color: var(--white);
+    padding: 5rem 0 2rem; /* Original padding from index.php */
+    margin-top: auto; /* Helps push footer to bottom if main content is short */
+}
 
+.footer-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 3rem; /* Original gap from index.php */
+    margin-bottom: 3rem; /* Original margin from index.php */
+}
+
+.footer-column h3 {
+    font-size: 1.3rem; /* Original size */
+    margin-bottom: 1.8rem; /* Original margin */
+    position: relative;
+    padding-bottom: 0.8rem; /* Original padding */
+}
+
+.footer-column h3::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 50px; /* Original width */
+    height: 3px; /* Original height */
+    background-color: var(--primary-color);
+    border-radius: 3px;
+}
+
+.footer-links {
+    list-style: none;
+    padding: 0; /* Explicitly remove default padding */
+}
+
+.footer-links li {
+    margin-bottom: 0.8rem; /* Original margin */
+}
+
+.footer-links a {
+    color: rgba(255, 255, 255, 0.8); /* Original color */
+    text-decoration: none;
+    transition: var(--transition);
+    font-size: 0.95rem; /* Original size */
+    display: inline-block;
+    padding: 0.2rem 0;
+}
+
+.footer-links a:hover {
+    color: var(--white);
+    transform: translateX(5px);
+}
+
+.footer-links a i { /* For icons next to links */
+    margin-right: 0.5rem;
+    width: 20px;
+    text-align: center;
+}
+
+.social-links {
+    display: flex;
+    gap: 1.2rem; /* Original gap */
+    margin-top: 1.5rem; /* Original margin */
+    padding: 0; /* Remove default ul padding */
+}
+
+.social-links a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px; /* Original size */
+    height: 40px; /* Original size */
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--white);
+    border-radius: 50%;
+    font-size: 1.1rem; /* Original size */
+    transition: var(--transition);
+}
+
+.social-links a:hover {
+    background-color: var(--primary-color);
+    transform: translateY(-3px);
+}
+
+.footer-bottom {
+    text-align: center;
+    padding-top: 3rem; /* Original padding */
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.9rem; /* Original size */
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.footer-bottom a {
+    color: rgba(255, 255, 255, 0.8); /* Original color */
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.footer-bottom a:hover {
+    color: var(--primary-color);
+}
     </style>
 </head>
 <body>

@@ -14,7 +14,12 @@ $email_value = ''; // To retain email in form on error
 
 // --- REDIRECT IF ALREADY LOGGED IN ---
 if (isset($_SESSION['user_id']) && isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true) {
-    header("Location: dashboard.php");
+    // Check role and redirect accordingly
+    if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') { // Check if role is set and is 'admin'
+        header("Location: admin-dashboard.php");
+    } else {
+        header("Location: dashboard.php");
+    }
     exit;
 }
 
