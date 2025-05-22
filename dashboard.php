@@ -12,20 +12,12 @@ if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
     exit;
 }
 
-require_once 'db.php'; // Your database connection
+require_once 'db.php'; 
 
 // --- SESSION VARIABLES ---
 $sessionFirstName = isset($_SESSION["first_name"]) ? htmlspecialchars($_SESSION["first_name"]) : 'Employee';
 $sessionUserId = isset($_SESSION["user_id"]) ? (int)$_SESSION["user_id"] : null;
-$sessionRole = isset($_SESSION["role"]) ? strtolower($_SESSION["role"]) : 'employee'; // Ensure role is lowercase
-
-// --- ROLE-BASED HEADER INCLUSION ---
-// Determine which header to include based on user role
-if ($sessionRole === 'admin') {
-    require_once 'components/header-admin.php';
-} else {
-    require_once 'components/header-employee.php';
-}
+$sessionRole = isset($_SESSION["role"]) ? strtolower($_SESSION["role"]) : 'employee'; 
 
 // --- DATE HANDLING ---
 $selectedDate = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
@@ -72,19 +64,18 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                 if ($latestEvent['logType'] == 'entry' && $latestEvent['logResult'] == 'granted') {
                     $rfidStatus = "Present";
                     $rfidStatusClass = "present";
-                } elseif ($latestEvent['logType'] == 'exit') {
+                } elseif ($latestEvent['logType'] == 'exit' && $latestEvent['logResult'] == 'granted') { // Explicitně granted pro exit
                     $rfidStatus = "Checked Out";
                     $rfidStatusClass = "absent"; 
                 } elseif ($latestEvent['logResult'] == 'denied') {
-                    $rfidStatus = "Access Denied";
-                    $rfidStatusClass = "danger"; // Use danger class for denied
+                    $rfidStatus = ($latestEvent['logType'] == 'entry' ? "Check In Denied" : "Exit Denied"); // Upřesnění
+                    $rfidStatusClass = "danger"; 
                 } else {
-                    // Should not happen with current enum, but good for robustness
                     $rfidStatus = "Status Unknown"; 
                     $rfidStatusClass = "neutral";
                 }
             } else {
-                // No attendance log events for today. Check the 'absence' table for scheduled absences.
+                // Žádný záznam o příchodu/odchodu dnes, zkontrolujte plánovanou absenci
                 $stmtScheduledAbsenceToday = $pdo->prepare(
                     "SELECT absence_type FROM absence
                      WHERE userID = :userid 
@@ -105,8 +96,6 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                         $rfidStatus = "Scheduled " . htmlspecialchars($absenceTypeDisplay);
                         $rfidStatusClass = "absent"; 
                     } else {
-                        // No log for today and no scheduled absence. Fallback to users.absence flag (if used).
-                        // For this dashboard, "Not Checked In" is more direct if no explicit absence.
                         $rfidStatus = "Not Checked In";
                         $rfidStatusClass = "neutral"; 
                     }
@@ -115,10 +104,11 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
         }
 
         // --- 3. APPROVED ABSENCES THIS MONTH ---
+        // ... (kód zůstává stejný) ...
         $currentMonthStart = date('Y-m-01 00:00:00');
         $currentMonthEnd = date('Y-m-t 23:59:59'); 
         $stmtAbsenceCount = $pdo->prepare(
-            "SELECT COUNT(DISTINCT DATE(absence_start_datetime)) -- Count distinct days for multi-day absences
+            "SELECT COUNT(DISTINCT DATE(absence_start_datetime)) 
              FROM absence 
              WHERE userID = :userid 
                AND status = 'approved' 
@@ -137,23 +127,35 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
             $stmtAbsenceCount->closeCursor();
         }
 
-        $stmtUnreadMessages = $pdo->prepare(
-            " SELECT COUNT(m.messageID) 
-             FROM messages m
-             LEFT JOIN user_message_read_status umrs ON m.messageID = umrs.messageID AND umrs.userID = :userid1
-             WHERE m.recipientID = :userid2
-             AND m.is_active = 1
-             AND (umrs.is_read IS NULL OR umrs.is_read = 0)
-             AND (m.expires_at IS NULL OR m.expires_at > NOW())"
-         );
-         
-         // And update the execute call:
-         $stmtUnreadMessages->execute([
-             ':userid1' => $sessionUserId,
-             ':userid2' => $sessionUserId
-         ]);
+
+        // --- 4. UNREAD MESSAGES COUNT ---
+        // ... (kód zůstává stejný) ...
+        $stmtUnread = $pdo->prepare("
+            SELECT COUNT(DISTINCT m.messageID) 
+            FROM messages m
+            LEFT JOIN user_message_read_status umrs ON m.messageID = umrs.messageID AND umrs.userID = :current_user_id_for_read_status
+            WHERE 
+                m.is_active = TRUE AND 
+                (m.expires_at IS NULL OR m.expires_at > NOW()) AND
+                (
+                    m.recipientID = :current_user_id_recipient OR 
+                    m.recipientRole = :current_user_role OR
+                    m.recipientRole = 'everyone'
+                ) AND
+                (umrs.is_read IS NULL OR umrs.is_read = 0)
+        ");
+        if ($stmtUnread) {
+            $stmtUnread->execute([
+                ':current_user_id_for_read_status' => $sessionUserId,
+                ':current_user_id_recipient' => $sessionUserId,
+                ':current_user_role' => $sessionRole
+            ]);
+            $unreadMessagesCount = (int)$stmtUnread->fetchColumn();
+            $stmtUnread->closeCursor();
+        }
 
         // --- 5. UPCOMING LEAVE ---
+        // ... (kód zůstává stejný) ...
         $stmtUpcomingLeave = $pdo->prepare(
             "SELECT absence_type, absence_start_datetime
              FROM absence
@@ -176,20 +178,19 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
             }
             $stmtUpcomingLeave->closeCursor();
         }
+        
 
         // --- 6. ACTIVITY SNAPSHOT FOR SELECTED DATE ---
-        // Account Creation
         if ($currentUserData && $selectedDate == date("Y-m-d", strtotime($currentUserData['dateOfCreation']))) {
              $activityForSelectedDate[] = [
                  'time' => date("H:i", strtotime($currentUserData['dateOfCreation'])),
-                 'type' => 'Account Registered',
+                 'log_type' => 'System', // Změna pro jasnost
+                 'log_result' => 'Info', // Změna pro jasnost
                  'details' => 'Your WavePass account was created.',
                  'rfid_card' => 'N/A', 
                  'status_class' => 'info'
                 ];
         }
-
-        // Attendance Logs for selected date
         $stmtActivityLog = $pdo->prepare(
             "SELECT logTime, logType, logResult 
              FROM attendance_logs
@@ -202,58 +203,50 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                 ':selected_date' => $selectedDate
             ]);
             while ($log = $stmtActivityLog->fetch(PDO::FETCH_ASSOC)) {
-                $activityTypeDisplay = 'Unknown Event';
+                $logTypeDisplay = 'Unknown';
                 $statusClass = 'neutral';
+
                 if ($log['logType'] == 'entry') {
-                    if ($log['logResult'] == 'granted') {
-                        $activityTypeDisplay = 'Check In';
-                        $statusClass = 'present';
-                    } else {
-                        $activityTypeDisplay = 'Check In Denied';
-                        $statusClass = 'danger';
-                    }
+                    $logTypeDisplay = 'Check In';
+                    $statusClass = ($log['logResult'] == 'granted') ? 'present' : 'danger';
                 } elseif ($log['logType'] == 'exit') {
-                    $activityTypeDisplay = 'Check Out';
-                    $statusClass = 'absent';
+                    $logTypeDisplay = 'Check Out';
+                    // U odchodu předpokládáme, že je vždy 'granted', pokud DB neukládá i 'denied' pro odchody.
+                    // Pokud by odchody mohly být 'denied', musela by se logika rozšířit.
+                    $statusClass = ($log['logResult'] == 'granted') ? 'absent' : 'danger'; // 'absent' pokud granted, jinak 'danger'
                 }
                 
-                $details = 'Access: ' . htmlspecialchars(ucfirst($log['logResult'] ?? 'N/A'));
-
                 $activityForSelectedDate[] = [
                     'time' => date("H:i", strtotime($log['logTime'])),
-                    'type' => $activityTypeDisplay,
-                    'details' => $details, 
-                    'rfid_card' => 'System Log', // Or specific card ID if available and needed
+                    'log_type' => htmlspecialchars($logTypeDisplay), // Přidáno
+                    'log_result' => htmlspecialchars(ucfirst($log['logResult'] ?? 'N/A')), // Přidáno
+                    'details' => 'Attempted access.', // Obecnější detail, pokud máme samostatné sloupce
+                    'rfid_card' => 'System Log', // Zde byste mohli přidat konkrétní RFID, pokud máte
                     'status_class' => $statusClass
                 ];
             }
             $stmtActivityLog->closeCursor();
         }
-        
-        // If it's today and no specific attendance_logs yet, but we determined current status, add it.
+        // ... (zbytek kódu pro $activityForSelectedDate zůstává stejný) ...
         $hasCheckInOutActivity = false;
         foreach($activityForSelectedDate as $act) {
-            if (strpos($act['type'], 'Check In') !== false || strpos($act['type'], 'Check Out') !== false) {
+            if (isset($act['log_type']) && (strpos($act['log_type'], 'Check In') !== false || strpos($act['log_type'], 'Check Out') !== false)) {
                 $hasCheckInOutActivity = true;
                 break;
             }
         }
         if ($selectedDate == $todayDate && !$hasCheckInOutActivity && $rfidStatus !== "Status Unknown" && $rfidStatus !== "Not Checked In") {
-             // Avoid adding "Not Checked In" if there's no activity, as "No Specific Record" will cover it.
-             // Only add if there's a determined status like Present, Checked Out, Scheduled Absence based on today's logic.
              if ($rfidStatusClass !== 'neutral' || strpos(strtolower($rfidStatus), 'scheduled') !== false) {
                  $activityForSelectedDate[] = [
-                     'time' => date("H:i"), // Current time, or '--:--' if preferred
-                     'type' => $rfidStatus,
-                     'details' => 'Based on current system status.',
+                     'time' => date("H:i"), 
+                     'log_type' => 'Current Status', // Upraveno pro jasnost
+                     'log_result' => htmlspecialchars($rfidStatus),
+                     'details' => 'Based on latest system information.',
                      'rfid_card' => 'N/A', 
                      'status_class' => $rfidStatusClass
                     ];
              }
         }
-
-
-        // Message if no specific records for the day (after checking logs and creation)
          if (empty($activityForSelectedDate) && $selectedDate <= $todayDate){
             $stmtSelectedDayAbsence = $pdo->prepare(
                 "SELECT absence_type, reason FROM absence 
@@ -274,15 +267,17 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                     $absenceTypeDetailForMsg = htmlspecialchars(ucfirst(str_replace('_',' ',$selectedDayAbsenceInfo['absence_type'])));
                     $activityForSelectedDate[] = [
                          'time' => '--:--', 
-                         'type' => 'Scheduled Absence', 
-                         'details' => 'Type: ' . $absenceTypeDetailForMsg . ($selectedDayAbsenceInfo['reason'] ? ' - Reason: '.htmlspecialchars($selectedDayAbsenceInfo['reason']) : ''), 
+                         'log_type' => 'Scheduled Absence', // Upraveno
+                         'log_result' => htmlspecialchars($absenceTypeDetailForMsg),
+                         'details' => ($selectedDayAbsenceInfo['reason'] ? 'Reason: '.htmlspecialchars($selectedDayAbsenceInfo['reason']) : 'Approved absence'), 
                          'rfid_card' => 'N/A', 
                          'status_class' => 'absent'
                         ];
                 } else {
                      $activityForSelectedDate[] = [
                          'time' => '--:--', 
-                         'type' => 'No Specific Record', 
+                         'log_type' => 'No Record', // Upraveno
+                         'log_result' => 'N/A',
                          'details' => 'No attendance events or approved absences logged for this day.', 
                          'rfid_card' => 'N/A', 
                          'status_class' => 'neutral'
@@ -290,24 +285,21 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                 }
             }
         }
-        // Sort activity by time to ensure chronological order if items were added out of sequence
         if (!empty($activityForSelectedDate)) {
             usort($activityForSelectedDate, function($a, $b) {
-                if ($a['time'] === '--:--') return -1; // Put '--:--' (like 'No Record') at the beginning or end
-                if ($b['time'] === '--:--') return 1;
-                return strtotime($a['time']) - strtotime($b['time']);
+                if ($a['time'] === '--:--') return -1; // '--:--' jde nahoru
+                if ($b['time'] === '--:--') return 1;  // '--:--' jde nahoru
+                return strtotime($a['time']) - strtotime($b['time']); // Vzestupně
             });
         }
 
 
     } catch (PDOException $e) {
         error_log("Dashboard DB Error (User: {$sessionUserId}, Date: {$selectedDate}): " . $e->getMessage());
-        $dbErrorMessage = "A database error occurred. Please try again later. If the problem persists, contact support.";
-        $dbErrorMessage = "Database Query Error: " . $e->getMessage();
+        $dbErrorMessage = "A database error occurred. Please try again later.";
     } catch (Exception $e) {
         error_log("Dashboard App Error (User: {$sessionUserId}, Date: {$selectedDate}): " . $e->getMessage());
         $dbErrorMessage = "An application error occurred. Please try again later.";
-        // For development: $dbErrorMessage = "Application Error: " . $e->getMessage();
     }
 } else {
     if (!isset($pdo) || !($pdo instanceof PDO)) $dbErrorMessage = ($dbErrorMessage ? $dbErrorMessage . "<br>" : "") . "Database connection is not available.";
@@ -335,17 +327,17 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 --light-gray: #e9ecef;
                 --white: #ffffff;
                 --success-color: #4cc9f0;
-                --warning-color: #f8961e; /* Orange for warnings */
-                --danger-color: #f72585; /* Pink/Red for danger/denied */
+                --warning-color: #f8961e; 
+                --danger-color: #f72585; 
                 --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
                 --transition: all 0.3s ease;
                 
-                --present-color-val: 67, 170, 139; /* Green */
-                --absent-color-val: 214, 40, 40;   /* Red */
-                --info-color-val: 84, 160, 255;    /* Blue */
-                --neutral-color-val: 173, 181, 189; /* Gray */
-                --warning-color-val: 248, 150, 30; /* RGB for var(--warning-color) */
-                --danger-color-val: 247, 37, 133; /* RGB for var(--danger-color) */
+                --present-color-val: 67, 170, 139; 
+                --absent-color-val: 214, 40, 40;   
+                --info-color-val: 84, 160, 255;    
+                --neutral-color-val: 173, 181, 189; 
+                --warning-color-val: 248, 150, 30; 
+                --danger-color-val: 247, 37, 133; 
 
                 --present-color: rgb(var(--present-color-val)); 
                 --absent-color: rgb(var(--absent-color-val)); 
@@ -358,43 +350,114 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 line-height: 1.6; color: var(--dark-color); background-color: var(--light-color);
                 overflow-x: hidden; scroll-behavior: smooth; display: flex; flex-direction: column; min-height: 100vh;
             }
-            main { flex-grow: 1; padding-top: 80px; background-color: #f4f6f9; }
+            main { flex-grow: 1; padding-top: 0; background-color: #f4f6f9; }
             .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
             h1, h2, h3, h4 { font-weight: 700; line-height: 1.2; }
 
-            header { background-color: var(--white); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: fixed; width: 100%; top: 0; z-index: 1000; transition: var(--transition); }
-            .navbar { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; height: 80px; }
-            .logo { font-size: 1.8rem; font-weight: 800; color: var(--primary-color); text-decoration: none; display: flex; align-items: center; gap: 0.5rem; }
-            .logo i { font-size: 1.5rem; } 
+            header {
+                background-color: var(--white);
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+                width: 100%;
+                top: 0;
+                z-index: 1000;
+                transition: var(--transition);
+            }
+            .navbar { 
+                max-width: 1400px;
+                margin: 0 auto;
+                padding: 0 20px; 
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                height: 80px;
+            }
+            .logo {
+                font-size: 1.8rem; font-weight: 800; color: var(--primary-color);
+                text-decoration: none; display: flex; align-items: center; gap: 0.5rem;
+            }
+            .logo img { height: 30px; margin-right: 0.5rem; } 
             .logo span { color: var(--dark-color); font-weight: 600; }
-            .nav-links { display: flex; list-style: none; align-items: center; gap: 0.5rem; transition: var(--transition); }
-            .nav-links a:not(.btn) { color: var(--dark-color); text-decoration: none; font-weight: 500; transition: color var(--transition), background-color var(--transition); padding: 0.7rem 1rem; font-size: 0.95rem; border-radius: 8px; position: relative; }
-            .nav-links a:not(.btn):hover, .nav-links a.active-nav-link { color: var(--primary-color); background-color: rgba(67,97,238,0.07); }
-            .nav-links a:not(.btn)::after { display: none; }
-            .nav-links .btn, .nav-links .btn-outline { display: inline-flex; gap: 8px; align-items: center; justify-content: center; padding: 0.7rem 1.2rem; border-radius: 8px; text-decoration: none; font-weight: 600; transition: var(--transition); cursor: pointer; text-align: center; font-size: 0.9rem; }
-            .nav-links .btn { background-color: var(--primary-color); color: var(--white); box-shadow: 0 4px 14px rgba(67,97,238,0.2); }
-            .nav-links .btn:hover { background-color: var(--primary-dark); box-shadow: 0 6px 20px rgba(67,97,238,0.3); transform: translateY(-2px); }
-            .nav-links .btn-outline { background-color: transparent; border: 2px solid var(--primary-color); color: var(--primary-color); box-shadow: none; }
-            .nav-links .btn-outline:hover { background-color: var(--primary-color); color: var(--white); transform: translateY(-2px); }
-            .nav-links .material-symbols-outlined { font-size: 1.2em; vertical-align:text-bottom; margin-right:4px;}
 
-            .hamburger { display: none; cursor: pointer; width: 30px; height: 24px; position: relative; z-index: 1001; transition: var(--transition); }
+            .nav-links {
+                display: none; 
+                list-style: none; align-items: center; gap: 0.5rem; 
+            }
+            .nav-links a:not(.btn) {
+                color: var(--dark-color); text-decoration: none; font-weight: 500; 
+                transition: color var(--transition), background-color var(--transition);
+                padding: 0.7rem 1rem; font-size: 0.95rem; border-radius: 8px; position: relative;
+            }
+            .nav-links a:not(.btn):hover, .nav-links a.active-nav-link {
+                color: var(--primary-color); background-color: rgba(67, 97, 238, 0.07); 
+            }
+            .nav-links .btn, .nav-links .btn-outline {
+                display: inline-flex; gap: 8px; align-items: center; justify-content: center;
+                padding: 0.7rem 1.5rem; border-radius: 8px; text-decoration: none;
+                font-weight: 600; transition: var(--transition); cursor: pointer;
+                text-align: center; font-size: 0.9rem; 
+            }
+            .nav-links .btn {
+                background-color: var(--primary-color); color: var(--white);
+                box-shadow: 0 4px 14px rgba(67, 97, 238, 0.2);
+            }
+            .nav-links .btn:hover{
+                background-color: var(--primary-dark);
+                box-shadow: 0 6px 20px rgba(67, 97, 238, 0.3);
+                transform: translateY(-2px);
+            }
+            .nav-links .btn-outline {
+                background-color: transparent; border: 2px solid var(--primary-color);
+                color: var(--primary-color); box-shadow: none;
+            }
+            .nav-links .btn-outline:hover {
+                background-color: var(--primary-color); color: var(--white);
+                transform: translateY(-2px);
+            }
+
+            .hamburger { 
+                display: flex; 
+                flex-direction: column; justify-content: space-around;
+                cursor: pointer; width: 30px; height: 24px; position: relative; z-index: 1001; 
+                background: none; border: none; padding: 0;
+            }
             .hamburger span { display: block; width: 100%; height: 3px; background-color: var(--dark-color); position: absolute; left: 0; transition: var(--transition); transform-origin: center; }
-            .hamburger span:nth-child(1) { top: 0; } .hamburger span:nth-child(2) { top: 50%; transform: translateY(-50%); } .hamburger span:nth-child(3) { bottom: 0; }
-            .hamburger.active span:nth-child(1) { top: 50%; transform: translateY(-50%) rotate(45deg); } .hamburger.active span:nth-child(2) { opacity: 0; } .hamburger.active span:nth-child(3) { bottom: 50%; transform: translateY(50%) rotate(-45deg); }
-            @media (max-width: 992px) { .nav-links { display: none; } .hamburger { display: flex; flex-direction: column; justify-content: space-between; } }
+            .hamburger span:nth-child(1) { top: 0; }
+            .hamburger span:nth-child(2) { top: 50%; transform: translateY(-50%); }
+            .hamburger span:nth-child(3) { bottom: 0; }
+            .hamburger.active span:nth-child(1) { top: 50%; transform: translateY(-50%) rotate(45deg); }
+            .hamburger.active span:nth-child(2) { opacity: 0; }
+            .hamburger.active span:nth-child(3) { bottom: 50%; transform: translateY(50%) rotate(-45deg); }
 
-            .mobile-menu { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; background-color: var(--white); z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; transform: translateX(-100%); transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1); padding: 2rem; }
+            .mobile-menu {
+                position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+                background-color: var(--white); z-index: 1000; 
+                display: flex; flex-direction: column; justify-content: center; align-items: center;
+                transform: translateX(-100%);
+                transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+                padding: 2rem;
+            }
             .mobile-menu.active { transform: translateX(0); }
             .mobile-links { list-style: none; text-align: center; width: 100%; max-width: 300px; padding:0; }
             .mobile-links li { margin-bottom: 1.5rem; }
-            .mobile-links a { color: var(--dark-color); text-decoration: none; font-weight: 600; font-size: 1.2rem; display: inline-block; padding: 0.5rem 1rem; transition: var(--transition); border-radius: 8px; }
-            .mobile-links a:hover, .mobile-links a.active-nav-link { color: var(--primary-color); background-color: rgba(67,97,238,0.1); }
+            .mobile-links a {
+                color: var(--dark-color); text-decoration: none; font-weight: 600;
+                font-size: 1.2rem; display: block; padding: 0.5rem 1rem;
+                transition: var(--transition); border-radius: 8px;
+            }
+            .mobile-links a:hover, .mobile-links a.active-nav-link { color: var(--primary-color); background-color: rgba(67, 97, 238, 0.1); }
             .mobile-menu .btn-outline { margin-top: 2rem; width: 100%; max-width: 200px; }
-            .close-btn { position: absolute; top: 30px; right: 30px; font-size: 1.8rem; color: var(--dark-color); cursor: pointer; transition: var(--transition); }
+            .close-btn { 
+                position: absolute; top: 20px; right: 20px; font-size: 2rem;
+                color: var(--dark-color); cursor: pointer; transition: var(--transition);
+                background: none; border: none; padding: 0.5rem; line-height: 1; 
+            }
             .close-btn:hover { color: var(--primary-color); transform: rotate(90deg); }
             
-            /* Dashboard Specific Styles */
+            @media (min-width: 993px) { 
+                .nav-links { display: flex; }
+                .hamburger { display: none; }
+            }
+            
             .page-header { padding: 1.8rem 0; margin-bottom: 1.8rem; background-color:var(--white); box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
             .page-header h1 { font-size: 1.7rem; color: var(--dark-color); margin: 0; }
             .page-header .sub-heading { font-size: 0.9rem; color: var(--gray-color); }
@@ -405,7 +468,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             .stat-card::before { content: ''; position:absolute; top:0; left:0; width:5px; height:100%; background-color:transparent; transition: var(--transition); }
             .stat-card:hover{transform: translateY(-4px); box-shadow: 0 6px 28px rgba(0,0,0,0.09);}
             .stat-card .icon { font-size: 2rem; padding: 0.7rem; border-radius: 50%; display:flex; align-items:center; justify-content:center; width:50px; height:50px; flex-shrink:0;}
-            .stat-card .info .value { font-size: 1.4rem; font-weight: 700; color: var(--dark-color); display:block; line-height:1.2; margin-bottom:0.2rem;}
+            .stat-card .info .value { font-size: 1.4rem; font-weight: 500; color: var(--dark-color); display:block; line-height:1.2; margin-bottom:0.2rem;}
             .stat-card .info .label { font-size: 0.85rem; color: var(--gray-color); text-transform: uppercase; letter-spacing: 0.3px; }
             
             .stat-card.rfid-status.present::before { background-color: var(--present-color); }
@@ -417,7 +480,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             .stat-card.rfid-status.danger::before { background-color: var(--danger-color); }
             .stat-card.rfid-status.danger .icon { background-color: rgba(var(--danger-color-val),0.1); color: var(--danger-color); }
             
-            .stat-card.absences-count::before { background-color: var(--absent-color); } /* Using absent color for absences */
+            .stat-card.absences-count::before { background-color: var(--absent-color); } 
             .stat-card.absences-count .icon { background-color: rgba(var(--absent-color-val),0.1); color: var(--absent-color); }
             .stat-card.unread-messages::before { background-color: var(--warning-color); } 
             .stat-card.unread-messages .icon { background-color: rgba(var(--warning-color-val),0.1); color: var(--warning-color); } 
@@ -453,25 +516,34 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             .no-activity-msg {text-align:center; padding: 2.5rem 1rem; color:var(--gray-color); font-size:0.95rem; background-color: #fdfdfd; border-radius: 4px; border: 1px dashed var(--light-gray);}
             .placeholder-text {color: var(--gray-color); font-style: italic; font-size: 0.8rem;}
             
-            footer { background-color: var(--dark-color); color: var(--white); padding: 5rem 0 2rem; margin-top:auto;}
-            .footer-content { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 3rem; margin-bottom: 3rem; }
-            .footer-column h3 { font-size: 1.3rem; margin-bottom: 1.8rem; position: relative; padding-bottom: 0.8rem; }
-            .footer-column h3::after { content: ''; position: absolute; left: 0; bottom: 0; width: 50px; height: 3px; background-color: var(--primary-color); border-radius: 3px; }
-            .footer-links { list-style: none; padding:0; } .footer-links li { margin-bottom: 0.8rem; }
-            .footer-links a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); font-size: 0.95rem; display: inline-block; padding: 0.2rem 0; }
-            .footer-links a:hover { color: var(--white); transform: translateX(5px); }
-            .footer-links a i { margin-right: 0.5rem; width: 20px; text-align: center; } 
-            .social-links { display: flex; gap: 1.2rem; margin-top: 1.5rem; padding:0; }
-            .social-links a { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; background-color: rgba(255, 255, 255, 0.1); color: var(--white); border-radius: 50%; font-size: 1.1rem; transition: var(--transition); }
-            .social-links a:hover { background-color: var(--primary-color); transform: translateY(-3px); }
-            .footer-bottom { text-align: center; padding-top: 3rem; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.9rem; color: rgba(255, 255, 255, 0.6); }
-            .footer-bottom a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); }
-            .footer-bottom a:hover { color: var(--primary-color); }
+            footer { background-color: var(--dark-color); color: var(--white); padding: 3rem 0 1.5rem; margin-top:auto;}
+            .footer-content { max-width: 1200px; margin:0 auto; padding:0 20px; text-align:center;}
+            .footer-bottom { padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.9rem; color: rgba(255,255,255,0.7); }
+            .footer-bottom a { color: rgba(255,255,255,0.9); text-decoration:none; }
+            .footer-bottom a:hover { color:var(--white); }
         </style>
 </head>
 <body>
-        <!-- header !-->
-        <?php require "components/header-admin.php"; ?>
+    <?php
+        $headerPath = ''; // Cesta k headeru
+        if ($sessionRole === 'admin') {
+            $headerPath = 'components/header-admin.php';
+        } else {
+            $headerPath = 'components/header-employee.php';
+        }
+
+        if (file_exists($headerPath)) {
+            require_once $headerPath;
+        } else {
+            // Fallback header, pokud soubor neexistuje
+            echo "<header><div class='navbar container'><div class='logo'><img src='imgs/logo.png' alt='WavePass Logo'><span>WavePass</span></div><button class='hamburger' id='hamburger' aria-label='Menu' aria-expanded='false'><span></span><span></span><span></span></button><div class='mobile-menu' id='mobileMenu' aria-hidden='true'><button class='close-btn' id='closeMenu' aria-label='Close menu'>×</button><ul class='mobile-links'><li><a href='dashboard.php'>Dashboard</a></li><li><a href='logout.php'>Logout</a></li></ul></div></div></header>";
+            if ($sessionRole === 'admin') {
+                 error_log("Admin header not found at: " . realpath(dirname(__FILE__)) . DIRECTORY_SEPARATOR . $headerPath);
+            } else {
+                 error_log("Employee header not found at: " . realpath(dirname(__FILE__)) . DIRECTORY_SEPARATOR . $headerPath);
+            }
+        }
+    ?>
 
     <main>
         <div class="page-header">
@@ -482,20 +554,20 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         </div>
 
         <div class="container" style="padding-bottom: 2.5rem;">
-            <?php if ($dbErrorMessage): ?>
+            <?php if (isset($dbErrorMessage) && $dbErrorMessage): ?>
                 <div class="db-error-message" role="alert">
                     <i class="fas fa-exclamation-triangle" style="margin-right: 0.5rem;"></i> <?php echo htmlspecialchars($dbErrorMessage); ?>
                 </div>
             <?php endif; ?>
 
             <section class="employee-stats-grid">
-                <div class="stat-card rfid-status <?php echo $rfidStatusClass; ?>">
+                <div class="stat-card rfid-status <?php echo htmlspecialchars($rfidStatusClass); ?>">
                     <div class="icon"><span class="material-symbols-outlined">
                         <?php 
                             if ($rfidStatusClass === "present") echo "person_check";
                             elseif ($rfidStatusClass === "absent") echo "person_off";
-                            elseif ($rfidStatusClass === "danger") echo "gpp_maybe"; // Icon for access denied
-                            else echo "contactless"; // Default/Neutral
+                            elseif ($rfidStatusClass === "danger") echo "gpp_maybe";
+                            else echo "contactless"; 
                         ?>
                     </span></div>
                     <div class="info">
@@ -510,8 +582,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                         <span class="label">Absences <small class="placeholder-text">(this month)</small></span>
                     </div>
                 </div>
-                <div class="stat-card unread-messages"> <!-- Changed class from warnings -->
-                    <div class="icon"><span class="material-symbols-outlined">mark_chat_unread</span></div> <!-- Icon for unread messages -->
+                <div class="stat-card unread-messages">
+                    <div class="icon"><span class="material-symbols-outlined">mark_chat_unread</span></div>
                     <div class="info">
                         <span class="value"><?php echo $unreadMessagesCount; ?></span>
                         <span class="label">Unread Messages</span>
@@ -531,13 +603,13 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     <h2 class="panel-title">Activity for <span id="selectedDateDisplay"><?php echo date("F d, Y", strtotime($selectedDate)); ?></span></h2>
                     <div class="date-navigation">
                         <button class="btn-nav" id="prevDayBtn" title="Previous Day"><span class="material-symbols-outlined">chevron_left</span></button>
-                        <input type="date" id="activity-date-selector" value="<?php echo $selectedDate; ?>">
+                        <input type="date" id="activity-date-selector" value="<?php echo htmlspecialchars($selectedDate); ?>">
                         <button class="btn-nav" id="nextDayBtn" title="Next Day"><span class="material-symbols-outlined">chevron_right</span></button>
                     </div>
                 </div>
                 <p class="placeholder-text" style="margin-bottom:1.2rem; font-size:0.8rem;">
                     <i class="fas fa-info-circle"></i> This view shows basic activity. For a comprehensive history, visit the 
-                    <a href="my_attendance_log.php?date=<?php echo $selectedDate; ?>" style="color:var(--primary-color)">Full Attendance Log</a>.
+                    <a href="my_attendance_log.php?date=<?php echo htmlspecialchars($selectedDate); ?>" style="color:var(--primary-color)">Full Attendance Log</a>.
                 </p>
 
                 <div class="activity-table-wrapper">
@@ -545,7 +617,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                         <thead>
                             <tr>
                                 <th>Time</th> 
-                                <th>Activity Type</th>
+                                <th>Type</th> <!-- Změněno z "Activity Type" -->
+                                <th>Result</th> <!-- Nový sloupec -->
                                 <th>Details</th>
                                 <th>Source</th> 
                             </tr>
@@ -557,16 +630,17 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                         <td><?php echo htmlspecialchars($activity['time']); ?></td>
                                         <td>
                                             <span class="activity-status <?php echo htmlspecialchars($activity['status_class']); ?>">
-                                                <?php echo htmlspecialchars($activity['type']); ?>
+                                                <?php echo htmlspecialchars($activity['log_type']); // Použití nového klíče ?>
                                             </span>
                                         </td>
+                                        <td><?php echo htmlspecialchars($activity['log_result']); // Použití nového klíče ?></td>
                                         <td><?php echo htmlspecialchars($activity['details']); ?></td>
                                         <td class="rfid-cell"><?php echo htmlspecialchars($activity['rfid_card']); ?></td> 
                                     </tr>
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="4" class="no-activity-msg">No specific activity recorded for <?php echo date("M d, Y", strtotime($selectedDate)); ?>.</td>  
+                                    <td colspan="5" class="no-activity-msg">No specific activity recorded for <?php echo date("M d, Y", strtotime($selectedDate)); ?>.</td>  
                                 </tr>
                             <?php endif; ?>
                         </tbody>
@@ -576,53 +650,63 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         </div>
     </main>
 
-    <!-- Footer -->
-    <?php  require_once "components/footer.php"; ?>
+    <footer>
+        <div class="container footer-content"> 
+             <div class="footer-bottom">
+                <p>© <?php echo date("Y"); ?> WavePass. All rights reserved. | <a href="privacy.php">Privacy Policy</a> | <a href="terms.php">Terms of Service</a></p>
+            </div>
+        </div>
+    </footer>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const hamburger = document.getElementById('hamburger');
-        const mobileMenu = document.getElementById('mobileMenu');
-        const closeMenu = document.getElementById('closeMenu');
+        const hamburger = document.getElementById('hamburger'); 
+        const mobileMenu = document.getElementById('mobileMenu'); 
+        const closeMenu = document.getElementById('closeMenu'); 
         const body = document.body;
+        
+        if (hamburger && mobileMenu) { // Kontrola, zda elementy existují
+            if (closeMenu) { // Pokud existuje closeMenu tlačítko
+                closeMenu.addEventListener('click', () => {
+                    hamburger.classList.remove('active');
+                    mobileMenu.classList.remove('active');
+                    body.style.overflow = '';
+                });
+            }
 
-        if (hamburger && mobileMenu && closeMenu) {
             hamburger.addEventListener('click', () => {
                 hamburger.classList.toggle('active');
                 mobileMenu.classList.toggle('active');
                 body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
             });
-
-            closeMenu.addEventListener('click', () => {
-                hamburger.classList.remove('active');
-                mobileMenu.classList.remove('active');
-                body.style.overflow = '';
-            });
-
-            mobileMenu.querySelectorAll('a').forEach(link => {
+            
+            const mobileNavLinks = document.querySelectorAll('.mobile-menu a'); 
+            mobileNavLinks.forEach(link => {
                 link.addEventListener('click', (e) => {
-                    // Allow navigation for actual links, prevent for '#'
-                    if (link.getAttribute('href') === '#' && e) {
-                        e.preventDefault(); 
-                    }
                     if (mobileMenu.classList.contains('active')) {
-                        hamburger.classList.remove('active');
-                        mobileMenu.classList.remove('active');
-                        body.style.overflow = '';
+                        // Zavřít jen pokud to není # odkaz na stejné stránce, který nic nedělá
+                        if (link.getAttribute('href') !== '#' || !link.getAttribute('href').startsWith('#')) {
+                            hamburger.classList.remove('active');
+                            mobileMenu.classList.remove('active');
+                            body.style.overflow = '';
+                        }
                     }
                 });
             });
+        } else {
+            // Log if hamburger or mobileMenu is not found, helps in debugging missing header
+            if (!hamburger) console.warn('Hamburger element not found (expected ID "hamburger")');
+            if (!mobileMenu) console.warn('Mobile menu element not found (expected ID "mobileMenu")');
         }
-
-        const headerEl = document.querySelector('header');
-        if (headerEl) { 
-            const initialHeaderShadow = getComputedStyle(headerEl).boxShadow;
+        
+        const header = document.querySelector('header'); 
+        if (header) {
+            const initialHeaderShadow = getComputedStyle(header).boxShadow;
             window.addEventListener('scroll', () => {
-                let scrollShadow = getComputedStyle(document.documentElement).getPropertyValue('--shadow').trim() || '0 4px 10px rgba(0,0,0,0.05)';
-                if (window.scrollY > 10) {
-                    headerEl.style.boxShadow = scrollShadow; 
+                if (window.scrollY > 10) { 
+                    header.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.05)'; 
                 } else {
-                    headerEl.style.boxShadow = initialHeaderShadow;
+                    header.style.boxShadow = initialHeaderShadow; 
                 }
             });
         }
@@ -638,7 +722,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
         function updateNextDayButtonState() {
             if (nextDayBtn && dateSelector) {
-                // Dates are compared as YYYY-MM-DD strings for simplicity
                 nextDayBtn.disabled = dateSelector.value >= todayISO;
             }
         }
@@ -647,13 +730,11 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             dateSelector.addEventListener('change', function() { 
                 navigateToDate(this.value); 
             });
-            // Set max attribute to prevent selecting future dates in the picker
             dateSelector.max = todayISO;
         }
         if (prevDayBtn) {
             prevDayBtn.addEventListener('click', function() {
-                // Date manipulation must be careful with timezones if not using UTC
-                const currentDate = new Date(dateSelector.value); // Assumes local timezone from picker
+                const currentDate = new Date(dateSelector.value); 
                 currentDate.setDate(currentDate.getDate() - 1); 
                 navigateToDate(currentDate.toISOString().split('T')[0]);
             });
@@ -666,7 +747,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     navigateToDate(currentDate.toISOString().split('T')[0]);
                 }
             });
-            updateNextDayButtonState(); // Initial check
+            updateNextDayButtonState(); 
         }
     });
 </script>

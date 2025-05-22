@@ -27,14 +27,11 @@ $allUsers = []; // For assigning cards in "Add New" form
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['action'] == 'add_rfid') {
     $rfid_url_new = trim(filter_input(INPUT_POST, 'rfid_url', FILTER_SANITIZE_SPECIAL_CHARS));
     $rfid_name_new = trim(filter_input(INPUT_POST, 'rfid_name', FILTER_SANITIZE_SPECIAL_CHARS));
-    // Assuming your card_type ENUM matches these values exactly
     $rfid_card_type_new = filter_input(INPUT_POST, 'rfid_card_type', FILTER_SANITIZE_SPECIAL_CHARS, FILTER_NULL_ON_FAILURE);
     $rfid_assign_user_new = filter_input(INPUT_POST, 'assign_userID', FILTER_VALIDATE_INT, FILTER_NULL_ON_FAILURE);
     $rfid_is_active_new = isset($_POST['is_active']) ? 1 : 0;
-    // ...
-    $stmtInsert->bindParam(':is_active', $rfid_is_active_new, PDO::PARAM_INT);
 
-    if (empty($rfid_url_new)) { // Card type can have a default, name is optional
+    if (empty($rfid_url_new)) { 
         $dbErrorMessage = "RFID URL/UID is required.";
     } else {
         try {
@@ -46,12 +43,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
             } else {
                 $sqlInsert = "INSERT INTO rfids (rfid_url, name, card_type, userID, is_active) 
                               VALUES (:rfid_url, :name, :card_type, :userID, :is_active)";
-                $stmtInsert = $pdo->prepare($sqlInsert);
+                $stmtInsert = $pdo->prepare($sqlInsert); // Příprava statementu ZDE
+
+                // Vázání parametrů AŽ PO PŘÍPRAVĚ statementu
                 $stmtInsert->bindParam(':rfid_url', $rfid_url_new);
                 $stmtInsert->bindParam(':name', $rfid_name_new);
-                $stmtInsert->bindParam(':card_type', $rfid_card_type_new); // Uses default if not provided and column allows
+                $stmtInsert->bindParam(':card_type', $rfid_card_type_new); 
                 $stmtInsert->bindParam(':userID', $rfid_assign_user_new, $rfid_assign_user_new ? PDO::PARAM_INT : PDO::PARAM_NULL);
-                $stmtInsert->bindParam(':is_active', $rfid_is_active_new, PDO::PARAM_INT);
+                $stmtInsert->bindParam(':is_active', $rfid_is_active_new, PDO::PARAM_INT); // Přesunuto sem
 
                 if ($stmtInsert->execute()) {
                     $successMessage = "New RFID card added successfully!";

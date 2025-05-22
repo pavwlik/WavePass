@@ -8,80 +8,146 @@ if (session_status() == PHP_SESSION_NONE) {
 
 // 1. Restrict Access: Ensure only admin can access
 if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true || !isset($_SESSION["role"]) || $_SESSION["role"] !== 'admin') {
-    header("location: login.php"); 
+    if (file_exists('login.php')) {
+        header("location: login.php");
+    } elseif (file_exists('../login.php')) {
+        header("location: ../login.php");
+    } else {
+        die("Error: Login page not found.");
+    }
     exit;
 }
 
-require_once 'db.php'; 
+if (file_exists('db.php')) {
+    require_once 'db.php';
+} elseif (file_exists('../db.php')) {
+    require_once '../db.php';
+} else {
+    die("Error: Database configuration file not found.");
+}
 
 $sessionFirstName = isset($_SESSION["first_name"]) ? htmlspecialchars($_SESSION["first_name"]) : 'Admin';
 $sessionUserId = isset($_SESSION["user_id"]) ? (int)$_SESSION["user_id"] : null;
 
 $dbErrorMessage = null;
-
-// Initialize statistics variables
 $stats = [
     'total_employees' => 0,
     'total_admins' => 0,
     'employees_present' => 0,
     'employees_absent' => 0,
-    'total_rfid_cards' => 0,
     'assigned_rfid_cards' => 0,
     'unassigned_rfid_cards' => 0,
     'active_rfid_cards' => 0,
     'pending_absences' => 0,
-    'recent_activity' => [] 
+    'recent_activity' => []
 ];
 
 if (isset($pdo) && $pdo instanceof PDO) {
     try {
-        // Fetch User Stats
-        $stmtUsers = $pdo->query("SELECT roleID, absence, COUNT(*) as count FROM users GROUP BY roleID, absence");
-        $userCounts = $stmtUsers->fetchAll(PDO::FETCH_ASSOC);
-        
-        foreach ($userCounts as $row) {
-            if ($row['roleID'] == 'employee') {
-                $stats['total_employees'] += $row['count'];
-                if ($row['absence'] == 0) {
-                    $stats['employees_present'] += $row['count'];
+        $todayDate = date('Y-m-d');
+        $nowDateTime = date('Y-m-d H:i:s');
+
+        // -------------------------------------
+        // Fetch Total Admins
+        // -------------------------------------
+        $stmtAdmins = $pdo->query("SELECT COUNT(*) FROM users WHERE LOWER(roleID) = 'admin'");
+        $stats['total_admins'] = $stmtAdmins ? (int)$stmtAdmins->fetchColumn() : 0;
+
+        // -------------------------------------
+        // Fetch Employees and Determine Presence
+        // -------------------------------------
+        $stmtEmployees = $pdo->query("SELECT userID FROM users WHERE LOWER(roleID) = 'employee'");
+        $employees = $stmtEmployees->fetchAll(PDO::FETCH_ASSOC);
+
+        $stats['total_employees'] = count($employees);
+        $stats['employees_present'] = 0;
+        $stats['employees_absent'] = 0;
+
+        if ($stats['total_employees'] > 0) {
+            // Připravíme dotazy, které budeme používat v cyklu
+            $sqlLatestLog = "SELECT logType, logResult 
+                             FROM attendance_logs
+                             WHERE userID = :employeeID AND DATE(logTime) = :today_date
+                             ORDER BY logTime DESC
+                             LIMIT 1";
+            $stmtLatestLog = $pdo->prepare($sqlLatestLog);
+
+            $sqlActiveAbsence = "SELECT COUNT(*) 
+                                 FROM absence
+                                 WHERE userID = :employeeID 
+                                   AND status = 'approved' 
+                                   AND :now_datetime BETWEEN absence_start_datetime AND absence_end_datetime";
+            $stmtActiveAbsence = $pdo->prepare($sqlActiveAbsence);
+
+            foreach ($employees as $employee) {
+                $employeeID = $employee['userID'];
+                $is_present = false;
+
+                // 1. Zkontrolovat aktivní schválenou absenci
+                $stmtActiveAbsence->execute([
+                    ':employeeID' => $employeeID,
+                    ':now_datetime' => $nowDateTime
+                ]);
+                $hasActiveAbsence = (int)$stmtActiveAbsence->fetchColumn() > 0;
+
+                if ($hasActiveAbsence) {
+                    $is_present = false; // Má schválenou absenci, takže je nepřítomen
                 } else {
-                    $stats['employees_absent'] += $row['count'];
+                    // 2. Pokud nemá aktivní absenci, zkontrolovat attendance_logs
+                    $stmtLatestLog->execute([
+                        ':employeeID' => $employeeID,
+                        ':today_date' => $todayDate
+                    ]);
+                    $latestLog = $stmtLatestLog->fetch(PDO::FETCH_ASSOC);
+
+                    if ($latestLog) {
+                        if ($latestLog['logType'] == 'entry' && $latestLog['logResult'] == 'granted') {
+                            $is_present = true;
+                        } else {
+                            // exit, denied entry, nebo jiný stav -> není present
+                            $is_present = false;
+                        }
+                    } else {
+                        // Žádný log dnes a žádná aktivní absence -> není present
+                        $is_present = false;
+                    }
                 }
-            } elseif ($row['roleID'] == 'admin') {
-                $stats['total_admins'] += $row['count'];
+
+                if ($is_present) {
+                    $stats['employees_present']++;
+                } else {
+                    $stats['employees_absent']++;
+                }
             }
         }
 
-        // Fetch RFID Card Stats 
-        // CORRECTED TABLE NAME: Changed 'rfid_cards' to 'rfids'
-        $stmtRfidTotal = $pdo->query("SELECT COUNT(*) FROM rfids"); // <<<< CHANGED HERE
-        if ($stmtRfidTotal) $stats['total_rfid_cards'] = $stmtRfidTotal->fetchColumn(); else $stats['total_rfid_cards'] = 0;
 
-        // CORRECTED TABLE NAME and COLUMN NAME (assuming assigned_userID is userID in rfids table)
-        // Your screenshot shows a column named 'userID' in the 'rfids' table for the assigned user.
-        $stmtRfidAssigned = $pdo->query("SELECT COUNT(*) FROM rfids WHERE userID IS NOT NULL"); // <<<< CHANGED HERE and assigned_userID to userID
-        if ($stmtRfidAssigned) $stats['assigned_rfid_cards'] = $stmtRfidAssigned->fetchColumn(); else $stats['assigned_rfid_cards'] = 0;
+        // -------------------------------------
+        // Fetch RFID Card Statistics
+        // -------------------------------------
+        $stmtRfidAssigned = $pdo->query("SELECT COUNT(*) FROM rfids WHERE userID IS NOT NULL"); 
+        $stats['assigned_rfid_cards'] = $stmtRfidAssigned ? (int)$stmtRfidAssigned->fetchColumn() : 0;
         
-        $stats['unassigned_rfid_cards'] = $stats['total_rfid_cards'] - $stats['assigned_rfid_cards'];
+        $stmtRfidUnassigned = $pdo->query("SELECT COUNT(*) FROM rfids WHERE userID IS NULL");
+        $stats['unassigned_rfid_cards'] = $stmtRfidUnassigned ? (int)$stmtRfidUnassigned->fetchColumn() : 0;
 
-        // CORRECTED TABLE NAME and COLUMN NAME (assuming is_active column exists in rfids table)
-        // Your screenshot shows a column 'is_active' in the 'rfids' table.
-        $stmtRfidActive = $pdo->query("SELECT COUNT(*) FROM rfids WHERE is_active = 1"); // <<<< CHANGED HERE
-        if ($stmtRfidActive) $stats['active_rfid_cards'] = $stmtRfidActive->fetchColumn(); else $stats['active_rfid_cards'] = 0;
+        $stmtRfidActive = $pdo->query("SELECT COUNT(*) FROM rfids WHERE is_active = 1"); 
+        $stats['active_rfid_cards'] = $stmtRfidActive ? (int)$stmtRfidActive->fetchColumn() : 0;
         
         
+        // -------------------------------------
         // Fetch Pending Absence Requests 
+        // -------------------------------------
         $stmtPendingAbsences = $pdo->query("SELECT COUNT(*) FROM absence WHERE status = 'pending_approval' OR status = 'ceka_na_schvaleni'");
-        if ($stmtPendingAbsences) { 
-            $stats['pending_absences'] = $stmtPendingAbsences->fetchColumn();
-        } else {
-            $stats['pending_absences'] = 0; 
-        }
+        $stats['pending_absences'] = $stmtPendingAbsences ? (int)$stmtPendingAbsences->fetchColumn() : 0; 
+        
 
     } catch (PDOException $e) {
         $dbErrorMessage = "Database Query Error: " . $e->getMessage();
-    } catch (Exception $e) {
+        error_log("Admin Dashboard - PDOException: " . $e->getMessage());
+    } catch (Exception $e) { 
         $dbErrorMessage = "An application error occurred: " . $e->getMessage();
+        error_log("Admin Dashboard - Exception: " . $e->getMessage());
     }
 } else {
     $dbErrorMessage = "Database connection is not available.";
@@ -99,7 +165,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        /* Reusing styles from your employee dashboard and messages page for consistency */
         :root {
             --primary-color: #4361ee; --primary-dark: #3a56d4; --secondary-color: #3f37c9;
             --primary-color-rgb: 67, 97, 238;
@@ -123,19 +188,89 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         main { flex-grow: 1; padding-top: 80px; /* Space for fixed header */ }
         
         .container, .page-header .container {
-            max-width: 1440px; /* 1400px content + 20px padding each side */
+            max-width: 1440px; 
             margin-left: auto; margin-right: auto;
             padding-left: 20px; padding-right: 20px;
         }
 
-        /* Header Styles (Assume from header-employee-panel.php or a global CSS) */
-        header { background-color: var(--white); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: fixed; width: 100%; top: 0; z-index: 1000; }
-        .navbar { display: flex; justify-content: space-between; align-items: center; height: 80px; }
-        .nav-links { display: flex; list-style: none; align-items: center; /* ... */ }
-        .hamburger { display: none; cursor: pointer; /* ... */ }
-        .mobile-menu { position: fixed; /* ... full mobile menu styles ... */ transform: translateX(-100%); }
+        /* Header Styles */
+        header {
+            background-color: var(--white);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            transition: var(--transition);
+        }
+
+        .navbar { 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 80px; 
+        }
+        .nav-links { 
+            display: flex;
+            list-style: none;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .nav-links a:not(.btn) {
+            color: var(--dark-color); text-decoration: none; font-weight: 500;
+            padding: 0.7rem 1rem; font-size: 0.95rem; border-radius: 8px;
+            position: relative; transition: var(--transition);
+        }
+        .nav-links a:not(.btn):hover { color: var(--primary-color); background-color: rgba(var(--primary-color-rgb), 0.07); }
+
+        /* Hamburger Menu Icon */
+        .hamburger { display: none; cursor: pointer; width: 30px; height: 24px; position: relative; z-index: 1002; transition: var(--transition); }
+        .hamburger span { display: block; width: 100%; height: 3px; background-color: var(--dark-color); position: absolute; left: 0; transition: var(--transition); transform-origin: center; }
+        .hamburger span:nth-child(1) { top: 0; }
+        .hamburger span:nth-child(2) { top: 50%; transform: translateY(-50%); }
+        .hamburger span:nth-child(3) { bottom: 0; }
+        .hamburger.active span:nth-child(1) { top: 50%; transform: translateY(-50%) rotate(45deg); }
+        .hamburger.active span:nth-child(2) { opacity: 0; }
+        .hamburger.active span:nth-child(3) { bottom: 50%; transform: translateY(50%) rotate(-45deg); }
+
+        /* Mobile Menu */
+        .mobile-menu {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+            background-color: var(--white); z-index: 1001; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transform: translateX(-100%);
+            transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+            padding: 2rem;
+            overflow-y: auto;
+        }
         .mobile-menu.active { transform: translateX(0); }
-        @media (max-width: 992px) { .nav-links { display: none; } .hamburger { display: flex; } }
+        .mobile-links { list-style: none; text-align: center; width: 100%; max-width: 300px; padding-left: 0; }
+        .mobile-links li { margin-bottom: 1.5rem; }
+        .mobile-links a {
+            color: var(--dark-color); text-decoration: none; font-weight: 600;
+            font-size: 1.2rem; display: block; 
+            padding: 0.75rem 1rem; 
+            transition: var(--transition); border-radius: 8px;
+        }
+        .mobile-links a:hover { color: var(--primary-color); background-color: rgba(var(--primary-color-rgb), 0.1); }
+        .mobile-menu .close-btn { 
+            position: absolute; top: 25px; right: 25px; font-size: 1.8rem; 
+            color: var(--dark-color); cursor: pointer; transition: var(--transition);
+            background: none; border: none; padding: 5px;
+            line-height: 1; /* For better alignment of icon/text */
+        }
+         .mobile-menu .close-btn .material-symbols-outlined {
+            font-size: 2rem; /* Adjust if needed */
+            vertical-align: middle;
+        }
+        .mobile-menu .close-btn:hover { color: var(--primary-color); transform: rotate(90deg); }
+        .mobile-menu .btn { margin-top: 2rem; width: 100%; max-width: 200px; }
+
+
+        @media (max-width: 992px) { 
+            .nav-links { display: none; } 
+            .hamburger { display: flex; flex-direction: column; justify-content: space-between; }
+        }
 
         /* Page Header */
         .page-header { padding: 1.8rem 0; margin-bottom: 1.5rem; background-color:var(--white); box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
@@ -160,9 +295,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             width:55px; height:55px; flex-shrink:0;
         }
         .stat-card .info .value { font-size: 1.6rem; font-weight: 700; color: var(--dark-color); display:block; line-height:1.2; margin-bottom:0.2rem;}
-        .stat-card .info .label { font-size: 0.9rem; color: var(--gray-color); /*text-transform: uppercase; letter-spacing: 0.3px;*/ }
+        .stat-card .info .label { font-size: 0.9rem; color: var(--gray-color); }
         
-        /* Stat Card Colors (example palette) */
         .stat-card.total-employees::before { background-color: var(--primary-color); }
         .stat-card.total-employees .icon { background-color: rgba(var(--primary-color-rgb),0.1); color: var(--primary-color); }
         
@@ -228,27 +362,41 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             color: var(--gray-color);
         }
 
-        /* Footer styles (ensure these are complete as per your index.php or global CSS) */
-        footer { background-color: var(--dark-color); color: var(--white); padding: 5rem 0 2rem; margin-top:auto; }
-        .footer-content { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 3rem; margin-bottom: 3rem; }
-        .footer-column h3 { font-size: 1.3rem; margin-bottom: 1.8rem; position: relative; padding-bottom: 0.8rem; }
-        .footer-column h3::after { content: ''; position: absolute; left: 0; bottom: 0; width: 50px; height: 3px; background-color: var(--primary-color); border-radius: 3px; }
-        .footer-links { list-style: none; padding:0; } .footer-links li { margin-bottom: 0.8rem; }
-        .footer-links a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); font-size: 0.95rem; display: inline-block; padding: 0.2rem 0; }
-        .footer-links a:hover { color: var(--white); transform: translateX(5px); }
-        .footer-links a i { margin-right: 0.5rem; width: 20px; text-align: center; } 
-        .social-links { display: flex; gap: 1.2rem; margin-top: 1.5rem; padding:0; }
-        .social-links a { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; background-color: rgba(255, 255, 255, 0.1); color: var(--white); border-radius: 50%; font-size: 1.1rem; transition: var(--transition); }
-        .social-links a:hover { background-color: var(--primary-color); transform: translateY(-3px); }
-        .footer-bottom { text-align: center; padding-top: 3rem; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.9rem; color: rgba(255, 255, 255, 0.6); }
+        /* Footer styles */
+        footer { background-color: var(--dark-color); color: var(--white); padding: 3rem 0 2rem; margin-top:auto; }
+        .footer-content { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+        .footer-column h3 { font-size: 1.2rem; margin-bottom: 1.2rem; position: relative; padding-bottom: 0.6rem; }
+        .footer-column h3::after { content: ''; position: absolute; left: 0; bottom: 0; width: 40px; height: 2px; background-color: var(--primary-color); border-radius: 3px; }
+        .footer-links { list-style: none; padding:0; } .footer-links li { margin-bottom: 0.6rem; }
+        .footer-links a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); font-size: 0.9rem; display: inline-block; padding: 0.1rem 0; }
+        .footer-links a:hover { color: var(--white); transform: translateX(4px); }
+        .footer-links a i { margin-right: 0.4rem; width: 18px; text-align: center; } 
+        .social-links { display: flex; gap: 1rem; margin-top: 1rem; padding:0; }
+        .social-links a { display: inline-flex; align-items: center; justify-content: center; width: 35px; height: 35px; background-color: rgba(255, 255, 255, 0.1); color: var(--white); border-radius: 50%; font-size: 1rem; transition: var(--transition); }
+        .social-links a:hover { background-color: var(--primary-color); transform: translateY(-2px); }
+        .footer-bottom { text-align: center; padding-top: 2rem; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.85rem; color: rgba(255, 255, 255, 0.6); }
         .footer-bottom a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); }
         .footer-bottom a:hover { color: var(--primary-color); }
 
     </style>
 </head>
 <body>
-        <!-- header !-->
-        <?php require "components/header-admin.php"; ?>
+    <?php 
+        // Dynamické načítání headeru na základě role
+        $header_to_load = 'components/header-admin.php'; // Výchozí pro admina
+        // Předpoklad: admin-dashboard.php je v rootu nebo ve složce 'admin'
+        // Pokud je ve složce admin, cesta k 'components' je '../components/'
+        if (strpos($_SERVER['PHP_SELF'], '/admin/') !== false) { // Jsme ve složce /admin/
+            $header_to_load = '../components/header-admin.php';
+        }
+        
+        if (file_exists($header_to_load)) {
+            require_once $header_to_load;
+        } else {
+            echo "<!-- Header file not found at: " . htmlspecialchars($header_to_load) . " -->";
+            // Fallback or error handling
+        }
+    ?> 
     <main>
         <div class="page-header">
             <div class="container">
@@ -272,12 +420,12 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                         <span class="label">Total Employees</span>
                     </div>
                 </div>
-                 <div class="stat-card total-employees" style="--primary-color: var(--secondary-color); --primary-color-rgb: 63,55,201;"> <!-- Inline style for quick color change, better in CSS -->
-                    <div class="icon"><span class="material-symbols-outlined">admin_panel_settings</span></div>
-                    <div class="info">
-                        <span class="value"><?php echo $stats['total_admins']; ?></span>
-                        <span class="label">Total Admins</span>
-                    </div>
+                 <div class="stat-card total-employees" style="--primary-color: var(--secondary-color); --primary-color-rgb: 63,55,201;">
+                    <div class="icon"><span class="material-symbols-outlined">how_to_reg</span></div>
+                        <div class="info">
+                            <span class="value"><?php echo $stats['assigned_rfid_cards']; ?></span>
+                            <span class="label">Assigned RFID Cards</span>
+                        </div>
                 </div>
                 <div class="stat-card present-employees">
                     <div class="icon"><span class="material-symbols-outlined">person_check</span></div>
@@ -293,18 +441,12 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                         <span class="label">Employees Currently Absent</span>
                     </div>
                 </div>
+                <!-- ODSTRANĚNÝ BLOK PRO TOTAL RFID CARDS -->
                 <div class="stat-card rfid-cards">
-                    <div class="icon"><span class="material-symbols-outlined">badge</span></div>
+                <div class="icon"><span class="material-symbols-outlined">admin_panel_settings</span></div>
                     <div class="info">
-                        <span class="value"><?php echo $stats['total_rfid_cards']; ?></span>
-                        <span class="label">Total RFID Cards</span>
-                    </div>
-                </div>
-                <div class="stat-card rfid-cards">
-                    <div class="icon"><span class="material-symbols-outlined">how_to_reg</span></div>
-                    <div class="info">
-                        <span class="value"><?php echo $stats['assigned_rfid_cards']; ?></span>
-                        <span class="label">Assigned RFID Cards</span>
+                        <span class="value"><?php echo $stats['total_admins']; ?></span>
+                        <span class="label">Total Admins</span>
                     </div>
                 </div>
                  <div class="stat-card rfid-cards">
@@ -312,6 +454,13 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     <div class="info">
                         <span class="value"><?php echo $stats['unassigned_rfid_cards']; ?></span>
                         <span class="label">Unassigned RFID Cards</span>
+                    </div>
+                </div>
+                 <div class="stat-card rfid-cards" style="--secondary-color: var(--present-color);">
+                    <div class="icon"><span class="material-symbols-outlined">rss_feed</span></div>
+                    <div class="info">
+                        <span class="value"><?php echo $stats['active_rfid_cards']; ?></span>
+                        <span class="label">Active RFID Cards</span>
                     </div>
                 </div>
                 <div class="stat-card pending-absences">
@@ -340,7 +489,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                             <p>Assign, activate, or deactivate RFID cards.</p>
                         </div>
                     </a>
-                    <a href="messages.php" class="action-link-card"> <!-- Assuming admins use the same messages page -->
+                    <a href="messages.php" class="action-link-card">
                         <div class="icon"><span class="material-symbols-outlined">chat</span></div>
                         <div class="text">
                             <h3>Manage Messages</h3>
@@ -354,14 +503,14 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                             <p>Review and approve/reject leave requests.</p>
                         </div>
                     </a>
-                    <a href="admin-system-logs.php" class="action-link-card">
+                    <a href="admin/admin-system-logs.php" class="action-link-card">
                         <div class="icon"><span class="material-symbols-outlined">receipt_long</span></div>
                         <div class="text">
                             <h3>System Logs</h3>
                             <p>View important system activity and audit trails.</p>
                         </div>
                     </a>
-                    <a href="admin-settings.php" class="action-link-card">
+                    <a href="admin/admin-settings.php" class="action-link-card">
                         <div class="icon"><span class="material-symbols-outlined">settings</span></div>
                         <div class="text">
                             <h3>System Settings</h3>
@@ -371,57 +520,76 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 </div>
             </section>
 
-            <!-- You could add a section for recent activity here if $stats['recent_activity'] is populated -->
-
         </div>
     </main>
-
-    <?php require "components/footer-admin.php"; ?>
+    <?php 
+        $footer_to_load = 'components/footer-admin.php';
+        if (strpos($_SERVER['PHP_SELF'], '/admin/') !== false) {
+            $footer_to_load = '../components/footer-admin.php';
+        }
+        if (file_exists($footer_to_load)) {
+            require_once $footer_to_load;
+        } else {
+            echo "<!-- Footer file not found at: " . htmlspecialchars($footer_to_load) . " -->";
+        }
+    ?>
 
     <script>
-        // Standard Mobile Menu Toggle (if not already in header-employee-panel.php)
-        const hamburger = document.getElementById('hamburger'); // Assuming ID from header
-        const mobileMenu = document.getElementById('mobileMenu'); // Assuming ID from header
+        const hamburger = document.getElementById('hamburger'); 
+        const mobileMenu = document.getElementById('mobileMenu'); 
+        const closeMenuBtn = document.getElementById('closeMenu'); 
         const body = document.body;
-
-        if (hamburger && mobileMenu) {
+        
+        if (hamburger && mobileMenu) { 
             hamburger.addEventListener('click', () => {
                 hamburger.classList.toggle('active');
                 mobileMenu.classList.toggle('active');
+                hamburger.setAttribute('aria-expanded', mobileMenu.classList.contains('active'));
+                mobileMenu.setAttribute('aria-hidden', !mobileMenu.classList.contains('active'));
                 body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
             });
             
-            // If you have a close button inside the mobile menu:
-            const closeMenuBtn = mobileMenu.querySelector('.close-btn'); // Or specific ID
-            if (closeMenuBtn) {
+            if(closeMenuBtn) {
                 closeMenuBtn.addEventListener('click', () => {
                     hamburger.classList.remove('active');
                     mobileMenu.classList.remove('active');
+                    hamburger.setAttribute('aria-expanded', 'false');
+                    mobileMenu.setAttribute('aria-hidden', 'true');
                     body.style.overflow = '';
+                    if (hamburger) hamburger.focus();
                 });
             }
-             mobileMenu.querySelectorAll('a').forEach(link => {
-                link.addEventListener('click', () => {
-                    // Close menu if a link is clicked (optional, good for SPA-like feel or # links)
+            
+            const mobileNavLinks = mobileMenu.querySelectorAll('a');
+            mobileNavLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
                     if (mobileMenu.classList.contains('active')) {
                         hamburger.classList.remove('active');
                         mobileMenu.classList.remove('active');
+                        hamburger.setAttribute('aria-expanded', 'false');
+                        mobileMenu.setAttribute('aria-hidden', 'true');
                         body.style.overflow = '';
                     }
                 });
             });
-        }
 
-        // Header shadow on scroll (if not already in header-employee-panel.php)
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && mobileMenu.classList.contains('active')) {
+                    if(closeMenuBtn) { closeMenuBtn.click(); } else { hamburger.click(); }
+                }
+            });
+        }
+        
         const headerEl = document.querySelector('header');
         if (headerEl) { 
             let initialHeaderShadow = getComputedStyle(headerEl).boxShadow;
+            let scrollShadow = getComputedStyle(document.documentElement).getPropertyValue('--shadow').trim() || '0 4px 10px rgba(0,0,0,0.05)';
+
             window.addEventListener('scroll', () => {
-                let scrollShadow = getComputedStyle(document.documentElement).getPropertyValue('--shadow').trim() || '0 4px 10px rgba(0,0,0,0.05)';
                 if (window.scrollY > 10) {
                     headerEl.style.boxShadow = scrollShadow; 
                 } else {
-                    headerEl.style.boxShadow = initialHeaderShadow;
+                    headerEl.style.boxShadow = initialHeaderShadow; 
                 }
             });
         }

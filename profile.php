@@ -501,7 +501,7 @@ if (strpos($_SERVER['SCRIPT_FILENAME'], DIRECTORY_SEPARATOR . 'admin' . DIRECTOR
                         if (strtolower($sessionRole) === 'admin'): 
                         ?>
                             <li style="margin-top: 1.5rem; border-top:1px solid var(--light-gray); padding-top:1rem;">
-                                <a href="<?php echo htmlspecialchars($pathPrefix); ?>admin/admin-dashboard.php" style="color: var(--secondary-color); font-weight:bold;">
+                                <a href="<?php echo htmlspecialchars($pathPrefix); ?>admin-dashboard.php" style="color: var(--secondary-color); font-weight:bold;">
                                     <span class="material-symbols-outlined">admin_panel_settings</span> Admin Panel
                                 </a>
                             </li>

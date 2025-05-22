@@ -60,5 +60,15 @@
         color: var(--dark-color); 
         font-weight: 600; 
     }
-
+    .logo {
+    font-size: 1.7rem; /* Mírně menší */
+    font-weight: 800;
+    color: var(--primary-color);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+}
+.logo-img {
+    height: 40px; /* Mírně menší */
+    
         </style>
