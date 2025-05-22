@@ -6,24 +6,29 @@ if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
+// --- SESSION CHECK ---
 if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
     header("location: login.php");
     exit;
 }
 
-require_once 'db.php'; 
+require_once 'db.php'; // Your database connection
 
+// --- SESSION VARIABLES ---
 $sessionFirstName = isset($_SESSION["first_name"]) ? htmlspecialchars($_SESSION["first_name"]) : 'Employee';
 $sessionUserId = isset($_SESSION["user_id"]) ? (int)$_SESSION["user_id"] : null;
 $sessionRole = isset($_SESSION["role"]) ? $_SESSION["role"] : 'employee'; 
 
+// --- DATE HANDLING ---
 $selectedDate = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
+$todayDate = date('Y-m-d');
+$todayDateTime = date('Y-m-d H:i:s');
 
-// Default values
+// --- DEFAULT VALUES FOR DISPLAY ---
 $rfidStatus = "Status Unknown"; 
 $rfidStatusClass = "neutral";
-$absencesThisMonthCount = 0; 
-$warningMessagesCount = 0; 
+$absencesThisMonthCountDisplay = "0 Requests"; 
+$unreadMessagesCount = 0; 
 $upcomingLeaveDisplay = "None upcoming"; 
 $activityForSelectedDate = [];
 $dbErrorMessage = null;
@@ -31,104 +36,145 @@ $currentUserData = null;
 
 if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
     try {
-        // Fetch user's dateOfCreation for activity snapshot
+        // 1. Fetch user's dateOfCreation for activity snapshot
         $stmtUserMeta = $pdo->prepare("SELECT dateOfCreation FROM users WHERE userID = :userid");
-        $stmtUserMeta->bindParam(':userid', $sessionUserId, PDO::PARAM_INT);
-        $stmtUserMeta->execute();
-        $currentUserData = $stmtUserMeta->fetch();
+        if ($stmtUserMeta) {
+            $stmtUserMeta->execute([':userid' => $sessionUserId]);
+            $currentUserData = $stmtUserMeta->fetch();
+            $stmtUserMeta->closeCursor();
+        }
 
-        // --- DETERMINE CURRENT PRESENCE STATUS FROM 'attendance_logs' TABLE ---
-        $todayDate = date('Y-m-d');
+        // --- 2. DETERMINE CURRENT PRESENCE STATUS (for today) ---
         $stmtLatestEvent = $pdo->prepare(
-            // CORRECTED: Using 'attendance_logs' table and its columns 'logType' and 'logTime'
-            "SELECT logType 
-             FROM attendance_logs  -- Changed from attendance_attendance_logs
-             WHERE userID = :userid AND DATE(logTime) = :today_date -- Changed log_timestamp to logTime
-             ORDER BY logTime DESC -- Changed log_timestamp to logTime
+            "SELECT logType, logResult 
+             FROM attendance_logs
+             WHERE userID = :userid AND DATE(logTime) = :today_date
+             ORDER BY logTime DESC
              LIMIT 1"
         );
-        $stmtLatestEvent = $pdo->prepare("SELECT logType FROM attendance_logs WHERE userID = :userid LIMIT 1");
-        $stmtLatestEvent->bindParam(':userid', $sessionUserId, PDO::PARAM_INT);
-        $stmtLatestEvent->execute();
-        $latestEvent = $stmtLatestEvent->fetch();
-        var_dump($latestEvent); // Check output
+        if ($stmtLatestEvent) {
+            $stmtLatestEvent->execute([
+                ':userid' => $sessionUserId,
+                ':today_date' => $todayDate
+            ]);
+            $latestEvent = $stmtLatestEvent->fetch();
+            $stmtLatestEvent->closeCursor();
 
-        if ($latestEvent) {
-            // CORRECTED: Using 'logType' and matching your ENUM values 'entry'/'exit'
-            if ($latestEvent['logType'] == 'entry') {
-                $rfidStatus = "Present";
-                $rfidStatusClass = "present";
-            } elseif ($latestEvent['logType'] == 'exit') {
-                $rfidStatus = "Checked Out";
-                $rfidStatusClass = "absent"; 
-            } else {
-                $rfidStatus = "Status Unknown (Invalid Log Type)"; 
-                $rfidStatusClass = "neutral";
-            }
-        } else {
-            // No log events for today. Check the 'absence' table for scheduled absences.
-            $stmtScheduledAbsence = $pdo->prepare(
-                "SELECT status, absence_type FROM absence -- Added absence_type for better detail
-                 WHERE userID = :userid 
-                   AND :today_date_time BETWEEN absence_start_datetime AND absence_end_datetime
-                   AND status = 'approved' 
-                 LIMIT 1"
-            );
-             $todayDateTime = date('Y-m-d H:i:s');
-            $stmtScheduledAbsence->bindParam(':userid', $sessionUserId, PDO::PARAM_INT);
-            $stmtScheduledAbsence->bindParam(':today_date_time', $todayDateTime, PDO::PARAM_STR);
-            $stmtScheduledAbsence->execute();
-            $scheduledAbsence = $stmtScheduledAbsence->fetch();
-
-            if ($scheduledAbsence) {
-                $absenceTypeDisplay = isset($scheduledAbsence['absence_type']) ? ucfirst(str_replace('_', ' ', $scheduledAbsence['absence_type'])) : "Absence";
-                $rfidStatus = "Scheduled " . htmlspecialchars($absenceTypeDisplay);
-                $rfidStatusClass = "absent"; 
-            } else {
-                // No log for today and no scheduled absence. Fallback to users.absence flag.
-                $stmtUserAbsenceFlag = $pdo->prepare("SELECT absence FROM users WHERE userID = :userid");
-                $stmtUserAbsenceFlag->bindParam(':userid', $sessionUserId, PDO::PARAM_INT);
-                $stmtUserAbsenceFlag->execute();
-                $userAbsenceFlagData = $stmtUserAbsenceFlag->fetch();
-
-                if ($userAbsenceFlagData && $userAbsenceFlagData['absence'] == 1) {
-                    $rfidStatus = "Marked Absent"; 
-                    $rfidStatusClass = "absent";
+            if ($latestEvent) {
+                if ($latestEvent['logType'] == 'entry' && $latestEvent['logResult'] == 'granted') {
+                    $rfidStatus = "Present";
+                    $rfidStatusClass = "present";
+                } elseif ($latestEvent['logType'] == 'exit') {
+                    $rfidStatus = "Checked Out";
+                    $rfidStatusClass = "absent"; 
+                } elseif ($latestEvent['logResult'] == 'denied') {
+                    $rfidStatus = "Access Denied";
+                    $rfidStatusClass = "danger"; // Use danger class for denied
                 } else {
-                    $rfidStatus = "Not Checked In";
-                    $rfidStatusClass = "neutral"; 
+                    // Should not happen with current enum, but good for robustness
+                    $rfidStatus = "Status Unknown"; 
+                    $rfidStatusClass = "neutral";
+                }
+            } else {
+                // No attendance log events for today. Check the 'absence' table for scheduled absences.
+                $stmtScheduledAbsenceToday = $pdo->prepare(
+                    "SELECT absence_type FROM absence
+                     WHERE userID = :userid 
+                       AND :today_date_time BETWEEN absence_start_datetime AND absence_end_datetime
+                       AND status = 'approved' 
+                     LIMIT 1"
+                );
+                if ($stmtScheduledAbsenceToday) {
+                    $stmtScheduledAbsenceToday->execute([
+                        ':userid' => $sessionUserId,
+                        ':today_date_time' => $todayDateTime
+                    ]);
+                    $scheduledAbsence = $stmtScheduledAbsenceToday->fetch();
+                    $stmtScheduledAbsenceToday->closeCursor();
+
+                    if ($scheduledAbsence) {
+                        $absenceTypeDisplay = ucfirst(str_replace('_', ' ', $scheduledAbsence['absence_type']));
+                        $rfidStatus = "Scheduled " . htmlspecialchars($absenceTypeDisplay);
+                        $rfidStatusClass = "absent"; 
+                    } else {
+                        // No log for today and no scheduled absence. Fallback to users.absence flag (if used).
+                        // For this dashboard, "Not Checked In" is more direct if no explicit absence.
+                        $rfidStatus = "Not Checked In";
+                        $rfidStatusClass = "neutral"; 
+                    }
                 }
             }
         }
-        // --- END OF PRESENCE STATUS DETERMINATION ---
 
-
-        // --- ABSENCES THIS MONTH (Uses 'absence' table, should be fine if table/columns exist) ---
+        // --- 3. APPROVED ABSENCES THIS MONTH ---
         $currentMonthStart = date('Y-m-01 00:00:00');
         $currentMonthEnd = date('Y-m-t 23:59:59'); 
         $stmtAbsenceCount = $pdo->prepare(
-            "SELECT COUNT(*) 
+            "SELECT COUNT(DISTINCT DATE(absence_start_datetime)) -- Count distinct days for multi-day absences
              FROM absence 
              WHERE userID = :userid 
                AND status = 'approved' 
                AND (
-                   (absence_start_datetime BETWEEN :month_start AND :month_end) OR
-                   (absence_end_datetime BETWEEN :month_start AND :month_end) OR
-                   (absence_start_datetime < :month_start AND absence_end_datetime > :month_end) 
+                   (absence_start_datetime <= :month_end AND absence_end_datetime >= :month_start)
                )"
         );
-        $stmtAbsenceCount->bindParam(':userid', $sessionUserId, PDO::PARAM_INT);
-        $stmtAbsenceCount->bindParam(':month_start', $currentMonthStart, PDO::PARAM_STR);
-        $stmtAbsenceCount->bindParam(':month_end', $currentMonthEnd, PDO::PARAM_STR);
-        $stmtAbsenceCount->execute();
-        $absencesThisMonthCountValue = $stmtAbsenceCount->fetchColumn();
-        $absencesThisMonthCount = $absencesThisMonthCountValue ? $absencesThisMonthCountValue . " Requests" : "0 Requests";
+        // To count individual requests instead of days:
+        // "SELECT COUNT(*) FROM absence WHERE userID = :userid AND status = 'approved' AND ..."
+        if ($stmtAbsenceCount) {
+            $stmtAbsenceCount->execute([
+                ':userid' => $sessionUserId,
+                ':month_start' => $currentMonthStart,
+                ':month_end' => $currentMonthEnd
+            ]);
+            $absencesThisMonthCountValue = $stmtAbsenceCount->fetchColumn();
+            $absencesThisMonthCountDisplay = $absencesThisMonthCountValue ? $absencesThisMonthCountValue . " Approved" : "0 Approved";
+            $stmtAbsenceCount->closeCursor();
+        }
 
+        $stmtUnreadMessages = $pdo->prepare(
+            " SELECT COUNT(m.messageID) 
+             FROM messages m
+             LEFT JOIN user_message_read_status umrs ON m.messageID = umrs.messageID AND umrs.userID = :userid1
+             WHERE m.recipientID = :userid2
+             AND m.is_active = 1
+             AND (umrs.is_read IS NULL OR umrs.is_read = 0)
+             AND (m.expires_at IS NULL OR m.expires_at > NOW())"
+         );
+         
+         // And update the execute call:
+         $stmtUnreadMessages->execute([
+             ':userid1' => $sessionUserId,
+             ':userid2' => $sessionUserId
+         ]);
 
-        // --- ACTIVITY SNAPSHOT FOR SELECTED DATE ---
+        // --- 5. UPCOMING LEAVE ---
+        $stmtUpcomingLeave = $pdo->prepare(
+            "SELECT absence_type, absence_start_datetime
+             FROM absence
+             WHERE userID = :userid
+               AND status = 'approved'
+               AND absence_start_datetime > :now
+             ORDER BY absence_start_datetime ASC
+             LIMIT 1"
+        );
+        if ($stmtUpcomingLeave) {
+            $stmtUpcomingLeave->execute([
+                ':userid' => $sessionUserId,
+                ':now' => $todayDateTime
+            ]);
+            $upcoming = $stmtUpcomingLeave->fetch();
+            if ($upcoming) {
+                $leaveType = ucfirst(str_replace('_', ' ', $upcoming['absence_type']));
+                $leaveDate = date("M d, Y", strtotime($upcoming['absence_start_datetime']));
+                $upcomingLeaveDisplay = htmlspecialchars($leaveType) . " on " . $leaveDate;
+            }
+            $stmtUpcomingLeave->closeCursor();
+        }
+
+        // --- 6. ACTIVITY SNAPSHOT FOR SELECTED DATE ---
+        // Account Creation
         if ($currentUserData && $selectedDate == date("Y-m-d", strtotime($currentUserData['dateOfCreation']))) {
              $activityForSelectedDate[] = [
-                 'date' => $selectedDate,
                  'time' => date("H:i", strtotime($currentUserData['dateOfCreation'])),
                  'type' => 'Account Registered',
                  'details' => 'Your WavePass account was created.',
@@ -137,59 +183,72 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                 ];
         }
 
-        // Query actual 'attendance_logs' table for the selected date
-        // CORRECTED: Use 'logTime', 'logType', 'logResult' from 'attendance_logs' table
-        $sqlActivity = "SELECT logTime, logType, logResult 
-                        FROM attendance_logs -- Changed from attendance_attendance_logs
-                        WHERE userID = :userid AND DATE(logTime) = :selected_date -- Changed log_timestamp
-                        ORDER BY logTime ASC"; // Changed log_timestamp
-        $stmtActivity = $pdo->prepare($sqlActivity);
-        if ($stmtActivity) {
-            $stmtActivity->bindParam(':userid', $sessionUserId, PDO::PARAM_INT);
-            $stmtActivity->bindParam(':selected_date', $selectedDate, PDO::PARAM_STR);
-            $stmtActivity->execute();
-            
-            while ($log = $stmtActivity->fetch(PDO::FETCH_ASSOC)) {
-                // CORRECTED: Use 'logType' and map to user-friendly terms
+        // Attendance Logs for selected date
+        $stmtActivityLog = $pdo->prepare(
+            "SELECT logTime, logType, logResult 
+             FROM attendance_logs
+             WHERE userID = :userid AND DATE(logTime) = :selected_date
+             ORDER BY logTime ASC"
+        );
+        if ($stmtActivityLog) {
+            $stmtActivityLog->execute([
+                ':userid' => $sessionUserId,
+                ':selected_date' => $selectedDate
+            ]);
+            while ($log = $stmtActivityLog->fetch(PDO::FETCH_ASSOC)) {
                 $activityTypeDisplay = 'Unknown Event';
+                $statusClass = 'neutral';
                 if ($log['logType'] == 'entry') {
-                    $activityTypeDisplay = 'Check In';
+                    if ($log['logResult'] == 'granted') {
+                        $activityTypeDisplay = 'Check In';
+                        $statusClass = 'present';
+                    } else {
+                        $activityTypeDisplay = 'Check In Denied';
+                        $statusClass = 'danger';
+                    }
                 } elseif ($log['logType'] == 'exit') {
                     $activityTypeDisplay = 'Check Out';
+                    $statusClass = 'absent';
                 }
                 
                 $details = 'Access: ' . htmlspecialchars(ucfirst($log['logResult'] ?? 'N/A'));
 
                 $activityForSelectedDate[] = [
-                    'date' => date("M d, Y", strtotime($log['logTime'])), // Use logTime
-                    'time' => date("H:i", strtotime($log['logTime'])),   // Use logTime
+                    'time' => date("H:i", strtotime($log['logTime'])),
                     'type' => $activityTypeDisplay,
                     'details' => $details, 
-                    'rfid_card' => 'System Log', // Your 'attendance_logs' table doesn't show specific RFID card used per log
-                    'status_class' => ($log['logType'] == 'entry' && $log['logResult'] == 'granted' ? 'present' : 
-                                      ($log['logType'] == 'exit' ? 'absent' : 
-                                      ($log['logResult'] == 'denied' ? 'danger' : 'neutral')))
+                    'rfid_card' => 'System Log', // Or specific card ID if available and needed
+                    'status_class' => $statusClass
                 ];
             }
-            if($stmtActivity) $stmtActivity->closeCursor();
+            $stmtActivityLog->closeCursor();
         }
         
-        // If it's today and no specific attendance_logs yet, but we determined status from latest event, add it.
-        if ($selectedDate == date("Y-m-d") && 
-            empty(array_filter($activityForSelectedDate, function($act){ return strpos($act['type'], 'Check In') !== false || strpos($act['type'], 'Check Out') !== false; })) && 
-            $latestEvent) {
-             $activityForSelectedDate[] = [
-                 'date' => $selectedDate,
-                 'time' => date("H:i"), 
-                 'type' => $rfidStatus === "Present" ? 'Current Status: Present' : ($rfidStatus === "Checked Out" ? "Current Status: Checked Out" : "Current Status: " . $rfidStatus),
-                 'details' => 'Based on latest log for today.',
-                 'rfid_card' => 'N/A', 
-                 'status_class' => $rfidStatusClass
-                ];
+        // If it's today and no specific attendance_logs yet, but we determined current status, add it.
+        $hasCheckInOutActivity = false;
+        foreach($activityForSelectedDate as $act) {
+            if (strpos($act['type'], 'Check In') !== false || strpos($act['type'], 'Check Out') !== false) {
+                $hasCheckInOutActivity = true;
+                break;
+            }
+        }
+        if ($selectedDate == $todayDate && !$hasCheckInOutActivity && $rfidStatus !== "Status Unknown" && $rfidStatus !== "Not Checked In") {
+             // Avoid adding "Not Checked In" if there's no activity, as "No Specific Record" will cover it.
+             // Only add if there's a determined status like Present, Checked Out, Scheduled Absence based on today's logic.
+             if ($rfidStatusClass !== 'neutral' || strpos(strtolower($rfidStatus), 'scheduled') !== false) {
+                 $activityForSelectedDate[] = [
+                     'time' => date("H:i"), // Current time, or '--:--' if preferred
+                     'type' => $rfidStatus,
+                     'details' => 'Based on current system status.',
+                     'rfid_card' => 'N/A', 
+                     'status_class' => $rfidStatusClass
+                    ];
+             }
         }
 
-        // Message if no specific records for the day
-         if (empty($activityForSelectedDate) && $selectedDate <= date('Y-m-d')){
+
+        // Message if no specific records for the day (after checking logs and creation)
+         if (empty($activityForSelectedDate) && $selectedDate <= $todayDate){
             $stmtSelectedDayAbsence = $pdo->prepare(
                 "SELECT absence_type, reason FROM absence 
                  WHERE userID = :userid 
@@ -197,45 +256,56 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                    AND status = 'approved'
                  LIMIT 1"
             );
-            $stmtSelectedDayAbsence->bindParam(':userid', $sessionUserId, PDO::PARAM_INT);
-            $stmtSelectedDayAbsence->bindParam(':selected_date_for_absence', $selectedDate, PDO::PARAM_STR);
-            $stmtSelectedDayAbsence->execute();
-            $selectedDayAbsenceInfo = $stmtSelectedDayAbsence->fetch();
+            if ($stmtSelectedDayAbsence) {
+                $stmtSelectedDayAbsence->execute([
+                    ':userid' => $sessionUserId,
+                    ':selected_date_for_absence' => $selectedDate
+                ]);
+                $selectedDayAbsenceInfo = $stmtSelectedDayAbsence->fetch();
+                $stmtSelectedDayAbsence->closeCursor();
 
-            $absenceTypeDetailForMsg = "Absence"; 
-            if($selectedDayAbsenceInfo && isset($selectedDayAbsenceInfo['absence_type']) && !empty($selectedDayAbsenceInfo['absence_type'])){
-                $absenceTypeDetailForMsg = htmlspecialchars(ucfirst(str_replace('_',' ',$selectedDayAbsenceInfo['absence_type'])));
-            }
-
-            if($selectedDayAbsenceInfo){
-                $activityForSelectedDate[] = [
-                     'date' => $selectedDate, 
-                     'time' => '--:--', 
-                     'type' => 'Scheduled Absence', 
-                     'details' => 'Type: ' . $absenceTypeDetailForMsg . ($selectedDayAbsenceInfo['reason'] ? ' - Reason: '.htmlspecialchars($selectedDayAbsenceInfo['reason']) : ''), 
-                     'rfid_card' => 'N/A', 
-                     'status_class' => 'absent'
-                    ];
-            } else {
-                 $activityForSelectedDate[] = [
-                     'date' => $selectedDate, 
-                     'time' => '--:--', 
-                     'type' => 'No Specific Record', 
-                     'details' => 'No attendance events or approved absences logged for this day.', 
-                     'rfid_card' => 'N/A', 
-                     'status_class' => 'neutral'
-                    ];
+                if($selectedDayAbsenceInfo){
+                    $absenceTypeDetailForMsg = htmlspecialchars(ucfirst(str_replace('_',' ',$selectedDayAbsenceInfo['absence_type'])));
+                    $activityForSelectedDate[] = [
+                         'time' => '--:--', 
+                         'type' => 'Scheduled Absence', 
+                         'details' => 'Type: ' . $absenceTypeDetailForMsg . ($selectedDayAbsenceInfo['reason'] ? ' - Reason: '.htmlspecialchars($selectedDayAbsenceInfo['reason']) : ''), 
+                         'rfid_card' => 'N/A', 
+                         'status_class' => 'absent'
+                        ];
+                } else {
+                     $activityForSelectedDate[] = [
+                         'time' => '--:--', 
+                         'type' => 'No Specific Record', 
+                         'details' => 'No attendance events or approved absences logged for this day.', 
+                         'rfid_card' => 'N/A', 
+                         'status_class' => 'neutral'
+                        ];
+                }
             }
         }
+        // Sort activity by time to ensure chronological order if items were added out of sequence
+        if (!empty($activityForSelectedDate)) {
+            usort($activityForSelectedDate, function($a, $b) {
+                if ($a['time'] === '--:--') return -1; // Put '--:--' (like 'No Record') at the beginning or end
+                if ($b['time'] === '--:--') return 1;
+                return strtotime($a['time']) - strtotime($b['time']);
+            });
+        }
+
 
     } catch (PDOException $e) {
+        error_log("Dashboard DB Error (User: {$sessionUserId}, Date: {$selectedDate}): " . $e->getMessage());
+        $dbErrorMessage = "A database error occurred. Please try again later. If the problem persists, contact support.";
         $dbErrorMessage = "Database Query Error: " . $e->getMessage();
     } catch (Exception $e) {
-        $dbErrorMessage = "An application error occurred: " . $e->getMessage();
+        error_log("Dashboard App Error (User: {$sessionUserId}, Date: {$selectedDate}): " . $e->getMessage());
+        $dbErrorMessage = "An application error occurred. Please try again later.";
+        // For development: $dbErrorMessage = "Application Error: " . $e->getMessage();
     }
 } else {
     if (!isset($pdo) || !($pdo instanceof PDO)) $dbErrorMessage = ($dbErrorMessage ? $dbErrorMessage . "<br>" : "") . "Database connection is not available.";
-    if (!$sessionUserId) $dbErrorMessage = ($dbErrorMessage ? $dbErrorMessage . "<br>" : "") . "User session is invalid.";
+    if (!$sessionUserId) $dbErrorMessage = ($dbErrorMessage ? $dbErrorMessage . "<br>" : "") . "User session is invalid (or user ID not found).";
 }
 $currentPage = basename($_SERVER['PHP_SELF']);
 ?>
@@ -249,9 +319,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-            /* Copied STYLES FROM index.php (WavePass - Teacher Attendance System) */
             :root {
-                --primary-color: #4361ee; /* ... other root variables ... */
+                --primary-color: #4361ee; 
                 --primary-dark: #3a56d4;
                 --secondary-color: #3f37c9;
                 --dark-color: #1a1a2e;
@@ -260,15 +329,18 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 --light-gray: #e9ecef;
                 --white: #ffffff;
                 --success-color: #4cc9f0;
-                --warning-color: #f8961e;
-                --danger-color: #f72585;
+                --warning-color: #f8961e; /* Orange for warnings */
+                --danger-color: #f72585; /* Pink/Red for danger/denied */
                 --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
                 --transition: all 0.3s ease;
                 
-                --present-color-val: 67, 170, 139; 
-                --absent-color-val: 214, 40, 40; 
-                --info-color-val: 84, 160, 255;
-                --neutral-color-val: 173, 181, 189; 
+                --present-color-val: 67, 170, 139; /* Green */
+                --absent-color-val: 214, 40, 40;   /* Red */
+                --info-color-val: 84, 160, 255;    /* Blue */
+                --neutral-color-val: 173, 181, 189; /* Gray */
+                --warning-color-val: 248, 150, 30; /* RGB for var(--warning-color) */
+                --danger-color-val: 247, 37, 133; /* RGB for var(--danger-color) */
+
                 --present-color: rgb(var(--present-color-val)); 
                 --absent-color: rgb(var(--absent-color-val)); 
                 --info-color: rgb(var(--info-color-val));
@@ -320,7 +392,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             .page-header { padding: 1.8rem 0; margin-bottom: 1.8rem; background-color:var(--white); box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
             .page-header h1 { font-size: 1.7rem; color: var(--dark-color); margin: 0; }
             .page-header .sub-heading { font-size: 0.9rem; color: var(--gray-color); }
-            .db-error-message {background-color: rgba(var(--danger-color-val, 247, 37, 133),0.1); color: var(--danger-color); padding: 1rem; border-left: 4px solid var(--danger-color); margin-bottom: 1.5rem; border-radius: 4px; font-size:0.9rem;}
+            .db-error-message {background-color: rgba(var(--danger-color-val),0.1); color: var(--danger-color); padding: 1rem; border-left: 4px solid var(--danger-color); margin-bottom: 1.5rem; border-radius: 4px; font-size:0.9rem;}
 
             .employee-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.2rem; margin-bottom: 2.5rem; }
             .stat-card { background-color: var(--white); padding: 1.2rem 1.4rem; border-radius: 8px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 1.2rem; transition: var(--transition); border: 1px solid var(--light-gray); position:relative; overflow:hidden;}
@@ -336,11 +408,13 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             .stat-card.rfid-status.absent .icon { background-color: rgba(var(--absent-color-val),0.1); color: var(--absent-color); }
             .stat-card.rfid-status.neutral::before { background-color: var(--neutral-color); }
             .stat-card.rfid-status.neutral .icon { background-color: rgba(var(--neutral-color-val),0.1); color: var(--neutral-color); }
+            .stat-card.rfid-status.danger::before { background-color: var(--danger-color); }
+            .stat-card.rfid-status.danger .icon { background-color: rgba(var(--danger-color-val),0.1); color: var(--danger-color); }
             
-            .stat-card.absences-count::before { background-color: var(--absent-color); }
+            .stat-card.absences-count::before { background-color: var(--absent-color); } /* Using absent color for absences */
             .stat-card.absences-count .icon { background-color: rgba(var(--absent-color-val),0.1); color: var(--absent-color); }
-            .stat-card.warnings::before { background-color: var(--warning-color); } 
-            .stat-card.warnings .icon { background-color: rgba(var(--warning-color-val),0.1); color: var(--warning-color); } 
+            .stat-card.unread-messages::before { background-color: var(--warning-color); } 
+            .stat-card.unread-messages .icon { background-color: rgba(var(--warning-color-val),0.1); color: var(--warning-color); } 
             .stat-card.upcoming-leave::before { background-color: var(--info-color); } 
             .stat-card.upcoming-leave .icon { background-color: rgba(var(--info-color-val),0.1); color: var(--info-color); }
             .stat-card.upcoming-leave .info .value { font-size: 1.1rem; font-weight: 500; }
@@ -350,7 +424,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             .panel-title { font-size: 1.3rem; color: var(--dark-color); margin:0; }
             .date-navigation { display: flex; align-items: center; gap: 0.5rem; }
             .date-navigation .btn-nav { background-color:var(--light-color); border:1px solid var(--light-gray); color:var(--dark-color); padding:0.4rem 0.6rem; border-radius:4px; cursor:pointer; transition:var(--transition); }
-            .date-navigation .btn-nav:hover { background-color:var(--primary-color); color:var(--white); border-color:var(--primary-color); }
+            .date-navigation .btn-nav:hover:not(:disabled) { background-color:var(--primary-color); color:var(--white); border-color:var(--primary-color); }
+            .date-navigation .btn-nav:disabled { background-color: var(--light-gray); color: var(--gray-color); cursor: not-allowed; border-color: var(--light-gray); }
             .date-navigation .btn-nav .material-symbols-outlined {font-size:1.2em; vertical-align:middle;}
             .date-navigation input[type="date"] { padding: 0.4rem 0.7rem; border: 1px solid #ced4da; border-radius: 4px; font-size: 0.9rem; background-color: var(--white); height:36px; text-align:center;}
 
@@ -365,6 +440,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             .activity-status.absent { background-color: rgba(var(--absent-color-val), 0.15); color: var(--absent-color); }
             .activity-status.info { background-color: rgba(var(--info-color-val), 0.15); color: var(--info-color); }
             .activity-status.neutral { background-color: rgba(var(--neutral-color-val),0.15); color: var(--neutral-color);}
+            .activity-status.danger { background-color: rgba(var(--danger-color-val),0.15); color: var(--danger-color);}
             .activity-table td.rfid-cell { font-family: monospace; font-size: 0.8rem; color: var(--gray-color); }
 
 
@@ -372,7 +448,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             .placeholder-text {color: var(--gray-color); font-style: italic; font-size: 0.8rem;}
             
             footer { background-color: var(--dark-color); color: var(--white); padding: 5rem 0 2rem; margin-top:auto;}
-            /* ... Full Footer Styles ... */
             .footer-content { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 3rem; margin-bottom: 3rem; }
             .footer-column h3 { font-size: 1.3rem; margin-bottom: 1.8rem; position: relative; padding-bottom: 0.8rem; }
             .footer-column h3::after { content: ''; position: absolute; left: 0; bottom: 0; width: 50px; height: 3px; background-color: var(--primary-color); border-radius: 3px; }
@@ -386,29 +461,11 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             .footer-bottom { text-align: center; padding-top: 3rem; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.9rem; color: rgba(255, 255, 255, 0.6); }
             .footer-bottom a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); }
             .footer-bottom a:hover { color: var(--primary-color); }
-            .activity-status.danger { 
-            background-color: rgba(var(--danger-color-val, 247, 37, 133), 0.15); /* Use your danger color */
-            color: var(--danger-color); 
-        }
         </style>
 </head>
 <body>
-    <!-- header -->
-    <?php 
-      // Determine the correct relative path to components based on current script's location
-      // This logic assumes dashboard.php is in the root.
-      // If you move dashboard.php into 'admin/' or other subfolders, adjust this path logic.
-      $pathToComponents = "components/"; 
-      if (strpos($_SERVER['PHP_SELF'], '/admin/') !== false) { // Example if it was in an admin folder
-          $pathToComponents = "../components/";
-      }
-      // Choose header based on role (if you have a separate admin header)
-      $headerFile = ($sessionRole === 'admin') ? "header-admin-panel.php" : "header-employee-panel.php";
-      // However, for the employee dashboard, you'd typically always use the employee header.
-      // If an admin is viewing this dashboard, they are viewing it *as an employee would*.
-      // So, header-employee.php is likely always correct here.
-      require_once $pathToComponents . "header-employee-panel.php"; 
-    ?>
+        <!-- header !-->
+        <?php require "components/header-admin.php"; ?>
 
     <main>
         <div class="page-header">
@@ -421,14 +478,19 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         <div class="container" style="padding-bottom: 2.5rem;">
             <?php if ($dbErrorMessage): ?>
                 <div class="db-error-message" role="alert">
-                    <i class="fas fa-exclamation-triangle" style="margin-right: 0.5rem;"></i> <?php echo $dbErrorMessage; ?>
+                    <i class="fas fa-exclamation-triangle" style="margin-right: 0.5rem;"></i> <?php echo htmlspecialchars($dbErrorMessage); ?>
                 </div>
             <?php endif; ?>
 
             <section class="employee-stats-grid">
                 <div class="stat-card rfid-status <?php echo $rfidStatusClass; ?>">
                     <div class="icon"><span class="material-symbols-outlined">
-                        <?php echo ($rfidStatusClass === "present" ? "person_check" : ($rfidStatusClass === "absent" ? "person_off" : "contactless")); ?>
+                        <?php 
+                            if ($rfidStatusClass === "present") echo "person_check";
+                            elseif ($rfidStatusClass === "absent") echo "person_off";
+                            elseif ($rfidStatusClass === "danger") echo "gpp_maybe"; // Icon for access denied
+                            else echo "contactless"; // Default/Neutral
+                        ?>
                     </span></div>
                     <div class="info">
                         <span class="value"><?php echo htmlspecialchars($rfidStatus); ?></span>
@@ -438,22 +500,22 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <div class="stat-card absences-count">
                     <div class="icon"><span class="material-symbols-outlined">calendar_month</span></div>
                     <div class="info">
-                        <span class="value"><?php echo htmlspecialchars($absencesThisMonthCount); ?></span>
-                        <span class="label">Approved Absences <small class="placeholder-text">(this month)</small></span>
+                        <span class="value"><?php echo htmlspecialchars($absencesThisMonthCountDisplay); ?></span>
+                        <span class="label">Absences <small class="placeholder-text">(this month)</small></span>
                     </div>
                 </div>
-                <div class="stat-card warnings">
-                    <div class="icon"><span class="material-symbols-outlined">chat_error</span></div> 
+                <div class="stat-card unread-messages"> <!-- Changed class from warnings -->
+                    <div class="icon"><span class="material-symbols-outlined">mark_chat_unread</span></div> <!-- Icon for unread messages -->
                     <div class="info">
-                        <span class="value"><?php echo $warningMessagesCount; ?></span>
-                        <span class="label">Unread Warnings <small class="placeholder-text">(N/A)</small></span>
+                        <span class="value"><?php echo $unreadMessagesCount; ?></span>
+                        <span class="label">Unread Messages</span>
                     </div>
                 </div>
                 <div class="stat-card upcoming-leave">
                     <div class="icon"><span class="material-symbols-outlined">flight_takeoff</span></div>
                     <div class="info">
                         <span class="value"><?php echo htmlspecialchars($upcomingLeaveDisplay); ?></span>
-                        <span class="label">Upcoming Leave <small class="placeholder-text">(N/A)</small></span>
+                        <span class="label">Upcoming Leave</span>
                     </div>
                 </div>
             </section>
@@ -467,7 +529,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                         <button class="btn-nav" id="nextDayBtn" title="Next Day"><span class="material-symbols-outlined">chevron_right</span></button>
                     </div>
                 </div>
-                <p class="placeholder-text" style="margin-bottom:1.2rem; font-size:0.8rem;"><i class="fas fa-info-circle"></i> This view shows basic activity. For a comprehensive history, visit the <a href="my_attendance_log.php?date=<?php echo $selectedDate; ?>" style="color:var(--primary-color)">Full Attendance Log</a>.</p>
+                <p class="placeholder-text" style="margin-bottom:1.2rem; font-size:0.8rem;">
+                    <i class="fas fa-info-circle"></i> This view shows basic activity. For a comprehensive history, visit the 
+                    <a href="my_attendance_log.php?date=<?php echo $selectedDate; ?>" style="color:var(--primary-color)">Full Attendance Log</a>.
+                </p>
 
                 <div class="activity-table-wrapper">
                     <table class="activity-table" id="employeeActivityTable_singleDay">
@@ -476,7 +541,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                 <th>Time</th> 
                                 <th>Activity Type</th>
                                 <th>Details</th>
-                                <th>Card Used</th> 
+                                <th>Source</th> 
                             </tr>
                         </thead>
                         <tbody>
@@ -506,90 +571,100 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     </main>
 
     <?php 
-        $footerFile = "footer-user.php"; // Default for employee dashboard
-        // if ($sessionRole === 'admin') { $footerFile = "footer-admin.php"; } // If you had a different admin footer for some reason
+        $footerFile = "footer-user.php";
         require_once $pathToComponents . $footerFile; 
     ?>
 
 <script>
-            // Mobile Menu Toggle (Using logic from index.php/assistent.html for hamburger, mobileMenu, closeMenu IDs)
-            const hamburger = document.getElementById('hamburger');
-            const mobileMenu = document.getElementById('mobileMenu');
-            const closeMenu = document.getElementById('closeMenu');
-            const body = document.body;
+    document.addEventListener('DOMContentLoaded', function() {
+        const hamburger = document.getElementById('hamburger');
+        const mobileMenu = document.getElementById('mobileMenu');
+        const closeMenu = document.getElementById('closeMenu');
+        const body = document.body;
 
-            if (hamburger && mobileMenu && closeMenu) {
-                hamburger.addEventListener('click', () => {
-                    hamburger.classList.toggle('active');
-                    mobileMenu.classList.toggle('active');
-                    body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
-                });
+        if (hamburger && mobileMenu && closeMenu) {
+            hamburger.addEventListener('click', () => {
+                hamburger.classList.toggle('active');
+                mobileMenu.classList.toggle('active');
+                body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
+            });
 
-                closeMenu.addEventListener('click', () => {
-                    hamburger.classList.remove('active');
-                    mobileMenu.classList.remove('active');
-                    body.style.overflow = '';
-                });
+            closeMenu.addEventListener('click', () => {
+                hamburger.classList.remove('active');
+                mobileMenu.classList.remove('active');
+                body.style.overflow = '';
+            });
 
-                mobileMenu.querySelectorAll('a').forEach(link => {
-                    link.addEventListener('click', () => {
-                        if (!link.getAttribute('href').startsWith('#') || link.getAttribute('href') === '#') {
-                            if (mobileMenu.classList.contains('active')) {
-                                hamburger.classList.remove('active');
-                                mobileMenu.classList.remove('active');
-                                body.style.overflow = '';
-                            }
-                        }
-                    });
-                });
-            }
-
-            // Header shadow on scroll
-            const headerEl = document.querySelector('header');
-            if (headerEl) { 
-                window.addEventListener('scroll', () => {
-                    let scrollShadow = getComputedStyle(document.documentElement).getPropertyValue('--shadow').trim() || '0 4px 10px rgba(0,0,0,0.05)';
-                    if (window.scrollY > 10) {
-                        headerEl.style.boxShadow = scrollShadow; 
-                    } else {
-                        headerEl.style.boxShadow = getComputedStyle(document.documentElement).getPropertyValue('--initial-header-shadow') || '0 2px 10px rgba(0,0,0,0.05)';
+            mobileMenu.querySelectorAll('a').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    // Allow navigation for actual links, prevent for '#'
+                    if (link.getAttribute('href') === '#' && e) {
+                        e.preventDefault(); 
+                    }
+                    if (mobileMenu.classList.contains('active')) {
+                        hamburger.classList.remove('active');
+                        mobileMenu.classList.remove('active');
+                        body.style.overflow = '';
                     }
                 });
-            }
+            });
+        }
 
-            // Date Navigation for Single Day View
-            const dateSelector = document.getElementById('activity-date-selector');
-            const prevDayBtn = document.getElementById('prevDayBtn');
-            const nextDayBtn = document.getElementById('nextDayBtn');
+        const headerEl = document.querySelector('header');
+        if (headerEl) { 
+            const initialHeaderShadow = getComputedStyle(headerEl).boxShadow;
+            window.addEventListener('scroll', () => {
+                let scrollShadow = getComputedStyle(document.documentElement).getPropertyValue('--shadow').trim() || '0 4px 10px rgba(0,0,0,0.05)';
+                if (window.scrollY > 10) {
+                    headerEl.style.boxShadow = scrollShadow; 
+                } else {
+                    headerEl.style.boxShadow = initialHeaderShadow;
+                }
+            });
+        }
 
-            function navigateToDate(dateString) {
-                window.location.href = `dashboard.php?date=${dateString}`;
-            }
+        const dateSelector = document.getElementById('activity-date-selector');
+        const prevDayBtn = document.getElementById('prevDayBtn');
+        const nextDayBtn = document.getElementById('nextDayBtn');
+        const todayISO = new Date().toISOString().split('T')[0];
 
-            if (dateSelector) {
-                dateSelector.addEventListener('change', function() { navigateToDate(this.value); });
+        function navigateToDate(dateString) {
+            window.location.href = `dashboard.php?date=${dateString}`;
+        }
+
+        function updateNextDayButtonState() {
+            if (nextDayBtn && dateSelector) {
+                // Dates are compared as YYYY-MM-DD strings for simplicity
+                nextDayBtn.disabled = dateSelector.value >= todayISO;
             }
-            if (prevDayBtn) {
-                prevDayBtn.addEventListener('click', function() {
-                    const currentDate = new Date(dateSelector.value + "T00:00:00Z"); 
-                    currentDate.setUTCDate(currentDate.getUTCDate() - 1); 
+        }
+
+        if (dateSelector) {
+            dateSelector.addEventListener('change', function() { 
+                navigateToDate(this.value); 
+            });
+            // Set max attribute to prevent selecting future dates in the picker
+            dateSelector.max = todayISO;
+        }
+        if (prevDayBtn) {
+            prevDayBtn.addEventListener('click', function() {
+                // Date manipulation must be careful with timezones if not using UTC
+                const currentDate = new Date(dateSelector.value); // Assumes local timezone from picker
+                currentDate.setDate(currentDate.getDate() - 1); 
+                navigateToDate(currentDate.toISOString().split('T')[0]);
+            });
+        }
+        if (nextDayBtn) {
+            nextDayBtn.addEventListener('click', function() {
+                if (dateSelector.value < todayISO) {
+                    const currentDate = new Date(dateSelector.value);
+                    currentDate.setDate(currentDate.getDate() + 1);
                     navigateToDate(currentDate.toISOString().split('T')[0]);
-                });
-            }
-            if (nextDayBtn) {
-                nextDayBtn.addEventListener('click', function() {
-                    const currentDate = new Date(dateSelector.value + "T00:00:00Z");
-                    const today = new Date();
-                    today.setUTCHours(0,0,0,0); 
-
-                    if (currentDate < today) {
-                        currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-                        navigateToDate(currentDate.toISOString().split('T')[0]);
-                    } else {
-                        alert("Cannot view future dates for activity log.");
-                    }
-                });
-            }
-        </script>
+                }
+            });
+            updateNextDayButtonState(); // Initial check
+        }
+    });
+</script>
 </body>
 </html>
