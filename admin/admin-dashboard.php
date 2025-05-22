@@ -8,22 +8,31 @@ if (session_status() == PHP_SESSION_NONE) {
 
 // 1. Restrict Access: Ensure only admin can access
 if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true || !isset($_SESSION["role"]) || $_SESSION["role"] !== 'admin') {
-    if (file_exists('login.php')) {
-        header("location: login.php");
-    } elseif (file_exists('../login.php')) {
-        header("location: ../login.php");
+    $loginPath = '';
+    if (strpos($_SERVER['PHP_SELF'], '/admin/') !== false) {
+        $loginPath = '../login.php';
     } else {
-        die("Error: Login page not found.");
+        $loginPath = 'login.php';
+    }
+    if (file_exists(dirname(__FILE__) . '/' . $loginPath)) {
+         header("location: " . $loginPath);
+    } else {
+        die("Error: Login page not found (tried: " . htmlspecialchars(dirname(__FILE__) . '/' . $loginPath) . ")");
     }
     exit;
 }
 
-if (file_exists('db.php')) {
-    require_once 'db.php';
-} elseif (file_exists('../db.php')) {
-    require_once '../db.php';
+// Připojení k databázi
+$dbPath = '';
+if (strpos($_SERVER['PHP_SELF'], '/admin/') !== false) {
+    $dbPath = '../db.php';
 } else {
-    die("Error: Database configuration file not found.");
+    $dbPath = 'db.php';
+}
+if (file_exists(dirname(__FILE__) . '/' . $dbPath)) {
+    require_once dirname(__FILE__) . '/' . $dbPath;
+} else {
+    die("Error: Database configuration file not found (tried: " . htmlspecialchars(dirname(__FILE__) . '/' . $dbPath) . ")");
 }
 
 $sessionFirstName = isset($_SESSION["first_name"]) ? htmlspecialchars($_SESSION["first_name"]) : 'Admin';
@@ -33,13 +42,13 @@ $dbErrorMessage = null;
 $stats = [
     'total_employees' => 0,
     'total_admins' => 0,
-    'employees_present' => 0,
-    'employees_absent' => 0,
+    'employees_present' => 0, // Ti, co jsou PŘIHLÁŠENI a NEMAJÍ aktivní absenci
+    'employees_on_approved_absence' => 0, // Nová statistika: Ti, co MAJÍ aktivní schválenou absenci
     'assigned_rfid_cards' => 0,
     'unassigned_rfid_cards' => 0,
     'active_rfid_cards' => 0,
     'pending_absences' => 0,
-    'recent_activity' => []
+    // 'recent_activity' => [] // Pokud budete potřebovat
 ];
 
 if (isset($pdo) && $pdo instanceof PDO) {
@@ -48,23 +57,25 @@ if (isset($pdo) && $pdo instanceof PDO) {
         $nowDateTime = date('Y-m-d H:i:s');
 
         // -------------------------------------
-        // Fetch Total Admins
+        // Fetch Total Admins and Total Employees
         // -------------------------------------
-        $stmtAdmins = $pdo->query("SELECT COUNT(*) FROM users WHERE LOWER(roleID) = 'admin'");
-        $stats['total_admins'] = $stmtAdmins ? (int)$stmtAdmins->fetchColumn() : 0;
+        $stmtUserCounts = $pdo->query("SELECT roleID, COUNT(*) as count FROM users GROUP BY roleID");
+        $userRoleCounts = $stmtUserCounts->fetchAll(PDO::FETCH_KEY_PAIR); // roleID jako klíč, count jako hodnota
+
+        $stats['total_admins'] = isset($userRoleCounts['admin']) ? (int)$userRoleCounts['admin'] : 0;
+        $stats['total_employees'] = isset($userRoleCounts['employee']) ? (int)$userRoleCounts['employee'] : 0;
 
         // -------------------------------------
-        // Fetch Employees and Determine Presence
+        // Determine Employees Currently Present and On Approved Absence
         // -------------------------------------
-        $stmtEmployees = $pdo->query("SELECT userID FROM users WHERE LOWER(roleID) = 'employee'");
-        $employees = $stmtEmployees->fetchAll(PDO::FETCH_ASSOC);
-
-        $stats['total_employees'] = count($employees);
         $stats['employees_present'] = 0;
-        $stats['employees_absent'] = 0;
+        $stats['employees_on_approved_absence'] = 0;
 
         if ($stats['total_employees'] > 0) {
-            // Připravíme dotazy, které budeme používat v cyklu
+            $stmtEmployeesDetails = $pdo->query("SELECT userID FROM users WHERE LOWER(roleID) = 'employee'");
+            $employeesList = $stmtEmployeesDetails->fetchAll(PDO::FETCH_ASSOC);
+
+            // Připravené dotazy
             $sqlLatestLog = "SELECT logType, logResult 
                              FROM attendance_logs
                              WHERE userID = :employeeID AND DATE(logTime) = :today_date
@@ -79,48 +90,36 @@ if (isset($pdo) && $pdo instanceof PDO) {
                                    AND :now_datetime BETWEEN absence_start_datetime AND absence_end_datetime";
             $stmtActiveAbsence = $pdo->prepare($sqlActiveAbsence);
 
-            foreach ($employees as $employee) {
+            foreach ($employeesList as $employee) {
                 $employeeID = $employee['userID'];
-                $is_present = false;
-
-                // 1. Zkontrolovat aktivní schválenou absenci
+                
+                // 1. Zkontrolovat aktivní schválenou absenci pro aktuální čas
                 $stmtActiveAbsence->execute([
                     ':employeeID' => $employeeID,
                     ':now_datetime' => $nowDateTime
                 ]);
-                $hasActiveAbsence = (int)$stmtActiveAbsence->fetchColumn() > 0;
+                $hasActiveApprovedAbsence = (int)$stmtActiveAbsence->fetchColumn() > 0;
 
-                if ($hasActiveAbsence) {
-                    $is_present = false; // Má schválenou absenci, takže je nepřítomen
+                if ($hasActiveApprovedAbsence) {
+                    $stats['employees_on_approved_absence']++;
+                    // Pokud má aktivní schválenou absenci, není "present" z hlediska check-inu
                 } else {
-                    // 2. Pokud nemá aktivní absenci, zkontrolovat attendance_logs
+                    // 2. Pokud nemá aktivní schválenou absenci, zkontrolovat attendance_logs
                     $stmtLatestLog->execute([
                         ':employeeID' => $employeeID,
                         ':today_date' => $todayDate
                     ]);
                     $latestLog = $stmtLatestLog->fetch(PDO::FETCH_ASSOC);
 
-                    if ($latestLog) {
-                        if ($latestLog['logType'] == 'entry' && $latestLog['logResult'] == 'granted') {
-                            $is_present = true;
-                        } else {
-                            // exit, denied entry, nebo jiný stav -> není present
-                            $is_present = false;
-                        }
-                    } else {
-                        // Žádný log dnes a žádná aktivní absence -> není present
-                        $is_present = false;
+                    if ($latestLog && $latestLog['logType'] == 'entry' && $latestLog['logResult'] == 'granted') {
+                        $stats['employees_present']++;
                     }
-                }
-
-                if ($is_present) {
-                    $stats['employees_present']++;
-                } else {
-                    $stats['employees_absent']++;
+                    // Pokud poslední log není entry/granted, nebo žádný log dnes, a nemá aktivní absenci,
+                    // pak není ani "present" ani "on_approved_absence". Může být "absent" v obecném smyslu,
+                    // ale pro účely těchto dvou statistik se nezapočítá.
                 }
             }
         }
-
 
         // -------------------------------------
         // Fetch RFID Card Statistics
@@ -134,13 +133,20 @@ if (isset($pdo) && $pdo instanceof PDO) {
         $stmtRfidActive = $pdo->query("SELECT COUNT(*) FROM rfids WHERE is_active = 1"); 
         $stats['active_rfid_cards'] = $stmtRfidActive ? (int)$stmtRfidActive->fetchColumn() : 0;
         
-        
         // -------------------------------------
-        // Fetch Pending Absence Requests 
+        // Fetch Pending Absence Requests (pouze budoucí nebo právě probíhající)
         // -------------------------------------
-        $stmtPendingAbsences = $pdo->query("SELECT COUNT(*) FROM absence WHERE status = 'pending_approval' OR status = 'ceka_na_schvaleni'");
-        $stats['pending_absences'] = $stmtPendingAbsences ? (int)$stmtPendingAbsences->fetchColumn() : 0; 
-        
+        // Correct way to prepare and execute with parameters
+        $stmtPendingAbsences = $pdo->prepare("SELECT COUNT(*) FROM absence 
+                                            WHERE status = 'pending_approval' 
+                                            AND absence_end_datetime >= :now_date");
+        if ($stmtPendingAbsences) {
+            $stmtPendingAbsences->execute([':now_date' => $todayDate]);
+            $stats['pending_absences'] = (int)$stmtPendingAbsences->fetchColumn();
+        } else {
+            $stats['pending_absences'] = 0;
+        }
+
 
     } catch (PDOException $e) {
         $dbErrorMessage = "Database Query Error: " . $e->getMessage();
@@ -434,11 +440,12 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                         <span class="label">Employees Currently Present</span>
                     </div>
                 </div>
-                <div class="stat-card absent-employees">
-                    <div class="icon"><span class="material-symbols-outlined">person_off</span></div>
+                <!-- Stávající karta pro zaměstnance na schválené absenci -->
+                <div class="stat-card absent-employees"> <!-- Můžete si ponechat třídu .absent-employees nebo ji změnit -->
+                    <div class="icon"><span class="material-symbols-outlined">event_busy</span></div> <!-- Ikona pro plánovanou absenci -->
                     <div class="info">
-                        <span class="value"><?php echo $stats['employees_absent']; ?></span>
-                        <span class="label">Employees Currently Absent</span>
+                        <span class="value"><?php echo $stats['employees_on_approved_absence']; ?></span>
+                        <span class="label">Employees on Absence</span>
                     </div>
                 </div>
                 <!-- ODSTRANĚNÝ BLOK PRO TOTAL RFID CARDS -->
@@ -496,7 +503,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                             <p>Send announcements and warnings to users.</p>
                         </div>
                     </a>
-                     <a href="admin/admin-manage-absences.php" class="action-link-card">
+                     <a href="admin/admin-manage-absence.php" class="action-link-card">
                         <div class="icon"><span class="material-symbols-outlined">rule</span></div>
                         <div class="text">
                             <h3>Approve Absences</h3>

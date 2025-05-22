@@ -21,7 +21,7 @@ $email_value = ''; // To retain email in form on error
 if (isset($_SESSION['user_id']) && isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true) {
     // Check role and redirect accordingly
     if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
-        header("Location: admin-dashboard.php"); // Assumes admin-dashboard.php is in the same directory
+        header("Location: admin/admin-dashboard.php"); // Assumes admin/admin-dashboard.php is in the same directory
     } else {
         header("Location: dashboard.php"); // Assumes dashboard.php is in the same directory
     }
@@ -88,7 +88,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                             // --- Role-based Redirection ---
                             if ($user['roleID'] === 'admin') {
-                                header("Location: admin-dashboard.php");
+                                header("Location: admin/admin-dashboard.php");
                             } else {
                                 header("Location: dashboard.php");
                             }
