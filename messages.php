@@ -162,7 +162,7 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                 LEFT JOIN users u_sender ON m.senderID = u_sender.userID
                 LEFT JOIN user_message_read_status umrs ON m.messageID = umrs.messageID AND umrs.userID = :currentUserID_for_join
                 WHERE " . implode(" AND ", $sqlWhereClauses) . "
-                ORDER BY m.is_urgent DESC, is_read_by_user ASC, m.created_at DESC"; // Nepřečtené a urgentní první
+                ORDER BY m.created_at DESC, m.is_urgent DESC, is_read_by_user ASC"; // ZMĚNA POŘADÍ V ORDER BY
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params); 
@@ -428,7 +428,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     </style>
 </head>
 <body>
-    <?php require "components/header-employee-panel.php"; ?>
+    <?php require "components/header-admin.php"; ?>
 
     <main>
         <div class="page-header">
@@ -456,58 +456,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     </li>
                 </ul>
 
-                <?php if ($sessionRole == 'admin'): ?>
-                <div class="admin-send-message-panel" style="margin-top: 2rem;">
-                    <h3><span class="material-symbols-outlined" style="vertical-align:bottom; margin-right:5px;">send</span> Send New Message</h3>
-                    <form action="messages.php?filter=<?php echo htmlspecialchars($currentFilter); ?>" method="POST">
-                        <input type="hidden" name="action" value="send_message">
-                        <div class="form-group">
-                            <label for="message_title_admin">Title:</label>
-                            <input type="text" id="message_title_admin" name="message_title" value="<?php echo isset($_POST['message_title']) && $successMessage ? '' : (isset($_POST['message_title']) ? htmlspecialchars($_POST['message_title']) : ''); ?>" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="message_content_admin">Content:</label>
-                            <textarea id="message_content_admin" name="message_content" rows="4" required><?php echo isset($_POST['message_content']) && $successMessage ? '' : (isset($_POST['message_content']) ? htmlspecialchars($_POST['message_content']) : ''); ?></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label for="message_target">Target:</label>
-                            <select id="message_target" name="message_target" required onchange="toggleSpecificUserSelect(this.value)">
-                                <option value="everyone" <?php echo (isset($_POST['message_target']) && $_POST['message_target'] == 'everyone') ? 'selected' : ''; ?>>Everyone</option>
-                                <option value="all_employees" <?php echo (isset($_POST['message_target']) && $_POST['message_target'] == 'all_employees') ? 'selected' : ''; ?>>All Employees</option>
-                                <option value="all_admins" <?php echo (isset($_POST['message_target']) && $_POST['message_target'] == 'all_admins') ? 'selected' : ''; ?>>All Admins</option>
-                                <option value="specific_user" <?php echo (isset($_POST['message_target']) && $_POST['message_target'] == 'specific_user') ? 'selected' : ''; ?>>Specific User</option>
-                            </select>
-                        </div>
-                        <div class="form-group" id="specificUserSelectContainer">
-                            <label for="message_target_specific_user">Select User:</label>
-                            <select id="message_target_specific_user" name="message_target_specific_user">
-                                <option value="">-- Select User --</option>
-                                <?php foreach ($usersForAdminForm as $user): ?>
-                                    <option value="<?php echo $user['userID']; ?>" <?php echo (isset($_POST['message_target_specific_user']) && $_POST['message_target_specific_user'] == $user['userID']) ? 'selected' : ''; ?>>
-                                        <?php echo htmlspecialchars($user['lastName'] . ', ' . $user['firstName'] . ' (' . $user['username'] . ')'); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="message_type_admin">Message Type:</label>
-                            <select id="message_type_admin" name="message_type" required>
-                                <option value="info" <?php echo (isset($_POST['message_type']) && $_POST['message_type'] == 'info') ? 'selected' : ''; ?>>Info</option>
-                                <option value="announcement" <?php echo (isset($_POST['message_type']) && $_POST['message_type'] == 'announcement') ? 'selected' : ''; ?>>Announcement</option>
-                                <option value="warning" <?php echo (isset($_POST['message_type']) && $_POST['message_type'] == 'warning') ? 'selected' : ''; ?>>Warning</option>
-                                <option value="system" <?php echo (isset($_POST['message_type']) && $_POST['message_type'] == 'system') ? 'selected' : ''; ?>>System</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <input type="checkbox" id="message_is_urgent_admin" name="message_is_urgent" value="1" <?php echo (isset($_POST['message_is_urgent']) && !$successMessage) ? 'checked' : ''; ?>>
-                            <label for="message_is_urgent_admin">Mark as Urgent</label>
-                        </div>
-                        <div class="form-group">
-                            <button type="submit" class="btn-send-message">Send Message</button>
-                        </div>
-                    </form>
-                </div>
-                <?php endif; ?>
             </aside>
 
             <div class="messages-content">

@@ -104,7 +104,7 @@ if ($sessionIsLoggedIn && isset($_SESSION["profile_photo"]) && !empty($_SESSION[
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-rfid.php" class="<?php if ($currentPage === 'admin-manage-rfid.php') echo 'active-nav-link'; ?>">RFID Cards</a></li>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-users.php" class="<?php if ($currentPage === 'admin-manage-employees.php') echo 'active-nav-link'; ?>">Employees</a></li>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-absence.php" class="<?php if ($currentPage === 'admin-manage-absence.php') echo 'active-nav-link'; ?>">Absences</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>messages.php?context=admin" class="<?php if ($currentPage === 'messages.php' && isset($_GET['context']) && $_GET['context'] === 'admin') echo 'active-nav-link'; ?>">Messages</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-messages.php?context=admin" class="<?php if ($currentPage === 'messages.php' && isset($_GET['context']) && $_GET['context'] === 'admin') echo 'active-nav-link'; ?>">Messages</a></li>
 
                     <?php else: // Employee Links (všechny jsou v rootu projektu) ?>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-nav-link'; ?>">My Dashboard</a></li>
@@ -144,8 +144,8 @@ if ($sessionIsLoggedIn && isset($_SESSION["profile_photo"]) && !empty($_SESSION[
                 <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-rfid.php" class="<?php if ($currentPage === 'admin-manage-rfid.php') echo 'active-nav-link'; ?>">RFID Cards</a></li>
                 <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-employees.php" class="<?php if ($currentPage === 'admin-manage-employees.php') echo 'active-nav-link'; ?>">Employees</a></li>
                 <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-absence.php" class="<?php if ($currentPage === 'admin-manage-absence.php') echo 'active-nav-link'; ?>">Absences</a></li>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>messages.php?context=admin" class="<?php if ($currentPage === 'messages.php' && isset($_GET['context']) && $_GET['context'] === 'admin') echo 'active-nav-link'; ?>">Messages</a></li>
-                {PLACEHOLDER_FOR_OTHER_ADMIN_LINKS_MOBILE}
+                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-messages.php?context=admin" class="<?php if ($currentPage === 'messages.php' && isset($_GET['context']) && $_GET['context'] === 'admin') echo 'active-nav-link'; ?>">Messages</a></li>
+
             <?php else: ?>
                 <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-nav-link'; ?>">My Dashboard</a></li>
                 <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>my_attendance_log.php" class="<?php if ($currentPage === 'my_attendance_log.php') echo 'active-nav-link'; ?>">Attendance Log</a></li>

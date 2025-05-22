@@ -579,7 +579,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     <div class="icon"><span class="material-symbols-outlined">calendar_month</span></div>
                     <div class="info">
                         <span class="value"><?php echo htmlspecialchars($absencesThisMonthCountDisplay); ?></span>
-                        <span class="label">Absences <small class="placeholder-text">(this month)</small></span>
+                        <span class="label">Absences <small class="placeholder-text"></small></span>
                     </div>
                 </div>
                 <div class="stat-card unread-messages">
@@ -607,10 +607,13 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                         <button class="btn-nav" id="nextDayBtn" title="Next Day"><span class="material-symbols-outlined">chevron_right</span></button>
                     </div>
                 </div>
-                <p class="placeholder-text" style="margin-bottom:1.2rem; font-size:0.8rem;">
+                <!--
+                    <p class="placeholder-text" style="margin-bottom:1.2rem; font-size:0.8rem;">
                     <i class="fas fa-info-circle"></i> This view shows basic activity. For a comprehensive history, visit the 
                     <a href="my_attendance_log.php?date=<?php echo htmlspecialchars($selectedDate); ?>" style="color:var(--primary-color)">Full Attendance Log</a>.
                 </p>
+                !-->
+
 
                 <div class="activity-table-wrapper">
                     <table class="activity-table" id="employeeActivityTable_singleDay">
@@ -650,13 +653,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         </div>
     </main>
 
-    <footer>
-        <div class="container footer-content"> 
-             <div class="footer-bottom">
-                <p>© <?php echo date("Y"); ?> WavePass. All rights reserved. | <a href="privacy.php">Privacy Policy</a> | <a href="terms.php">Terms of Service</a></p>
-            </div>
-        </div>
-    </footer>
+    <!-- Footer !-->
+    <?php require_once "components/footer-user.php"; ?>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
