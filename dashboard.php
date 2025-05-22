@@ -17,7 +17,15 @@ require_once 'db.php'; // Your database connection
 // --- SESSION VARIABLES ---
 $sessionFirstName = isset($_SESSION["first_name"]) ? htmlspecialchars($_SESSION["first_name"]) : 'Employee';
 $sessionUserId = isset($_SESSION["user_id"]) ? (int)$_SESSION["user_id"] : null;
-$sessionRole = isset($_SESSION["role"]) ? $_SESSION["role"] : 'employee'; 
+$sessionRole = isset($_SESSION["role"]) ? strtolower($_SESSION["role"]) : 'employee'; // Ensure role is lowercase
+
+// --- ROLE-BASED HEADER INCLUSION ---
+// Determine which header to include based on user role
+if ($sessionRole === 'admin') {
+    require_once 'components/header-admin.php';
+} else {
+    require_once 'components/header-employee.php';
+}
 
 // --- DATE HANDLING ---
 $selectedDate = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
@@ -118,8 +126,6 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                    (absence_start_datetime <= :month_end AND absence_end_datetime >= :month_start)
                )"
         );
-        // To count individual requests instead of days:
-        // "SELECT COUNT(*) FROM absence WHERE userID = :userid AND status = 'approved' AND ..."
         if ($stmtAbsenceCount) {
             $stmtAbsenceCount->execute([
                 ':userid' => $sessionUserId,
@@ -570,10 +576,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         </div>
     </main>
 
-    <?php 
-        $footerFile = "footer-user.php";
-        require_once $pathToComponents . $footerFile; 
-    ?>
+    <!-- Footer -->
+    <?php  require_once "components/footer.php"; ?>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {

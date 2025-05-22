@@ -1,62 +1,76 @@
 <?php
 // components/main-header.php
 
-// Session by měla být již spuštěna stránkou, která tento soubor includuje.
-// Předpokládáme, že jsou dostupné:
-// $_SESSION['loggedin'], $_SESSION['user_id'], $_SESSION['first_name'], 
-// $_SESSION['role_name'] (nebo $_SESSION['roleID'] / $_SESSION['role'])
-// $_SESSION['profile_photo']
-
-// $currentPage by měla být definována includující stránkou.
-if (!isset($currentPage)) {
-    $currentPage = basename($_SERVER['PHP_SELF']); // Fallback
+// Ensure session is started
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
 }
 
-// Základní session proměnné s fallbacks
+// Basic session variables with fallbacks
 $sessionIsLoggedIn = isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] === true;
 $sessionUserId = isset($_SESSION["user_id"]) ? (int)$_SESSION["user_id"] : null;
 $sessionFirstName = isset($_SESSION["first_name"]) ? htmlspecialchars($_SESSION["first_name"]) : 'User';
 
-// Určení role - priorita $_SESSION['role_name'], pak $_SESSION['roleID'], pak $_SESSION['role']
+// Improved role detection with priority
 $userRole = 'employee'; // Default role
-if (isset($_SESSION["role_name"])) {
-    $userRole = strtolower(htmlspecialchars($_SESSION["role_name"]));
-} elseif (isset($_SESSION["roleID"])) { // Pokud máte roleID a je to 'admin' nebo 'employee'
-    $userRole = strtolower(htmlspecialchars($_SESSION["roleID"]));
-} elseif (isset($_SESSION["role"])) {
-    $userRole = strtolower(htmlspecialchars($_SESSION["role"]));
+if ($sessionIsLoggedIn) {
+    if (isset($_SESSION["role_name"])) {
+        $userRole = strtolower(htmlspecialchars($_SESSION["role_name"]));
+    } elseif (isset($_SESSION["role"])) {
+        $userRole = strtolower(htmlspecialchars($_SESSION["role"]));
+    } elseif (isset($_SESSION["roleID"])) {
+        $userRole = strtolower(htmlspecialchars($_SESSION["roleID"]));
+    }
+} else {
+    $userRole = 'guest';
 }
 
-
-// --- Dynamické nastavení cest podle umístění includujícího skriptu ---
-$pathPrefix = ""; // Předpoklad: header je v components/, skript je v rootu projektu
-// Zjistíme, zda je aktuální skript ve složce 'admin/'
-if (strpos($_SERVER['SCRIPT_FILENAME'], DIRECTORY_SEPARATOR . 'admin' . DIRECTORY_SEPARATOR) !== false) {
-    // Jsme v admin sekci (např. /var/www/html/projekt/admin/admin-dashboard.php)
-    // components/ je o úroveň výš
-    $pathPrefix = "../"; 
-}
-// Pokud byste měli složitější strukturu, tato logika by se musela přizpůsobit.
-
-// Cesty pro odkazy a assety
-$base_path_for_root_links = $pathPrefix; // Pro odkazy na soubory v rootu projektu
-$base_path_for_admin_links = ($userRole === 'admin' && $pathPrefix === "") ? "admin/" : ""; // Pro odkazy na admin stránky z rootu
-if ($userRole === 'admin' && $pathPrefix === "../") {
-    $base_path_for_admin_links = ""; // Jsme již v admin, tak není třeba prefix 'admin/'
+// Current page detection
+if (!isset($currentPage)) {
+    $currentPage = basename($_SERVER['PHP_SELF']); // Fallback
 }
 
-$base_path_for_assets = $pathPrefix; // Pro obrázky atd.
+// --- Path Adjustments ---
+// $pathPrefix určuje relativní cestu z aktuálně spouštěného skriptu 
+// k rootu projektu, pokud je main-header.php v components/
+$pathPrefix = ""; 
+$scriptDir = dirname($_SERVER['SCRIPT_FILENAME']); // Adresář aktuálně spouštěného skriptu
+$headerDir = dirname(__FILE__); // Adresář tohoto header souboru (components/)
+
+// Pokud je header v podadresáři (např. components/) a spouštěný skript je o úroveň výš (v rootu)
+if (basename($headerDir) === 'components' && $scriptDir === dirname($headerDir)) {
+    $pathPrefix = ""; // Pro odkazy na stránky v rootu
+    $base_path_for_assets_from_root = ""; // Assety jsou také v rootu (nebo podsložkách rootu)
+} 
+// Pokud je header v components/ a spouštěný skript je také v components/ (méně časté)
+elseif ($scriptDir === $headerDir) {
+    $pathPrefix = ""; // Pro odkazy na stránky v rootu
+    $base_path_for_assets_from_root = "../"; // Musíme jít o úroveň výš k rootu pro assety
+}
+// Pokud je header v components/ a spouštěný skript je v admin/ (který je na stejné úrovni jako components/)
+// Toto je scénář z vašich předchozích požadavků, který teď není aktivní, ale nechávám pro úplnost.
+// V tomto případě by detekce $pathPrefix na začátku souboru (strpos 'admin') byla relevantnější.
+// Pro jednoduchost předpokládáme, že buď je vše v rootu, nebo header v components a stránky v rootu.
+
+// Toto je jednodušší předpoklad pro vaši aktuální strukturu (header v components/, stránky v rootu)
+if (basename(dirname(__FILE__)) === 'components') {
+    $base_path_for_page_links = ""; // Odkazy na stránky v rootu jsou přímé
+    $base_path_for_assets = "";  // Z components/ do rootu pro imgs/ a profile_photos/
+} else {
+    // Pokud by main-header.php byl v rootu
+    $base_path_for_page_links = "";
+    $base_path_for_assets = "";
+}
 
 
 // --- Profile Photo URL Construction ---
-$profile_photo_url = null;
-// Adresář pro fotky relativně k rootu projektu
+// Adresář pro fotky relativně k rootu projektu (z pohledu rootu)
 $profile_upload_dir_relative_to_project_root = defined('PROFILE_UPLOAD_DIR_FROM_PROJECT_ROOT') ? PROFILE_UPLOAD_DIR_FROM_PROJECT_ROOT : 'profile_photos/';
 // Název výchozího avataru
 $default_avatar_filename = defined('DEFAULT_AVATAR_FILENAME') ? DEFAULT_AVATAR_FILENAME : 'default_avatar.jpg';
 
-// Sestavení plné webové cesty k adresáři profilových fotek z rootu webu
-// Předpoklad: $base_path_for_assets již správně ukazuje na root projektu z aktuálního skriptu
+// Sestavení webové cesty k adresáři profilových fotek
+// $base_path_for_assets (např. "../") + $profile_upload_dir_relative_to_project_root (např. "profile_photos/")
 $web_profile_photos_path = htmlspecialchars($base_path_for_assets . $profile_upload_dir_relative_to_project_root);
 
 // Výchozí URL pro avatar
@@ -65,14 +79,16 @@ $profile_photo_url = $web_profile_photos_path . $default_avatar_filename;
 if ($sessionIsLoggedIn && isset($_SESSION["profile_photo"]) && !empty($_SESSION["profile_photo"])) {
     $current_photo_filename = basename($_SESSION["profile_photo"]);
     if ($current_photo_filename !== $default_avatar_filename) {
+        // Použije specifickou fotku uživatele
         $profile_photo_url = $web_profile_photos_path . htmlspecialchars($current_photo_filename);
     }
+    // Jinak zůstane $profile_photo_url nastavena na výchozí avatar
 }
 ?>
 <header>
     <div class="container"> 
         <nav class="navbar">
-            <a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>index.php" class="logo">
+            <a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>index.php" class="logo">
                 <img src="<?php echo htmlspecialchars($base_path_for_assets); ?>imgs/logo.png" alt="WavePass Logo" class="logo-img">
                 Wave<span>Pass</span> 
                 <?php if ($userRole === 'admin'): ?>
@@ -82,34 +98,34 @@ if ($sessionIsLoggedIn && isset($_SESSION["profile_photo"]) && !empty($_SESSION[
             <ul class="nav-links">
                 <?php if ($sessionIsLoggedIn): ?>
                     <?php if ($userRole === 'admin'): ?>
-                        <!-- Admin Links -->
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>../dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-nav-link'; ?>">User Dashboard</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_admin_links); ?>admin-dashboard.php" class="<?php if ($currentPage === 'admin-dashboard.php') echo 'active-nav-link'; ?>">Admin Panel</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_admin_links); ?>admin-manage-rfid.php" class="<?php if ($currentPage === 'admin-manage-rfid.php') echo 'active-nav-link'; ?>">RFID Cards</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_admin_links); ?>admin-manage-employees.php" class="<?php if ($currentPage === 'admin-manage-employees.php') echo 'active-nav-link'; ?>">Employees</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_admin_links); ?>admin-manage-absences.php" class="<?php if ($currentPage === 'admin-manage-absences.php') echo 'active-nav-link'; ?>">Absences</a></li>
-                    <?php else: ?>
-                        <!-- Employee Links -->
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-nav-link'; ?>">My Dashboard</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>my_attendance_log.php" class="<?php if ($currentPage === 'my_attendance_log.php') echo 'active-nav-link'; ?>">Attendance Log</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>absences.php" class="<?php if ($currentPage === 'absences.php') echo 'active-nav-link'; ?>">Absence</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>messages.php" class="<?php if ($currentPage === 'messages.php') echo 'active-nav-link'; ?>">Messages</a></li>
+                        <!-- Admin Links (všechny jsou v rootu projektu) -->
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-nav-link'; ?>">User Dashboard</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-dashboard.php" class="<?php if ($currentPage === 'admin-dashboard.php') echo 'active-nav-link'; ?>">Admin Panel</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-rfid.php" class="<?php if ($currentPage === 'admin-manage-rfid.php') echo 'active-nav-link'; ?>">RFID Cards</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-employees.php" class="<?php if ($currentPage === 'admin-manage-employees.php') echo 'active-nav-link'; ?>">Employees</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-absences.php" class="<?php if ($currentPage === 'admin-manage-absences.php') echo 'active-nav-link'; ?>">Absences</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>messages.php?context=admin" class="<?php if ($currentPage === 'messages.php' && isset($_GET['context']) && $_GET['context'] === 'admin') echo 'active-nav-link'; ?>">Messages</a></li>
+
+                    <?php else: // Employee Links (všechny jsou v rootu projektu) ?>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-nav-link'; ?>">My Dashboard</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>my_attendance_log.php" class="<?php if ($currentPage === 'my_attendance_log.php') echo 'active-nav-link'; ?>">Attendance Log</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>absences.php" class="<?php if ($currentPage === 'absences.php') echo 'active-nav-link'; ?>">Absence</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>messages.php" class="<?php if ($currentPage === 'messages.php' && (!isset($_GET['context']) || $_GET['context'] !== 'admin') ) echo 'active-nav-link'; ?>">Messages</a></li>
                     <?php endif; ?>
                     
                     <!-- Common Logged In Links -->
                     <li>
-                        <a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>profile.php?section=profile" class="nav-profile-link <?php if ($currentPage === 'profile.php') echo 'active-nav-link'; ?>"> 
+                        <a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>profile.php?section=profile" class="nav-profile-link <?php if ($currentPage === 'profile.php') echo 'active-nav-link'; ?>"> 
                             <img src="<?php echo $profile_photo_url; ?>?<?php echo time(); // Cache buster ?>" alt="Profile" class="nav-user-photo">
                             <?php echo $sessionFirstName; ?>
                         </a>
                     </li>
-                    <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>logout.php" class="btn btn-outline">Logout</a></li> 
-                <?php else: ?>
-                    <!-- Logged Out Links -->
-                    <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>index.php#features" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#features') !== false) echo 'active-nav-link'; ?>">Features</a></li>
-                    <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>pricing.php" class="<?php if ($currentPage === 'pricing.php') echo 'active-nav-link'; ?>">Pricing</a></li>
-                    <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>index.php#faq" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#faq') !== false) echo 'active-nav-link'; ?>">FAQ</a></li>
-                    <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>login.php" class="btn btn-outline">Login</a></li> 
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>logout.php" class="btn btn-outline">Logout</a></li> 
+                <?php else: // Logged Out Links ?>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>index.php#features" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#features') !== false) echo 'active-nav-link'; ?>">Features</a></li>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>pricing.php" class="<?php if ($currentPage === 'pricing.php') echo 'active-nav-link'; ?>">Pricing</a></li>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>index.php#faq" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#faq') !== false) echo 'active-nav-link'; ?>">FAQ</a></li>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>login.php" class="btn btn-outline">Login</a></li> 
                 <?php endif; ?>
             </ul>
             <div class="hamburger" id="hamburger">
@@ -123,32 +139,35 @@ if ($sessionIsLoggedIn && isset($_SESSION["profile_photo"]) && !empty($_SESSION[
     <ul class="mobile-links">
         <?php if ($sessionIsLoggedIn): ?>
             <?php if ($userRole === 'admin'): ?>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-nav-link'; ?>">User Dashboard</a></li>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_admin_links); ?>admin-dashboard.php" class="<?php if ($currentPage === 'admin-dashboard.php') echo 'active-nav-link'; ?>">Admin Panel</a></li>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_admin_links); ?>admin-manage-rfid.php" class="<?php if ($currentPage === 'admin-manage-rfid.php') echo 'active-nav-link'; ?>">RFID Cards</a></li>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_admin_links); ?>admin-manage-employees.php" class="<?php if ($currentPage === 'admin-manage-employees.php') echo 'active-nav-link'; ?>">Employees</a></li>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_admin_links); ?>admin-manage-absences.php" class="<?php if ($currentPage === 'admin-manage-absences.php') echo 'active-nav-link'; ?>">Absences</a></li>
+                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-nav-link'; ?>">User Dashboard</a></li>
+                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-dashboard.php" class="<?php if ($currentPage === 'admin-dashboard.php') echo 'active-nav-link'; ?>">Admin Panel</a></li>
+                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-rfid.php" class="<?php if ($currentPage === 'admin-manage-rfid.php') echo 'active-nav-link'; ?>">RFID Cards</a></li>
+                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-employees.php" class="<?php if ($currentPage === 'admin-manage-employees.php') echo 'active-nav-link'; ?>">Employees</a></li>
+                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-absences.php" class="<?php if ($currentPage === 'admin-manage-absences.php') echo 'active-nav-link'; ?>">Absences</a></li>
+                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>messages.php?context=admin" class="<?php if ($currentPage === 'messages.php' && isset($_GET['context']) && $_GET['context'] === 'admin') echo 'active-nav-link'; ?>">Messages</a></li>
+                {PLACEHOLDER_FOR_OTHER_ADMIN_LINKS_MOBILE}
             <?php else: ?>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-nav-link'; ?>">My Dashboard</a></li>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>my_attendance_log.php" class="<?php if ($currentPage === 'my_attendance_log.php') echo 'active-nav-link'; ?>">Attendance Log</a></li>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>absences.php" class="<?php if ($currentPage === 'absences.php') echo 'active-nav-link'; ?>">Absence</a></li>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>messages.php" class="<?php if ($currentPage === 'messages.php') echo 'active-nav-link'; ?>">Messages</a></li>
+                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-nav-link'; ?>">My Dashboard</a></li>
+                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>my_attendance_log.php" class="<?php if ($currentPage === 'my_attendance_log.php') echo 'active-nav-link'; ?>">Attendance Log</a></li>
+                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>absences.php" class="<?php if ($currentPage === 'absences.php') echo 'active-nav-link'; ?>">Absence</a></li>
+                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>messages.php" class="<?php if ($currentPage === 'messages.php' && (!isset($_GET['context']) || $_GET['context'] !== 'admin') ) echo 'active-nav-link'; ?>">Messages</a></li>
             <?php endif; ?>
             <li>
-                <a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>profile.php?section=profile" class="<?php if ($currentPage === 'profile.php') echo 'active-nav-link'; ?>">
+                <a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>profile.php?section=profile" class="<?php if ($currentPage === 'profile.php') echo 'active-nav-link'; ?>">
                     <img src="<?php echo $profile_photo_url; ?>?<?php echo time(); ?>" alt="Profile" class="nav-user-photo mobile-nav-user-photo">
                     My Profile
                 </a>
             </li>
-            <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>logout.php" class="btn btn-outline" style="width:100%; margin-top:1rem;">Log out</a> </li>
-        <?php else: ?>
-            <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>index.php#features" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#features') !== false) echo 'active-nav-link'; ?>">Features</a></li>
-            <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>pricing.php" class="<?php if ($currentPage === 'pricing.php') echo 'active-nav-link'; ?>">Pricing</a></li>
-            <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>index.php#faq" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#faq') !== false) echo 'active-nav-link'; ?>">FAQ</a></li>
-            <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>login.php" class="btn btn-primary" style="width:100%; margin-top:1rem;">Login</a></li>
+            <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>logout.php" class="btn btn-outline" style="width:100%; margin-top:1rem;">Log out</a> </li>
+        <?php else: // Logged Out Links Mobile ?>
+            <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>index.php#features" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#features') !== false) echo 'active-nav-link'; ?>">Features</a></li>
+            <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>pricing.php" class="<?php if ($currentPage === 'pricing.php') echo 'active-nav-link'; ?>">Pricing</a></li>
+            <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>index.php#faq" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#faq') !== false) echo 'active-nav-link'; ?>">FAQ</a></li>
+            <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>login.php" class="btn btn-primary" style="width:100%; margin-top:1rem;">Login</a></li>
         <?php endif; ?>
     </ul>
 </div>
+
 
 <style>
 /* Základní styly pro header, pokud nejsou globálně definovány */
