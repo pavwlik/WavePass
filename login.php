@@ -104,7 +104,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; line-height: 1.6; color: var(--dark-color); background-color: var(--light-color); display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden; }
-        main { flex-grow: 1; padding-top: 80px; /* Account for fixed header */ }
+        main { flex-grow: 1; /* Account for fixed header */ }
         .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
         header { background-color: var(--white); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: fixed; width: 100%; top: 0; z-index: 1000; }
         .navbar { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; height: 80px; }
@@ -234,52 +234,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </section>
     </main>
 
-    <footer>
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-column">
-                    <h3>WavePass</h3>
-                    <p>Modern attendance tracking solutions for educational institutions of all sizes.</p>
-                    <div class="social-links">
-                        <a href="#"><i class="fab fa-facebook-f"></i></a>
-                        <a href="#"><i class="fab fa-twitter"></i></a>
-                        <a href="#"><i class="fab fa-linkedin-in"></i></a>
-                        <a href="#"><i class="fab fa-instagram"></i></a>
-                    </div>
-                </div>
-                <div class="footer-column">
-                    <h3>Quick Links</h3>
-                    <ul class="footer-links">
-                        <li><a href="index.php#features"><i class="fas fa-chevron-right"></i> Features</a></li>
-                        <li><a href="index.php#how-it-works"><i class="fas fa-chevron-right"></i> How It Works</a></li>
-                        <li><a href="index.php#contact"><i class="fas fa-chevron-right"></i> Contact</a></li>
-                        <li><a href="index.php#faq"><i class="fas fa-chevron-right"></i> FAQ</a></li>
-                        <li><a href="pricing.php"><i class="fas fa-chevron-right"></i> Pricing</a></li>
-                    </ul>
-                </div>
-                <div class="footer-column">
-                    <h3>Resources</h3>
-                    <ul class="footer-links">
-                        <li><a href="blog.php"><i class="fas fa-chevron-right"></i> Blog</a></li>
-                        <li><a href="help.php"><i class="fas fa-chevron-right"></i> Help Center</a></li>
-                        <li><a href="webinars.php"><i class="fas fa-chevron-right"></i> Webinars</a></li>
-                        <li><a href="api.php"><i class="fas fa-chevron-right"></i> API Documentation</a></li>
-                    </ul>
-                </div>
-                <div class="footer-column">
-                    <h3>Contact Info</h3>
-                    <ul class="footer-links">
-                        <li><a href="mailto:info@WavePass.com"><i class="fas fa-envelope"></i> info@WavePass.com</a></li>
-                        <li><a href="tel:+15551234567"><i class="fas fa-phone"></i> +1 (555) 123-4567</a></li>
-                        <li><a href="https://www.google.com/maps/search/?api=1&query=123%20Education%20St%2C%20Boston%2C%20MA%2002115" target="_blank" rel="noopener noreferrer"><i class="fas fa-map-marker-alt"></i> 123 Education St, Boston, MA</a></li>
-                    </ul>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>© <?php echo date("Y"); ?> WavePass All rights reserved. | <a href="privacy.php">Privacy Policy</a> | <a href="terms.php">Terms of Service</a></p>
-            </div>
-        </div>
-    </footer>
+    <!-- Footer -->
+    <?php  require_once "components/footer.php"; ?>
 
     <script>
         const hamburger = document.getElementById('hamburger');

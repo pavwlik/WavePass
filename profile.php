@@ -180,23 +180,46 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($pdo) && $sessionUserId) {
 // Load/Re-load user data for display
 if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
     try {
-        $stmtUserDisplay = $pdo->prepare("SELECT userID, username, firstName, lastName, email, phone, roleID, RFID, profile_photo FROM users WHERE userID = ?");
+        // Načtení základních dat uživatele (sloupec RFID v users už nepotřebujeme pro tento účel,
+        // pokud jste ho odstranili po úpravě databáze na model 1:N)
+        $stmtUserDisplay = $pdo->prepare("SELECT userID, username, firstName, lastName, email, phone, roleID, profile_photo FROM users WHERE userID = ?");
         $stmtUserDisplay->execute([$sessionUserId]);
         $userData = $stmtUserDisplay->fetch();
 
         if ($userData) {
-            $_SESSION["profile_photo"] = $userData['profile_photo']; // Ensure session has the latest
+            $_SESSION["profile_photo"] = $userData['profile_photo'];
             $userRFIDCards = []; 
+
             if ($activeSection === 'rfid') {
+                // Připravíme SQL dotaz na tabulku rfids
+                // Nyní se dotazujeme na všechny karty, které mají shodné userID
+                $sqlRfid = "SELECT RFID, name, card_type, is_active 
+                            FROM rfids 
+                            WHERE userID = :userid_param"; // Filtrujeme podle userID v tabulce rfids
+
+                // Přidáme filtr podle stavu karty
                 if ($rfidStatusFilter === 'active') {
-                    if (!empty($userData['RFID'])) { 
-                        $userRFIDCards[] = [
-                            'id' => htmlspecialchars($userData['RFID']), 'type' => 'Primary Access Card',
-                            'status' => 'Active', 'status_class' => 'active'
-                        ];
-                    }
-                } 
-                // Placeholder for inactive cards (requires separate table logic)
+                    $sqlRfid .= " AND is_active = 1";
+                } elseif ($rfidStatusFilter === 'inactive') {
+                    $sqlRfid .= " AND is_active = 0";
+                }
+                // Můžete přidat ORDER BY, např. created_at DESC
+                // $sqlRfid .= " ORDER BY created_at DESC"; 
+
+                $stmtRfid = $pdo->prepare($sqlRfid);
+                $stmtRfid->bindParam(':userid_param', $sessionUserId, PDO::PARAM_INT); // Používáme ID přihlášeného uživatele
+                $stmtRfid->execute();
+                $rfidDataFromDb = $stmtRfid->fetchAll(PDO::FETCH_ASSOC); // Načteme VŠECHNY odpovídající karty
+
+                foreach ($rfidDataFromDb as $cardData) {
+                    $userRFIDCards[] = [
+                        'id' => htmlspecialchars($cardData['RFID']), // ID karty z tabulky rfids
+                        'name' => isset($cardData['name']) ? htmlspecialchars($cardData['name']) : 'N/A', 
+                        'type' => htmlspecialchars($cardData['card_type']), // Typ karty z tabulky rfids
+                        'status' => $cardData['is_active'] ? 'Active' : 'Inactive',
+                        'status_class' => $cardData['is_active'] ? 'active' : 'inactive'
+                    ];
+                }
             }
         } else {
             $dbErrorMessage = "Could not retrieve your user data for display.";
@@ -205,6 +228,7 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
         $dbErrorMessage = "Database error on page load: " . $e->getMessage();
     }
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -352,7 +376,26 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
         .placeholder-text {color: var(--gray-color); font-style: italic; font-size: 0.8rem;}
         .no-activity-msg {text-align:center; padding: 2.5rem 1rem; color:var(--gray-color); font-size:0.95rem; background-color: #fdfdfd; border-radius: 4px; border: 1px dashed var(--light-gray);}
 
-
+                /* Footer */
+        footer { background-color: var(--dark-color); color: var(--white); padding: 5rem 0 2rem; }
+        .footer-content { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 3rem; margin-bottom: 3rem; }
+        .footer-column h3 { font-size: 1.3rem; margin-bottom: 1.8rem; position: relative; padding-bottom: 0.8rem; }
+        .footer-column h3::after { content: ''; position: absolute; left: 0; bottom: 0; width: 50px; height: 3px; background-color: var(--primary-color); border-radius: 3px; }
+        .footer-links { list-style: none; }
+        .footer-links li { margin-bottom: 0.8rem; }
+        .footer-links a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); font-size: 0.95rem; display: inline-block; padding: 0.2rem 0; }
+        .footer-links a:hover { color: var(--white); transform: translateX(5px); }
+        .footer-links a i { margin-right: 0.5rem; width: 20px; text-align: center; }
+        .social-links { display: flex; gap: 1.2rem; margin-top: 1.5rem; }
+        .social-links a { 
+            display: inline-flex; align-items: center; justify-content: center; 
+            width: 40px; height: 40px; background-color: rgba(255, 255, 255, 0.1); 
+            color: var(--white); border-radius: 50%; font-size: 1.1rem; transition: var(--transition); 
+        }
+        .social-links a:hover { background-color: var(--primary-color); transform: translateY(-3px); }
+        .footer-bottom { text-align: center; padding-top: 3rem; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.9rem; color: rgba(255, 255, 255, 0.6); }
+        .footer-bottom a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); }
+        .footer-bottom a:hover { color: var(--primary-color); }
         @media (max-width: 992px) { .account-layout { flex-direction: column; } .account-sidebar { width: 100%; margin-bottom:2rem; } }
         @media (max-width: 768px) { .profile-info-form .form-row { flex-direction:column; gap:0; margin-bottom:0;} .profile-info-form .form-row .form-group {margin-bottom:1.5rem;} .profile-picture-group{flex-direction:column; align-items:center; gap:1rem;}.account-content{padding:1.5rem;} }
         /* FOOTER (same as index.php) */
@@ -464,13 +507,16 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                                 <div class="rfid-card-item">
                                     <img src="imgs/wavepass_card.png" alt="WavePass RFID Card" class="rfid-card-image">
                                     <div class="rfid-card-info">
-                                        <h4>Card ID: <?php echo $card['id']; ?></h4>
-                                        <p>Type: <?php echo htmlspecialchars($card['type']); ?></p>
-                                        <p class="rfid-card-status <?php echo $card['status_class']; ?>">
-                                            <span class="material-symbols-outlined"><?php echo ($card['status_class'] === 'active' ? 'verified_user' : 'do_not_disturb_on'); ?></span>
-                                            <?php echo $card['status']; ?>
-                                        </p>
-                                    </div>
+                                    <h4>Card ID: <?php echo $card['id']; ?></h4>
+                                    <?php if ($card['name'] !== 'N/A'): ?>
+                                        <p>Name: <?php echo $card['name']; ?></p>
+                                    <?php endif; ?>
+                                    <p>Type: <?php echo $card['type']; ?></p> <!-- Zobrazí typ karty z $userRFIDCards -->
+                                    <p class="rfid-card-status <?php echo $card['status_class']; ?>">
+                                        <span class="material-symbols-outlined"><?php echo ($card['status_class'] === 'active' ? 'verified_user' : 'do_not_disturb_on'); ?></span>
+                                        <?php echo $card['status']; ?>
+                                    </p>
+                                </div>
                                 </div>  
                                 <?php endforeach; ?>
                             </div>
@@ -478,13 +524,13 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                             <p class="no-activity-msg">
                                 <?php 
                                 if ($rfidStatusFilter === 'active') echo 'You currently have no active RFID card registered.';
-                                elseif ($rfidStatusFilter === 'inactive') echo 'No inactive RFID cards on record. (Feature requires expanded DB schema).';
+                                elseif ($rfidStatusFilter === 'inactive') echo 'You currently have no unactive';
                                 else echo 'No RFID cards match your filter.';
                                 ?>
                             </p>
                         <?php endif; ?>
                          <p class="placeholder-text" style="margin-top:1.8rem; text-align:center; font-size:0.85rem;">
-                            <i class="fas fa-info-circle"></i> For RFID card issues or requests, contact administration.
+                            <i class="fas fa-info-circle"></i> For any issues, requests, or lost RFID cards, please contact the administration.
                          </p>
                     </div>
                 </section>
@@ -492,13 +538,8 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
         </div>
     </main>
 
-    <footer>
-        <div class="container">
-             <div class="footer-bottom" style="padding:2rem 0; border-top: 1px solid rgba(var(--dark-color),0.1); text-align:center;">
-                <p>© <?php echo date("Y"); ?> WavePass. All rights reserved. | <a href="privacy.php" style="color:var(--gray-color); text-decoration:none;">Privacy Policy</a> | <a href="terms.php" style="color:var(--gray-color); text-decoration:none;">Terms of Service</a></p>
-            </div>
-        </div>
-    </footer>
+    <!-- Footer -->
+    <?php  require_once "components/footer.php"; ?>
 
     <script>
         // Mobile Menu Toggle 

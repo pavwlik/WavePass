@@ -19,107 +19,126 @@ $sessionRole = isset($_SESSION["role"]) ? $_SESSION["role"] : 'employee'; // Get
 
 $selectedDate = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
 
+// Default values
 $rfidStatus = "Status Unknown";
 $rfidStatusClass = "neutral";
-$absencesThisMonthCount = "N/A";
-$warningMessagesCount = 0;
-$upcomingLeaveDisplay = "None upcoming";
+$absencesThisMonthCount = 0; // Default to 0, will be calculated
+$warningMessagesCount = 0; // Placeholder
+$upcomingLeaveDisplay = "None upcoming"; // Placeholder
 $activityForSelectedDate = [];
 $dbErrorMessage = null;
 $currentUserData = null; 
 
 if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
     try {
-        // Fetch current user's 'absence', 'dateOfCreation', and 'RFID'
-        $stmtUser = $pdo->prepare("SELECT absence, dateOfCreation, RFID FROM users WHERE userID = :userid");
+        // Fetch current user's 'absence' and 'dateOfCreation'
+        // Sloupec RFID byl odstraněn z tohoto dotazu
+        $stmtUser = $pdo->prepare("SELECT absence, dateOfCreation FROM users WHERE userID = :userid");
         $stmtUser->bindParam(':userid', $sessionUserId, PDO::PARAM_INT);
         $stmtUser->execute();
         $currentUserData = $stmtUser->fetch();
 
         if ($currentUserData) {
+            // Určení aktuálního stavu přítomnosti
             if ($currentUserData['absence'] == 0) {
-                $rfidStatus = "Present"; // Changed for simplicity
+                $rfidStatus = "Present";
                 $rfidStatusClass = "present";
             } else {
                 $rfidStatus = "Checked Out / Absent";
                 $rfidStatusClass = "absent";
             }
-            $absencesThisMonthCount = ($currentUserData['absence'] == 1) ? "1 (Current)" : "0 (Current)";
-            // Placeholders for warningMessagesCount & upcomingLeaveDisplay remain
+
+            // --- ZDE MŮŽE BÝT V BUDOUCNU LOGIKA PRO VÝPOČET SKUTEČNÝCH ABSENCÍ ZA MĚSÍC ---
+            // Prozatím ponecháme jednoduchý placeholder založený na aktuálním stavu 'absence'
+            // Skutečný výpočet by vyžadoval dotaz do logů docházky nebo jiné relevantní tabulky.
+            // $absencesThisMonthCount = "N/A"; // Původní placeholder
+            // Můžeme například zobrazit aktuální stav, pokud je absence:
+            $absencesThisMonthCount = ($currentUserData['absence'] == 1) ? "Currently Absent" : "Currently Present";
+
 
             // Activity Snapshot for Selected Date
+            // Záznam o registraci účtu
             if ($selectedDate == date("Y-m-d", strtotime($currentUserData['dateOfCreation']))) {
                  $activityForSelectedDate[] = [
                      'date' => $selectedDate,
-                     'time' => date("H:i", strtotime($currentUserData['dateOfCreation'])), // Time of registration
+                     'time' => date("H:i", strtotime($currentUserData['dateOfCreation'])),
                      'type' => 'Account Registered',
                      'details' => 'Your WavePass account was created.',
-                     'rfid_card' => htmlspecialchars($currentUserData['RFID'] ?: 'N/A'), // Show registered RFID
+                     'rfid_card' => 'N/A', // RFID se už nenačítá z users
                      'status_class' => 'info'
                     ];
             }
 
-            // Current status if selectedDate is today (and not also registration day to avoid double entry)
+            // Aktuální stav, pokud je vybrané datum dnešek
             $isRegDateSelected = ($selectedDate == date("Y-m-d", strtotime($currentUserData['dateOfCreation'])));
             if ($selectedDate == date("Y-m-d")) {
                 $statusDetail = 'Live presence flag: ' . ($currentUserData['absence'] == 1 ? 'Absent' : 'Present');
                 $foundInSnapshot = false;
-                // If registration was today, append to that entry.
+                
                 foreach($activityForSelectedDate as &$activityItem){
                     if($activityItem['type'] === 'Account Registered' && $isRegDateSelected){
+                        // Pokud byla registrace dnes, připojíme aktuální stav k záznamu o registraci
                         $activityItem['details'] .= ' | Current Status: ' . ($currentUserData['absence'] == 1 ? 'Absent' : 'Present');
                         $foundInSnapshot = true;
                         break;
                     }
                 }
-                unset($activityItem);
+                unset($activityItem); // Důležité zrušit referenci po cyklu
 
-                if (!$foundInSnapshot) { // Add as new entry if not appended
+                if (!$foundInSnapshot) { // Pokud nebyla registrace dnes, přidáme nový záznam o aktuálním stavu
                      $activityForSelectedDate[] = [
                          'date' => $selectedDate,
-                         'time' => date("H:i"), // Current time
+                         'time' => date("H:i"), // Aktuální čas
                          'type' => 'Current System Status',
                          'details' => $statusDetail,
-                         'rfid_card' => 'N/A', // RFID not relevant for generic status update
+                         'rfid_card' => 'N/A', // RFID není relevantní pro obecný stav
                          'status_class' => $currentUserData['absence'] == 1 ? 'absent' : 'present'
                         ];
                 }
             }
             
-            // --- PLACEHOLDER: Fetching from a real attendance_logs table for the $selectedDate ---
+            // --- ZDE BUDE KÓD PRO NAČÍTÁNÍ REÁLNÝCH ZÁZNAMŮ Z ATTENDANCE_LOGS ---
+            // Prozatím je zakomentovaný, ale až budete mít tabulku attendance_logs,
+            // budete ho chtít odkomentovat a upravit.
             /*
-            $sqlActivity = "SELECT log_date, status, check_in_time, check_out_time, notes, rfid_card_used 
-                            FROM attendance_logs
-                            WHERE user_id = :userid AND log_date = :selected_date ORDER BY check_in_time ASC";
+            $sqlActivity = "SELECT log_timestamp, event_type, details, rfid_used 
+                            FROM attendance_logs -- Nebo jak se vaše tabulka jmenuje
+                            WHERE userID = :userid AND DATE(log_timestamp) = :selected_date 
+                            ORDER BY log_timestamp ASC";
             $stmtActivity = $pdo->prepare($sqlActivity);
             if ($stmtActivity) {
                 $stmtActivity->bindParam(':userid', $sessionUserId, PDO::PARAM_INT);
                 $stmtActivity->bindParam(':selected_date', $selectedDate, PDO::PARAM_STR);
                 $stmtActivity->execute();
-                // $activityForSelectedDate = []; // UNCOMMENT this if you are replacing the above snapshot with real logs
-                while ($log = $stmtActivity->fetch()) {
-                    $logTime = $log['check_in_time'] ? date("H:i A", strtotime($log['check_in_time'])) : 
-                               ($log['check_out_time'] ? date("H:i A", strtotime($log['check_out_time'])) : 'N/A');
-                    $details = '';
-                    if($log['check_in_time']) $details .= 'In: ' . date("h:i A", strtotime($log['check_in_time']));
-                    if($log['check_out_time']) $details .= ($details ? ' | ' : '') . 'Out: ' . date("h:i A", strtotime($log['check_out_time']));
-                    if($log['notes']) $details .= ($details ? ' | ' : '') . 'Note: ' . htmlspecialchars($log['notes']);
+                
+                // Pokud chcete nahradit předchozí "snapshot" aktivity reálnými logy,
+                // můžete zde $activityForSelectedDate znovu inicializovat na prázdné pole:
+                // $activityForSelectedDate = []; 
 
+                while ($log = $stmtActivity->fetch(PDO::FETCH_ASSOC)) {
                     $activityForSelectedDate[] = [
-                        'date' => date("M d, Y", strtotime($log['log_date'])), // Already have selectedDate
-                        'time' => $logTime,
-                        'type' => ucfirst(str_replace('_', ' ', $log['status'])),
-                        'details' => $details ?: 'Event logged.',
-                        'rfid_card' => htmlspecialchars($log['rfid_card_used'] ?: 'N/A'),
-                        'status_class' => strtolower($log['status'])
+                        'date' => date("M d, Y", strtotime($log['log_timestamp'])), // Nebo použijte $selectedDate
+                        'time' => date("H:i", strtotime($log['log_timestamp'])),
+                        'type' => ucfirst(str_replace('_', ' ', $log['event_type'])), // Např. 'Check In', 'Check Out'
+                        'details' => htmlspecialchars($log['details'] ?: 'Event logged.'),
+                        'rfid_card' => htmlspecialchars($log['rfid_used'] ?: 'N/A'),
+                        'status_class' => strtolower($log['event_type']) // Např. 'check_in' -> 'check_in' class
                     ];
                 }
                 $stmtActivity->closeCursor();
             }
             */
 
+             // Zpráva, pokud pro daný den nejsou žádné specifické záznamy (a není to budoucí datum)
              if (empty($activityForSelectedDate) && $selectedDate <= date('Y-m-d')){
-                 $activityForSelectedDate[] = ['date' => $selectedDate, 'time' => '--:--', 'type' => 'No Specific Record', 'details' => 'No attendance events logged for this day.', 'rfid_card' => 'N/A', 'status_class' => 'neutral'];
+                 $activityForSelectedDate[] = [
+                     'date' => $selectedDate, 
+                     'time' => '--:--', 
+                     'type' => 'No Specific Record', 
+                     'details' => 'No attendance events logged for this day.', 
+                     'rfid_card' => 'N/A', 
+                     'status_class' => 'neutral'
+                    ];
             }
 
 
@@ -389,19 +408,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     </main>
 
     <!-- Footer (Full HTML for footer should be placed here) -->
-    <footer>
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-column"><h3>WavePass</h3><p>Modern attendance tracking...</p><div class="social-links"><a href="#"><i class="fab fa-facebook-f"></i></a><a href="#"><i class="fab fa-twitter"></i></a><a href="#"><i class="fab fa-linkedin-in"></i></a><a href="#"><i class="fab fa-instagram"></i></a></div></div>
-                <div class="footer-column"><h3>Quick Links</h3><ul class="footer-links"><li><a href="index.php#features"><i class="fas fa-chevron-right"></i> Features</a></li><li><a href="index.php#how-it-works"><i class="fas fa-chevron-right"></i> How It Works</a></li><li><a href="pricing.php"><i class="fas fa-chevron-right"></i> Pricing</a></li><li><a href="index.php#contact"><i class="fas fa-chevron-right"></i> Contact</a></li><li><a href="index.php#faq"><i class="fas fa-chevron-right"></i> FAQ</a></li><li><a href="help.php"><i class="fas fa-chevron-right"></i> Help Center</a></li></ul></div>
-                <div class="footer-column"><h3>Resources</h3><ul class="footer-links"><li><a href="blog.php"><i class="fas fa-chevron-right"></i> Blog</a></li><li><a href="help.php"><i class="fas fa-chevron-right"></i> Help Center</a></li><li><a href="webinars.php"><i class="fas fa-chevron-right"></i> Webinars</a></li><li><a href="api.php"><i class="fas fa-chevron-right"></i> API Documentation</a></li></ul></div>
-                <div class="footer-column"><h3>Contact Info</h3><ul class="footer-links"><li><a href="mailto:info@WavePass.com"><i class="fas fa-envelope"></i> info@WavePass.com</a></li><li><a href="tel:+15551234567"><i class="fas fa-phone"></i> +1 (555) 123-4567</a></li><li><a href="https://www.google.com/maps/search/?api=1&query=123%20Education%20St%2C%20Boston%2C%20MA%2002115" target="_blank" rel="noopener noreferrer"><i class="fas fa-map-marker-alt"></i> 123 Education St...</a></li></ul></div>
-            </div>
-            <div class="footer-bottom">
-                <p>© <?php echo date("Y"); ?> WavePass. All rights reserved. | <a href="privacy.php">Privacy Policy</a> | <a href="terms.php">Terms of Service</a></p>
-            </div>
-        </div>
-    </footer>
+    <?php require "components/footer.php"; ?>
 
     <script>
         // Mobile Menu Toggle (Using logic from index.php/assistent.html for hamburger, mobileMenu, closeMenu IDs)

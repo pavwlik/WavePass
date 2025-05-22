@@ -532,7 +532,7 @@ require_once "db.php";
             .footer-content { grid-template-columns: 1fr 1fr; }
         }
 
-            @media (max-width: 576px) {
+         @media (max-width: 576px) {
             .hero h1 { font-size: 2rem; }
             .section-title h2 { font-size: 1.6rem; }
             .feature-card { padding: 2rem 1.5rem; }
@@ -546,16 +546,7 @@ require_once "db.php";
             .mobile-menu .btn, .mobile-menu .btn-outline, 
             .hero-buttons .btn, .hero-buttons .btn-outline,
             .contact-form .btn { max-width: 100%; }
-
-            /* === ADD THIS RULE FOR THE HERO GRADIENT FIX === */
-            .hero::before {
-                width: 150%;
-                height: 150%;
-                top: -25%;   
-                right: -75%; 
-            }
-            /* === END OF HERO GRADIENT FIX === */
-        }
+         }
 
         /* Scroll to Top Button */
         #scrollToTopBtn {

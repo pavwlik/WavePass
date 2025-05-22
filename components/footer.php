@@ -10,6 +10,7 @@
                         <a href="#" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
                         <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
                     </div>
+                    <img src="imgs/erasmus.png" alt="Erasmus+ Logo" class="erasmus-logo">
                 </div>
                 
                 <div class="footer-column">
@@ -48,3 +49,25 @@
             </div>
         </div>
     </footer>
+
+    <style>
+        .footer-column .erasmus-logo {
+    display: block; /* Aby margin fungoval správně a obrázek byl na vlastním řádku */
+    width: 200px;   /* Upravte šířku podle potřeby, např. 150px, 200px, 250px */
+    max-width: 100%; /* Zajistí, že obrázek nebude širší než rodičovský kontejner na menších obrazovkách */
+    height: auto;   /* Zachová poměr stran obrázku */
+    margin-top: 25px; /* Odsazení od sociálních ikon nad ním */
+    margin-bottom: 15px; /* Odsazení zespodu, pokud by pod ním něco bylo v tomto sloupci */
+    /* Pokud byste chtěli obrázek vycentrovat v rámci sloupce: */
+    /* margin-left: auto; */
+    /* margin-right: auto; */
+}
+        .footer-column > img { /* Zacílí přímo na <img> tag, který je přímým potomkem .footer-column */
+    display: block;
+    width: 200px;
+    max-width: 100%;
+    height: auto;
+    margin-top: 25px;
+    margin-bottom: 15px;
+}
+    </style>
