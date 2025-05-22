@@ -37,7 +37,7 @@ if (isset($_SESSION["profile_photo"]) && !empty($_SESSION["profile_photo"])) {
         <nav class="navbar">
             <a href="<?php echo $base_path_for_root_links; ?>admin/admin-dashboard.php" class="logo">
                 <img src="<?php echo $base_path_for_assets; ?>imgs/logo.png" alt="WavePass Logo" class="logo-img">
-                Wave<span>Pass</span> <span class="admin-badge">[Admin]</span>
+                Wave<span>Pass</span> <span class="admin-badge">Admin</span>
             </a>
             <ul class="nav-links">
                 <li><a href="admin-dashboard.php" class="<?php if ($currentPage === 'admin-dashboard.php') echo 'active-nav-link'; ?>">Dashboard</a></li>
@@ -66,7 +66,7 @@ if (isset($_SESSION["profile_photo"]) && !empty($_SESSION["profile_photo"])) {
     </div>
 </header>
 <div class="mobile-menu" id="mobileMenu"> 
-    <span class="close-btn" id="closeMenu"><i class="fas fa-times"></i></span>
+    <span class="close-btn" id="closeMenu"></span>
     <ul class="mobile-links">
          <li><a href="admin-dashboard.php" class="<?php if ($currentPage === 'admin-dashboard.php') echo 'active-nav-link'; ?>">Dashboard</a></li>
          <li><a href="admin-manage-employees.php" class="<?php if ($currentPage === 'admin-manage-employees.php') echo 'active-nav-link'; ?>">Employees</a></li>
@@ -133,8 +133,7 @@ header > .container { /* Targeting the .container directly under header */
 .admin-badge {
     font-size: 0.7rem;
     font-weight: 500;
-    color: var(--danger-color);
-    border: 1px solid var(--danger-color);
+    color: var(--primary-color);
     padding: 2px 5px;
     border-radius: 4px;
     margin-left: 0.5rem;

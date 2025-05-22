@@ -572,4 +572,4 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             }
         </script>
     </body>
-    </html>
+    </html>  

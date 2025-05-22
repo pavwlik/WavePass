@@ -145,6 +145,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
         /* Admin Dashboard Specific Styles */
         .admin-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem; }
+
         .stat-card { 
             background-color: var(--white); padding: 1.5rem; border-radius: 8px; 
             box-shadow: var(--shadow); display: flex; align-items: center; gap: 1.2rem; 
@@ -152,7 +153,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             position:relative; overflow:hidden;
         }
         .stat-card::before { content: ''; position:absolute; top:0; left:0; width:5px; height:100%; background-color:transparent; transition: var(--transition); }
-        .stat-card:hover{transform: translateY(-4px); box-shadow: 0 6px 28px rgba(0,0,0,0.09);}
+        .stat-card:hover{transform: translateY(-4px); box-shadow: 0 6px 28px rgba(0,0,0,0.09); cursor: pointer;}
         .stat-card .icon { 
             font-size: 2rem; padding: 0.8rem; border-radius: 50%; 
             display:flex; align-items:center; justify-content:center; 

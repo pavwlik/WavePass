@@ -25,7 +25,7 @@
         
         <!-- Mobile Menu -->
         <div class="mobile-menu" id="mobileMenu">
-            <span class="close-btn" id="closeMenu"><i class="fas fa-times"></i></span> 
+            <span class="close-btn" id="closeMenu"></i></span> 
             <ul class="mobile-links">
                 <li><a href="#features">Features</a></li>
                 <li><a href="#how-it-works">How It Works</a></li>
@@ -60,5 +60,5 @@
         color: var(--dark-color); 
         font-weight: 600; 
     }
-    
+
         </style>

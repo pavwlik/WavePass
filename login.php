@@ -1,12 +1,17 @@
 <?php
+// --- ERROR REPORTING (Good for development) ---
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 // --- SESSION MANAGEMENT ---
-// Start session if not already started
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
 // --- DATABASE CONNECTION ---
-require_once 'db.php'; // Ensure this path is correct and db.php works
+// Ensure 'db.php' is in the same directory as login.php or adjust path.
+// db.php MUST successfully create a $pdo object.
+require_once 'db.php'; 
 
 // --- INITIALIZE VARIABLES ---
 $login_error = '';
@@ -15,17 +20,17 @@ $email_value = ''; // To retain email in form on error
 // --- REDIRECT IF ALREADY LOGGED IN ---
 if (isset($_SESSION['user_id']) && isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true) {
     // Check role and redirect accordingly
-    if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') { // Check if role is set and is 'admin'
-        header("Location: admin-dashboard.php");
+    if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
+        header("Location: admin-dashboard.php"); // Assumes admin-dashboard.php is in the same directory
     } else {
-        header("Location: dashboard.php");
+        header("Location: dashboard.php"); // Assumes dashboard.php is in the same directory
     }
     exit;
 }
 
 // --- HANDLE FORM SUBMISSION ---
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Retain email value for the form
+    // Retain email value for the form in case of errors
     if(isset($_POST["email"])) {
         $email_value = htmlspecialchars(trim($_POST["email"]));
     }
@@ -37,48 +42,71 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $email = trim($_POST["email"]);
         $password_attempt = trim($_POST["password"]);
 
-        try {
-            // Prepare SQL to prevent SQL injection
-            $sql = "SELECT userID, username, password, firstName, lastName, roleID, email FROM users WHERE email = :email LIMIT 1";
-            $stmt = $pdo->prepare($sql);
-            $stmt->bindParam(':email', $email, PDO::PARAM_STR);
-            $stmt->execute();
-
-            // Check if email exists
-            if ($stmt->rowCount() == 1) {
-                $user = $stmt->fetch(PDO::FETCH_ASSOC); // Fetch as associative array
-
-                // Verify password
-                // $user['password'] MUST contain a hash created by password_hash()
-                if (password_verify($password_attempt, $user['password'])) {
-                    // Password is correct, start a new session and store user data
-                    
-                    // Regenerate session ID for security before setting session data
-                    session_regenerate_id(true);
-
-                    $_SESSION['user_id'] = $user['userID'];
-                    $_SESSION['username'] = $user['username'];
-                    $_SESSION['first_name'] = $user['firstName'];
-                    $_SESSION['last_name'] = $user['lastName'];
-                    $_SESSION['role'] = $user['roleID']; // 'admin' or 'employee'
-                    $_SESSION['email'] = $user['email'];
-                    $_SESSION['loggedin'] = true;
-
-                    // Redirect to dashboard
-                    header("Location: dashboard.php");
-                    exit;
+        // Ensure $pdo is available from db.php
+        if (!isset($pdo) || !($pdo instanceof PDO)) {
+            $login_error = "Database connection is not available. Please contact support.";
+            // Optionally, log a more detailed error for the admin here.
+            // error_log("Login Error: \$pdo object not available from db.php.");
+        } else {
+            try {
+                // Prepare SQL to prevent SQL injection
+                // Ensure 'roleID' is the correct column name in your 'users' table for the role.
+                $sql = "SELECT userID, username, password, firstName, lastName, roleID, email 
+                        FROM users 
+                        WHERE email = :email LIMIT 1";
+                
+                $stmt = $pdo->prepare($sql);
+                
+                // Check if prepare() was successful
+                if ($stmt === false) {
+                    // This should ideally not happen if PDO::ERRMODE_EXCEPTION is set, 
+                    // as an exception would be thrown. But as a fallback:
+                    $login_error = "An error occurred preparing your login request. Please try again.";
+                    error_log("Login Error: PDO prepare() failed. SQL: " . $sql . " Error: " . print_r($pdo->errorInfo(), true));
                 } else {
-                    // Password is not valid
-                    $login_error = "Incorrect password. Please try again.";
+                    $stmt->bindParam(':email', $email, PDO::PARAM_STR);
+                    $stmt->execute();
+
+                    if ($stmt->rowCount() == 1) {
+                        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                        if (password_verify($password_attempt, $user['password'])) {
+                            session_regenerate_id(true); // Enhance security
+
+                            $_SESSION['user_id'] = (int)$user['userID']; // Ensure it's an integer
+                            $_SESSION['username'] = $user['username'];
+                            $_SESSION['first_name'] = $user['firstName'];
+                            $_SESSION['last_name'] = $user['lastName'];
+                            $_SESSION['role'] = $user['roleID']; // This is 'admin' or 'employee'
+                            $_SESSION['email'] = $user['email'];
+                            $_SESSION['loggedin'] = true;
+                            // Optional: Store profile photo path if available at login
+                            // if (isset($user['profile_photo'])) {
+                            // $_SESSION['profile_photo'] = $user['profile_photo'];
+                            // }
+
+
+                            // --- Role-based Redirection ---
+                            if ($user['roleID'] === 'admin') {
+                                header("Location: admin-dashboard.php");
+                            } else {
+                                header("Location: dashboard.php");
+                            }
+                            exit;
+                        } else {
+                            $login_error = "Incorrect password. Please try again.";
+                        }
+                    } else {
+                        $login_error = "No account found with that email address.";
+                    }
                 }
-            } else {
-                // No account found with that email
-                $login_error = "No account found with that email address.";
+            } catch (PDOException $e) {
+                error_log("Login PDOException: " . $e->getMessage() . " for email: " . $email);
+                $login_error = "A database error occurred. Please try again later.";
+            } catch (Exception $e) { // Catch any other unexpected errors
+                error_log("General Login Exception: " . $e->getMessage() . " for email: " . $email);
+                $login_error = "An unexpected error occurred. Please try again later.";
             }
-        } catch (PDOException $e) {
-            // Log the detailed error to a server log file, not to the user
-            // error_log("Login PDOException: " . $e->getMessage());
-            $login_error = "Something went wrong. Please try again later.";
         }
     }
 }

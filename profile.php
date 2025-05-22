@@ -13,18 +13,20 @@ if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
 
 require_once 'db.php'; 
 
-// Initialize variables from session for header and page
-$sessionFirstName = isset($_SESSION["first_name"]) ? htmlspecialchars($_SESSION["first_name"]) : 'Employee';
-$sessionUserId = isset($_SESSION["user_id"]) ? $_SESSION["user_id"] : null;
+$sessionFirstName = isset($_SESSION["first_name"]) ? htmlspecialchars($_SESSION["first_name"]) : 'User';
+$sessionUserId = isset($_SESSION["user_id"]) ? (int)$_SESSION["user_id"] : null;
 $sessionRole = isset($_SESSION["role"]) ? htmlspecialchars($_SESSION["role"]) : 'employee';
-$currentPage = basename($_SERVER['PHP_SELF']); // For active nav link in header
+$currentPage = basename($_SERVER['PHP_SELF']); 
 
 $activeSection = isset($_GET['section']) ? $_GET['section'] : 'profile';
-$rfidStatusFilter = isset($_GET['rfid_status']) && in_array($_GET['rfid_status'], ['active', 'inactive']) 
-                    ? $_GET['rfid_status'] 
-                    : ($activeSection === 'rfid' ? 'active' : null); 
-if ($activeSection === 'rfid' && $rfidStatusFilter === null) {
-    $rfidStatusFilter = 'active';
+
+$rfidStatusFilter = 'active'; 
+if ($activeSection === 'rfid') {
+    if (isset($_GET['rfid_status']) && in_array($_GET['rfid_status'], ['active', 'inactive', 'all'])) {
+        $rfidStatusFilter = $_GET['rfid_status'];
+    }
+} else {
+    $rfidStatusFilter = null; 
 }
 
 $userData = null;
@@ -32,113 +34,145 @@ $userRFIDCards = [];
 $dbErrorMessage = null;
 $updateMessage = null; 
 
-// Configuration Constants
-if (!defined('PROFILE_UPLOAD_DIR')) define('PROFILE_UPLOAD_DIR', 'profile_photos/');
-if (!defined('MAX_PHOTO_SIZE')) define('MAX_PHOTO_SIZE', 2 * 1024 * 1024); // 2 MB
+// --- PATH & CONFIGURATION CONSTANTS ---
+$projectBasePath = ''; // Adjust if your project is in a subdirectory of the web root
+$docRoot = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+$scriptDir = dirname($_SERVER['SCRIPT_FILENAME']);
+if (strpos($scriptDir, $docRoot) === 0) {
+    $projectBasePathCalc = substr($scriptDir, strlen($docRoot));
+    if (basename($_SERVER['SCRIPT_NAME']) != '') { $projectBasePathCalc = dirname($projectBasePathCalc); }
+    $projectBasePath = str_replace('\\', '/', $projectBasePathCalc);
+    $projectBasePath = rtrim($projectBasePath, '/'); 
+}
+
+if (!defined('WEB_ROOT_PATH')) { // Define a base path for web URLs if not already set
+    // This attempts to guess the base path. For more robustness, define it explicitly in a config file.
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+    $host = $_SERVER['HTTP_HOST'];
+    define('WEB_ROOT_PATH', rtrim($protocol . $host . $projectBasePath, '/') . '/');
+}
+
+
+if (!defined('PROFILE_UPLOAD_DIR_FROM_ROOT')) define('PROFILE_UPLOAD_DIR_FROM_ROOT', 'profile_photos/');
+$webProfileUploadDir = WEB_ROOT_PATH . ltrim(PROFILE_UPLOAD_DIR_FROM_ROOT, '/');
+$fileSystemProfileUploadDir = $docRoot . $projectBasePath . '/' . ltrim(PROFILE_UPLOAD_DIR_FROM_ROOT, '/');
+$fileSystemProfileUploadDir = rtrim($fileSystemProfileUploadDir, '/') . '/';
+
+
+if (!defined('MAX_PHOTO_SIZE')) define('MAX_PHOTO_SIZE', 2 * 1024 * 1024); 
 if (!defined('ALLOWED_PHOTO_TYPES')) define('ALLOWED_PHOTO_TYPES', ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif']);
 
-if (!file_exists(PROFILE_UPLOAD_DIR)) {
-    if (!mkdir(PROFILE_UPLOAD_DIR, 0775, true)) {
-        $dbErrorMessage = "CRITICAL ERROR: Failed to create profile photo directory (" . PROFILE_UPLOAD_DIR . "). Please check server permissions.";
+if (!is_dir($fileSystemProfileUploadDir)) {
+    if (!@mkdir($fileSystemProfileUploadDir, 0775, true)) {
+        $mkdirError = error_get_last();
+        error_log("CRITICAL ERROR: Failed to create profile photo directory (" . $fileSystemProfileUploadDir . "). Error: " . ($mkdirError['message'] ?? 'Unknown error'));
+        if($activeSection === 'profile') { $dbErrorMessage = "Profile photo directory setup error. Please contact support."; }
     }
 }
 
-// --- Form Submission Handling ---
+// --- Form Submission Handling (Profile Update & Password Change) ---
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($pdo) && $sessionUserId) {
-    $stmtCurrentDataForPost = $pdo->prepare("SELECT profile_photo FROM users WHERE userID = :userid");
-    $stmtCurrentDataForPost->bindParam(':userid', $sessionUserId, PDO::PARAM_INT);
-    $stmtCurrentDataForPost->execute();
-    $currentDbUserDataForPost = $stmtCurrentDataForPost->fetch();
-    $currentProfilePhotoFilenameDB = $currentDbUserDataForPost ? $currentDbUserDataForPost['profile_photo'] : null;
-    if($stmtCurrentDataForPost) $stmtCurrentDataForPost->closeCursor();
+    // Fetch current photo before any updates, only if needed for deletion logic
+    $currentDbUserPhoto = null;
+    if (isset($_POST['update_profile']) && (isset($_FILES['profile_photo_input']) && $_FILES['profile_photo_input']['error'] === UPLOAD_ERR_OK)) {
+        $stmtCurrentPhoto = $pdo->prepare("SELECT profile_photo FROM users WHERE userID = :userid");
+        $stmtCurrentPhoto->bindParam(':userid', $sessionUserId, PDO::PARAM_INT);
+        $stmtCurrentPhoto->execute();
+        $currentDbUserPhoto = $stmtCurrentPhoto->fetchColumn();
+        if($stmtCurrentPhoto) $stmtCurrentPhoto->closeCursor();
+    }
+
 
     if (isset($_POST['update_profile'])) {
         $newFirstName = trim($_POST['firstName']);
         $newLastName = trim($_POST['lastName']);
         $newEmail = trim($_POST['email']);
         $newPhone = trim($_POST['phone']);
-        $newProfilePhotoNameToSave = null; 
+        $newProfilePhotoNameToSave = $currentDbUserPhoto; // Default to current, will be overridden if new photo uploaded
 
         if (empty($newFirstName) || empty($newLastName) || empty($newEmail)) {
             $updateMessage = ['type' => 'error', 'text' => 'First name, last name, and email are required.'];
         } elseif (!filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
             $updateMessage = ['type' => 'error', 'text' => 'Invalid email format.'];
         } else {
-            $photoUploadProcessedSuccessfully = false; // Tracks if a photo was uploaded AND processed ok
-            if (isset($_FILES['profile_photo_input']) && $_FILES['profile_photo_input']['error'] === UPLOAD_ERR_OK) {
-                $fileTmpPath = $_FILES['profile_photo_input']['tmp_name'];
-                $fileName = basename($_FILES['profile_photo_input']['name']);
-                $fileSize = $_FILES['profile_photo_input']['size'];
-                $fileType = mime_content_type($fileTmpPath);
+            $currentEmailInDB = $_SESSION['email'] ?? ''; // Fallback to session, prefer DB loaded below
+            if (isset($userData['email'])) $currentEmailInDB = $userData['email']; // Use if already loaded
 
-                if ($fileSize > MAX_PHOTO_SIZE) {
-                    $updateMessage = ['type' => 'error', 'text' => 'Image is too large (Max 2MB).'];
-                } elseif (!array_key_exists($fileType, ALLOWED_PHOTO_TYPES)) {
-                    $updateMessage = ['type' => 'error', 'text' => 'Invalid file type. Allowed: JPG, PNG, GIF. Detected: ' . $fileType];
-                } else {
-                    $fileExtension = ALLOWED_PHOTO_TYPES[$fileType];
-                    $newProfilePhotoNameToSave = 'user' . $sessionUserId . '_' . bin2hex(random_bytes(12)) . '.' . $fileExtension; // Longer random string
-                    $dest_path = PROFILE_UPLOAD_DIR . $newProfilePhotoNameToSave;
-
-                    if (!is_writable(PROFILE_UPLOAD_DIR)) {
-                         $updateMessage = ['type' => 'error', 'text' => 'Upload directory is not writable. Cannot save photo.'];
-                         $newProfilePhotoNameToSave = null;
-                    } elseif (move_uploaded_file($fileTmpPath, $dest_path)) {
-                        if ($currentProfilePhotoFilenameDB && $currentProfilePhotoFilenameDB !== $newProfilePhotoNameToSave && file_exists(PROFILE_UPLOAD_DIR . $currentProfilePhotoFilenameDB)) {
-                            @unlink(PROFILE_UPLOAD_DIR . $currentProfilePhotoFilenameDB);
-                        }
-                        $photoUploadProcessedSuccessfully = true;
-                    } else {
-                        $updateMessage = ['type' => 'error', 'text' => 'Could not save uploaded file (move_uploaded_file failed).'];
-                        $newProfilePhotoNameToSave = null;
-                    }
+            if (strtolower($newEmail) !== strtolower($currentEmailInDB)) {
+                $stmtCheckEmail = $pdo->prepare("SELECT userID FROM users WHERE email = :email AND userID != :sessionUserID");
+                $stmtCheckEmail->bindParam(':email', $newEmail);
+                $stmtCheckEmail->bindParam(':sessionUserID', $sessionUserId, PDO::PARAM_INT);
+                $stmtCheckEmail->execute();
+                if ($stmtCheckEmail->fetch()) {
+                    $updateMessage = ['type' => 'error', 'text' => 'This email address is already in use.'];
                 }
-            } elseif (isset($_FILES['profile_photo_input']) && $_FILES['profile_photo_input']['error'] !== UPLOAD_ERR_NO_FILE) {
-                 $updateMessage = ['type' => 'error', 'text' => 'Profile photo upload error. Code: '. $_FILES['profile_photo_input']['error']];
             }
 
-            // Update DB only if there wasn't a fatal error during text validation or photo processing
-            if (!isset($updateMessage) || ($updateMessage['type'] !== 'error' && $photoUploadProcessedSuccessfully) || (!isset($updateMessage) && !$photoUploadProcessedSuccessfully && (!isset($_FILES['profile_photo_input']) || $_FILES['profile_photo_input']['error'] == UPLOAD_ERR_NO_FILE) )) {
-                try {
-                    $paramsToUpdate = [
-                        ':firstName' => $newFirstName, ':lastName' => $newLastName,
-                        ':email' => $newEmail, ':phone' => $newPhone,
-                        ':userid' => $sessionUserId
-                    ];
-                    $sqlSetParts = ["firstName = :firstName", "lastName = :lastName", "email = :email", "phone = :phone"];
+            if (!isset($updateMessage)) { 
+                $photoUploadProcessedSuccessfully = false; 
+                if (isset($_FILES['profile_photo_input']) && $_FILES['profile_photo_input']['error'] === UPLOAD_ERR_OK) {
+                    $fileTmpPath = $_FILES['profile_photo_input']['tmp_name'];
+                    $fileSize = $_FILES['profile_photo_input']['size'];
+                    $fileType = mime_content_type($fileTmpPath);
 
-                    if ($newProfilePhotoNameToSave) {
-                        $sqlSetParts[] = "profile_photo = :profile_photo";
-                        $paramsToUpdate[':profile_photo'] = $newProfilePhotoNameToSave;
-                    }
-                    // Example for a "remove photo" checkbox
-                    // elseif (isset($_POST['remove_current_photo']) && $_POST['remove_current_photo'] == '1' && $currentProfilePhotoFilenameDB) {
-                    //    $sqlSetParts[] = "profile_photo = NULL";
-                    //    if (file_exists(PROFILE_UPLOAD_DIR . $currentProfilePhotoFilenameDB)) {
-                    //        @unlink(PROFILE_UPLOAD_DIR . $currentProfilePhotoFilenameDB);
-                    //    }
-                    // }
-
-
-                    $sql = "UPDATE users SET " . implode(", ", $sqlSetParts) . " WHERE userID = :userid";
-                    $stmt = $pdo->prepare($sql);
-                    
-                    if ($stmt->execute($paramsToUpdate)) {
-                        $_SESSION["first_name"] = $newFirstName;
-                        $_SESSION["email"] = $newEmail;
-                        if ($newProfilePhotoNameToSave) {
-                            $_SESSION["profile_photo"] = $newProfilePhotoNameToSave;
-                        } elseif (isset($_POST['remove_current_photo']) && $_POST['remove_current_photo'] == '1') {
-                            $_SESSION["profile_photo"] = null;
-                        }
-                        $sessionFirstName = $newFirstName;
-                        $updateMessage = ['type' => 'success', 'text' => 'Profile updated successfully!'];
-                        if ($newProfilePhotoNameToSave) $updateMessage['text'] .= ' New photo applied.';
+                    if ($fileSize > MAX_PHOTO_SIZE) {
+                        $updateMessage = ['type' => 'error', 'text' => 'Image too large (Max 2MB).'];
+                    } elseif (!array_key_exists($fileType, ALLOWED_PHOTO_TYPES)) {
+                        $updateMessage = ['type' => 'error', 'text' => 'Invalid file type. Allowed: JPG, PNG, GIF.'];
                     } else {
-                        $updateMessage = ['type' => 'error', 'text' => 'Failed to update profile data in the database.'];
+                        $fileExtension = ALLOWED_PHOTO_TYPES[$fileType];
+                        $uploadedFileName = 'user' . $sessionUserId . '_' . bin2hex(random_bytes(12)) . '.' . $fileExtension;
+                        $dest_path = $fileSystemProfileUploadDir . $uploadedFileName;
+
+                        if (!is_writable($fileSystemProfileUploadDir)) {
+                            $updateMessage = ['type' => 'error', 'text' => 'Upload directory not writable.'];
+                            error_log("Upload directory not writable: " . $fileSystemProfileUploadDir);
+                        } elseif (move_uploaded_file($fileTmpPath, $dest_path)) {
+                            if ($currentDbUserPhoto && $currentDbUserPhoto !== $uploadedFileName && file_exists($fileSystemProfileUploadDir . $currentDbUserPhoto)) {
+                                @unlink($fileSystemProfileUploadDir . $currentDbUserPhoto);
+                            }
+                            $newProfilePhotoNameToSave = $uploadedFileName; 
+                            $photoUploadProcessedSuccessfully = true;
+                        } else {
+                            $updateMessage = ['type' => 'error', 'text' => 'Could not save uploaded file.'];
+                            error_log("move_uploaded_file failed for: " . $dest_path);
+                        }
                     }
-                } catch (PDOException $e) {
-                    $updateMessage = ['type' => 'error', 'text' => 'Database error: ' . $e->getMessage()];
+                } elseif (isset($_FILES['profile_photo_input']) && $_FILES['profile_photo_input']['error'] !== UPLOAD_ERR_NO_FILE) {
+                    $updateMessage = ['type' => 'error', 'text' => 'Photo upload error. Code: '. $_FILES['profile_photo_input']['error']];
+                }
+
+                if (!isset($updateMessage['type']) || $updateMessage['type'] !== 'error') { 
+                    try {
+                        $paramsToUpdate = [
+                            ':firstName' => $newFirstName, ':lastName' => $newLastName,
+                            ':email' => $newEmail, ':phone' => $newPhone,
+                            ':userid' => $sessionUserId
+                        ];
+                        $sqlSetParts = ["firstName = :firstName", "lastName = :lastName", "email = :email", "phone = :phone"];
+
+                        if ($photoUploadProcessedSuccessfully && $newProfilePhotoNameToSave) {
+                            $sqlSetParts[] = "profile_photo = :profile_photo";
+                            $paramsToUpdate[':profile_photo'] = $newProfilePhotoNameToSave;
+                        }
+                        
+                        $sql = "UPDATE users SET " . implode(", ", $sqlSetParts) . " WHERE userID = :userid";
+                        $stmt = $pdo->prepare($sql);
+                        
+                        if ($stmt->execute($paramsToUpdate)) {
+                            $_SESSION["first_name"] = $newFirstName; 
+                            $_SESSION["email"] = $newEmail;
+                            if ($photoUploadProcessedSuccessfully && $newProfilePhotoNameToSave) {
+                                $_SESSION["profile_photo"] = $newProfilePhotoNameToSave;
+                            }
+                            $sessionFirstName = $newFirstName; 
+                            $updateMessage = ['type' => 'success', 'text' => 'Profile updated successfully!'];
+                        } else {
+                            $updateMessage = ['type' => 'error', 'text' => 'Failed to update profile data.'];
+                        }
+                    } catch (PDOException $e) {
+                        $updateMessage = ['type' => 'error', 'text' => 'Database error updating profile: ' . $e->getMessage()];
+                    }
                 }
             }
         }
@@ -149,29 +183,32 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($pdo) && $sessionUserId) {
 
         if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
             $updateMessage = ['type' => 'error', 'text' => 'All password fields are required.'];
+        } elseif (strlen($newPassword) < 8) {
+            $updateMessage = ['type' => 'error', 'text' => 'New password must be at least 8 characters.'];
         } elseif ($newPassword !== $confirmPassword) {
             $updateMessage = ['type' => 'error', 'text' => 'New passwords do not match.'];
-        } elseif (strlen($newPassword) < 8) {
-            $updateMessage = ['type' => 'error', 'text' => 'Password must be at least 8 characters long.'];
         } else {
             try {
-                $stmt = $pdo->prepare("SELECT password FROM users WHERE userID = ?");
-                $stmt->execute([$sessionUserId]);
-                $user = $stmt->fetch();
+                $stmtPass = $pdo->prepare("SELECT password FROM users WHERE userID = :userID_param");
+                $stmtPass->bindParam(':userID_param', $sessionUserId, PDO::PARAM_INT);
+                $stmtPass->execute();
+                $userPassData = $stmtPass->fetch();
                 
-                if ($user && password_verify($currentPassword, $user['password'])) {
+                if ($userPassData && password_verify($currentPassword, $userPassData['password'])) {
                     $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
-                    $updateStmt = $pdo->prepare("UPDATE users SET password = ? WHERE userID = ?");
-                    if ($updateStmt->execute([$hashedPassword, $sessionUserId])) {
+                    $updateStmt = $pdo->prepare("UPDATE users SET password = :newHashedPassword WHERE userID = :userID_param_update");
+                    $updateStmt->bindParam(':newHashedPassword', $hashedPassword);
+                    $updateStmt->bindParam(':userID_param_update', $sessionUserId, PDO::PARAM_INT);
+                    if ($updateStmt->execute()) {
                         $updateMessage = ['type' => 'success', 'text' => 'Password changed successfully!'];
                     } else {
-                        $updateMessage = ['type' => 'error', 'text' => 'Failed to update password.'];
+                        $updateMessage = ['type' => 'error', 'text' => 'Failed to update password in database.'];
                     }
                 } else {
                     $updateMessage = ['type' => 'error', 'text' => 'Current password is incorrect.'];
                 }
             } catch (PDOException $e) {
-                $updateMessage = ['type' => 'error', 'text' => 'Database error: ' . $e->getMessage()];
+                $updateMessage = ['type' => 'error', 'text' => 'Database error changing password: ' . $e->getMessage()];
             }
         }
     }
@@ -180,25 +217,65 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($pdo) && $sessionUserId) {
 // Load/Re-load user data for display
 if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
     try {
-        // Načtení základních dat uživatele
-        $stmtUserDisplay = $pdo->prepare("SELECT userID, username, firstName, lastName, email, phone, roleID, profile_photo FROM users WHERE userID = ?");
-        $stmtUserDisplay->execute([$sessionUserId]); // Using the logged-in user's ID
+        $stmtUserDisplay = $pdo->prepare("SELECT userID, username, firstName, lastName, email, phone, roleID, profile_photo FROM users WHERE userID = :userID_param");
+        $stmtUserDisplay->bindParam(':userID_param', $sessionUserId, PDO::PARAM_INT);
+        $stmtUserDisplay->execute();
         $userData = $stmtUserDisplay->fetch();
 
         if ($userData) {
-            $_SESSION["profile_photo"] = $userData['profile_photo']; // Updates session photo
+            if (isset($userData['profile_photo'])) { 
+                $_SESSION["profile_photo"] = $userData['profile_photo'];
+            }
+            
             $userRFIDCards = []; 
-
             if ($activeSection === 'rfid') {
-                // ... (RFID card fetching logic - this part is likely okay if $userData is found) ...
+                $sqlRfid = "SELECT RFID, name, card_type, is_active, rfid_url 
+                            FROM rfids 
+                            WHERE userID = :current_session_userID"; 
+
+                $paramsRfid = [':current_session_userID' => $sessionUserId];
+
+                if ($rfidStatusFilter === 'active') {
+                    $sqlRfid .= " AND is_active = 1";
+                } elseif ($rfidStatusFilter === 'inactive') {
+                    $sqlRfid .= " AND is_active = 0";
+                }
+                // For 'all', no additional is_active filter needed
+                
+                $sqlRfid .= " ORDER BY created_at DESC";
+
+                $stmtRfid = $pdo->prepare($sqlRfid);
+                $stmtRfid->execute($paramsRfid);
+                $rfidDataFromDb = $stmtRfid->fetchAll(PDO::FETCH_ASSOC);
+
+                foreach ($rfidDataFromDb as $cardData) {
+                    $userRFIDCards[] = [
+                        'id_pk'           => htmlspecialchars($cardData['RFID']),
+                        'rfid_identifier' => htmlspecialchars($cardData['rfid_url']),
+                        'name'            => isset($cardData['name']) && !empty($cardData['name']) ? htmlspecialchars($cardData['name']) : 'N/A', 
+                        'type'            => htmlspecialchars($cardData['card_type']),
+                        'status_bool'     => (bool)$cardData['is_active'],
+                        'status_text'     => $cardData['is_active'] ? 'Active' : 'Inactive',
+                        'status_class'    => $cardData['is_active'] ? 'active' : 'inactive'
+                    ];
+                }
             }
         } else {
-            // THIS IS WHERE YOUR ERROR MESSAGE IS GENERATED
-            $dbErrorMessage = "Could not retrieve your user data for display.";
+            $dbErrorMessage = "Could not retrieve your user data. User ID " . htmlspecialchars($sessionUserId) . " not found.";
         }
     } catch (PDOException $e) {
         $dbErrorMessage = "Database error on page load: " . $e->getMessage();
     }
+} elseif (!$sessionUserId) {
+    $dbErrorMessage = "User session is invalid. Please log in again.";
+} elseif (!isset($pdo) || !($pdo instanceof PDO)) {
+    $dbErrorMessage = "Database connection is not available.";
+}
+
+// Determine correct path for assets and component includes
+$pathPrefix = ""; // Assume profile.php is in root
+if (strpos($_SERVER['PHP_SELF'], '/admin/') !== false) {
+    $pathPrefix = "../"; // If profile.php were in admin/
 }
 
 ?>
@@ -207,25 +284,25 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="imgs/logo.png" type="image/x-icon">
+    <link rel="icon" href="<?php echo $pathPrefix; ?>imgs/logo.png" type="image/x-icon">
     <title>My Account - <?php echo $sessionFirstName; ?> - WavePass</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+        /* ... (Your existing CSS, including the corrected .container and header .container .navbar styles) ... */
         :root {
             --primary-color: #4361ee; --primary-dark: #3a56d4;
+            --primary-color-rgb: 67, 97, 238; /* For rgba */
             --secondary-color: #3f37c9; --dark-color: #1a1a2e;
             --light-color: #f8f9fa; --gray-color: #6c757d;
             --light-gray: #e9ecef; --white: #ffffff;
             --success-color: #4CAF50; --danger-color: #F44336;  
-            --present-color-rgb: 67, 170, 139; /* For rgba backgrounds */
+            --present-color-rgb: 67, 170, 139; 
             --info-color-rgb: 33, 150, 243;
+            --neutral-color-rgb: 173, 181, 189;
             --present-color: rgb(var(--present-color-rgb));
             --info-color: rgb(var(--info-color-rgb));
-             --neutral-color-rgb: 173, 181, 189;
             --neutral-color: rgb(var(--neutral-color-rgb));
-
-
             --shadow: 0 5px 25px rgba(0,0,0,0.07);
             --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
             --sidebar-bg: var(--white);
@@ -237,55 +314,49 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; line-height: 1.65; color: var(--dark-color); background-color: #f4f7fc; display: flex; flex-direction: column; min-height: 100vh; }
         main { flex-grow: 1; padding-top: 80px; }
-        .container { max-width: 1400px; margin: 0 auto; padding: 0 25px; }
-        h1,h2,h3,h4 {font-weight: 600; letter-spacing: -0.5px;}
-
-        /* NAVBAR STYLES (Consistent with index.php theme) */
-        header { background-color: var(--white); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: fixed; width: 100%; top: 0; z-index: 1000; }
-        .navbar { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; height: 80px; }
-        .logo { font-size: 1.8rem; font-weight: 800; color: var(--primary-color); text-decoration: none; display: flex; align-items: center; gap: 0.5rem; }
-        .logo img.logo-img { height: 50px; width: auto; vertical-align: middle; margin-right: 0.5rem; } /* For image logo */
-        .logo i.fas { font-size: 1.5rem; } /* For FontAwesome icon logo */
-        .logo span { color: var(--dark-color); font-weight: 600; }
-        .nav-links { display: flex; list-style: none; align-items: center; gap: 0.5rem; }
-        .nav-links a:not(.btn) { color: var(--dark-color); text-decoration: none; font-weight: 500; padding: 0.7rem 1rem; font-size: 0.95rem; border-radius: 8px; position: relative; transition: var(--transition); display:inline-flex; align-items:center; }
-        .nav-links a:not(.btn):hover, .nav-links a.active-nav-link { color: var(--primary-color); background-color: rgba(var(--primary-color, 67, 97, 238),0.07); }
-        .nav-links .material-symbols-outlined { font-size: 1.3em; vertical-align:text-bottom; margin-right:5px;}
-        .nav-user-photo {width: 28px; height: 28px; border-radius: 50%; object-fit: cover; margin-right: 8px; vertical-align: middle; border: 1px solid var(--light-gray);}
-
-
-        /* General Button Styles (Theme Consistent) */
-        .btn {
-            display: inline-flex; align-items: center; justify-content: center;
-            padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 500; /* Adjusted font-weight */
-            text-decoration: none; cursor: pointer; transition: var(--transition);
-            gap: 0.6rem; border: 2px solid transparent; font-size: 0.9rem; /* Adjusted font-size */
-            line-height: 1.5; /* Ensure text aligns well */
-        }
-        .btn-primary { background-color: var(--primary-color); color: var(--white); border-color: var(--primary-color); box-shadow: 0 2px 5px rgba(var(--primary-color, 67, 97, 238), 0.2);}
-        .btn-primary:hover { background-color: var(--primary-dark); border-color: var(--primary-dark); transform:translateY(-1px); box-shadow: 0 4px 8px rgba(var(--primary-color, 67, 97, 238), 0.3);}
-        .btn-outline { background-color: transparent; border-color: var(--primary-color); color: var(--primary-color); }
-        .btn-outline:hover { background-color: var(--primary-color); color: var(--white); transform:translateY(-1px); }
-        .nav-links .btn-outline { padding: 0.6rem 1.1rem; /* Slightly smaller for navbar context */ }
-        .btn .material-symbols-outlined, .btn i.fas { font-size: 1.2em; }
+        .container { max-width: 1440px; margin: 0 auto; padding: 0 25px; } /* Universal container */
         
-        /* Hamburger & Mobile Menu (Consistent with index.php) */
-        .hamburger { display: none; cursor:pointer; } @media (max-width: 992px) { .nav-links { display: none; } .hamburger { display: flex; flex-direction:column; justify-content:space-around; width:30px; height:24px; position:relative; z-index:1001;} .hamburger span{display:block;width:100%;height:3px;background-color:var(--dark-color);position:absolute;left:0;transition:var(--transition);transform-origin:center} .hamburger span:nth-child(1){top:0} .hamburger span:nth-child(2){top:50%;transform:translateY(-50%)} .hamburger span:nth-child(3){bottom:0} .hamburger.active span:nth-child(1){top:50%;transform:translateY(-50%) rotate(45deg)} .hamburger.active span:nth-child(2){opacity:0} .hamburger.active span:nth-child(3){bottom:50%;transform:translateY(50%) rotate(-45deg)}}
-        .mobile-menu { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; background-color: var(--white); z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; transform: translateX(-100%); transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1); padding: 2rem; }
-        .mobile-menu.active { transform: translateX(0); }
-        .mobile-links { list-style: none; text-align: center; width: 100%; max-width: 300px; padding:0; } .mobile-links li { margin-bottom: 1.5rem; }
-        .mobile-links a { color: var(--dark-color); text-decoration: none; font-weight: 600; font-size: 1.2rem; display: inline-block; padding: 0.5rem 1rem; transition: var(--transition); border-radius: 8px; }
-        .mobile-links a:hover, .mobile-links a.active-nav-link { color: var(--primary-color); background-color: rgba(67,97,238,0.1); }
-        .mobile-menu .btn-outline { margin-top: 2rem; width: 100%; max-width: 200px; padding: 0.7rem 1.2rem; font-size:0.9rem;}
-        .close-btn { position: absolute; top: 30px; right: 30px; font-size: 1.8rem; color: var(--dark-color); cursor: pointer; transition: var(--transition); }
-        .close-btn:hover { color: var(--primary-color); transform: rotate(90deg); }
+        /* HEADER STYLES */
+        header { background-color: var(--white); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: fixed; width: 100%; top: 0; z-index: 1000; }
+        header .container { display: flex; justify-content: space-between; align-items: center; height: 80px; }
+        .navbar { display: flex; justify-content: space-between; align-items: center; width:100%;}
+        .logo { font-size: 1.8rem; font-weight: 800; color: var(--primary-color); text-decoration: none; display: flex; align-items: center; }
+        .logo img.logo-img { height: 45px; margin-right: 0.6rem; }
+        .logo span { color: var(--dark-color); font-weight: 600; }
+        .nav-links { display: flex; list-style: none; align-items: center; gap: 0.3rem; margin:0; padding:0;}
+        .nav-links a:not(.btn-outline) { color: var(--dark-color); text-decoration: none; font-weight: 500; padding: 0.6rem 0.9rem; font-size: 0.9rem; border-radius: 6px; transition: var(--transition); display: inline-flex; align-items: center; }
+        .nav-links a:not(.btn-outline):hover, .nav-links a.active-nav-link { color: var(--primary-color); background-color: rgba(var(--primary-color-rgb), 0.07); }
+        .nav-links .btn-outline { display: inline-flex; gap: 8px; align-items: center; justify-content: center; padding: 0.6rem 1.2rem; border-radius: 6px; text-decoration: none; font-weight: 600; transition: var(--transition); font-size: 0.85rem; background-color: transparent; border: 2px solid var(--primary-color); color: var(--primary-color); }
+        .nav-links .btn-outline:hover { background-color: var(--primary-color); color: var(--white); }
+        .nav-user-photo { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; margin-right: 8px; vertical-align: middle; border: 1.5px solid var(--light-gray); }
+        .nav-links a .material-symbols-outlined { font-size: 1.4em; vertical-align: middle; margin-right: 6px; line-height: 1; }
+        .hamburger { display: none; } 
+        .mobile-menu { display: none; } 
+        @media (max-width: 992px) { 
+            header .container .navbar .nav-links { display: none; } 
+            header .container .navbar .hamburger { display: flex; flex-direction:column; justify-content:space-around; width:28px; height:22px; cursor:pointer; background:transparent; border:none; padding:0; z-index:1002;}
+            header .container .navbar .hamburger span { display:block; width:100%; height:3px; background-color:var(--dark-color);border-radius:10px; transition:all .3s linear; position:relative; transform-origin:1px;}
+            header .container .navbar .hamburger.active span:nth-child(1){transform:rotate(45deg) translate(1px,-1px);}
+            header .container .navbar .hamburger.active span:nth-child(2){opacity:0;transform:translateX(20px);}
+            header .container .navbar .hamburger.active span:nth-child(3){transform:rotate(-45deg) translate(2px,0px);}
+            .mobile-menu {position:fixed;top:0;right:-100%;width:280px;height:100vh;background-color:var(--white);box-shadow:-5px 0 15px rgba(0,0,0,.1);padding:60px 20px 20px;transition:right .4s cubic-bezier(.23,1,.32,1);z-index:1001;display:flex;flex-direction:column;overflow-y:auto}
+            .mobile-menu.active{right:0}
+            .mobile-links{list-style:none;padding:0;margin:20px 0 0;display:flex;flex-direction:column;gap:.5rem;flex-grow:1}
+            .mobile-links li{width:100%}
+            .mobile-links a{display:flex;align-items:center;padding:.8rem 1rem;text-decoration:none;color:var(--dark-color);font-size:1rem;border-radius:6px;transition:var(--transition);font-weight:500}
+            .mobile-links a:hover,.mobile-links a.active-nav-link{color:var(--primary-color);background-color:rgba(var(--primary-color-rgb),.07)}
+            .mobile-menu .btn-outline{width:100%;margin-top:auto;padding-top:.8rem;padding-bottom:.8rem;margin-bottom:1rem;font-size:.9rem}
+            .close-btn{position:absolute;top:18px;right:20px;font-size:1.8rem;color:var(--dark-color);cursor:pointer;background:0 0;border:none;padding:5px}
+            .mobile-links a .nav-user-photo.mobile-nav-user-photo{width:28px;height:28px;margin-right:10px}
+        }
+        /* END HEADER STYLES */
 
         .page-header { padding: 2rem 0; margin-bottom: 2rem; background-color:var(--white); box-shadow: 0 2px 4px rgba(0,0,0,0.04); }
         .page-header h1 { font-size: 1.8rem; color: var(--dark-color); margin: 0; }
         .db-error-message, .update-message { padding: 1rem 1.2rem; border-radius: 6px; margin-bottom: 1.5rem; font-size:0.9rem; border-left-width: 5px; border-left-style:solid; display:flex; align-items:center; gap:0.8rem;}
         .db-error-message i, .update-message i { font-size:1.2em; }
-        .update-message.error { background-color: #ffebee; color: var(--danger-color); border-left-color:var(--danger-color); } /* From index.php example */
-        .update-message.success { background-color: #e8f5e9; color: var(--success-color); border-left-color: var(--success-color); } /* From index.php example */
+        .update-message.error, .db-error-message { background-color: #ffebee; color: var(--danger-color); border-left-color:var(--danger-color); }
+        .update-message.success { background-color: #e8f5e9; color: var(--success-color); border-left-color: var(--success-color); }
 
         .account-layout { display: flex; gap: 2.5rem; padding-top: 1.5rem; }
         .account-sidebar { flex: 0 0 280px; background-color: var(--sidebar-bg); padding: 1.8rem; border-radius: 10px; box-shadow: var(--shadow); align-self: flex-start; }
@@ -297,7 +368,6 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
         .account-sidebar ul li a .material-symbols-outlined { font-size: 1.3em; color:var(--gray-color); transition:var(--transition);}
         .account-sidebar ul li a:hover .material-symbols-outlined, .account-sidebar ul li a.active .material-symbols-outlined { color:var(--primary-color); }
 
-
         .account-content { flex-grow: 1; background-color: var(--content-bg); padding: 2rem 2.5rem; border-radius: 10px; box-shadow: var(--shadow); }
         .content-section { display: none; } .content-section.active { display: block; }
         .content-section h2 { font-size: 1.5rem; color: var(--dark-color); margin-bottom: 2rem; padding-bottom: 1.2rem; border-bottom: 1px solid var(--light-gray); }
@@ -307,35 +377,26 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
         .profile-picture-group { display:flex; align-items:center; gap:2rem; margin-bottom:2.5rem; padding-bottom:2rem; border-bottom: 1px solid var(--light-gray); }
         .profile-picture-display { text-align:center; flex-shrink:0; }
         .profile-picture { width: 120px; height: 120px; border-radius:50%; object-fit:cover; border:4px solid var(--white); margin-bottom:0rem; box-shadow: 0 4px 15px rgba(0,0,0,0.12);}
-        .profile-picture-placeholder { width: 120px; height: 120px; border-radius:50%; background-color:var(--light-gray); display:flex; align-items:center; justify-content:center; margin:0 auto 0rem; border:4px solid var(--white);box-shadow: 0 4px 15px rgba(0,0,0,0.1);}
-        .profile-picture-placeholder .material-symbols-outlined { font-size:4rem; color:var(--gray-color); }
-        .profile-upload-actions { }
-        .profile-upload-actions label.btn-outline {font-size:0.9rem; padding:0.7rem 1.2rem; } /* Using btn-outline */
+        .profile-upload-actions label.btn-outline {font-size:0.9rem; padding:0.7rem 1.2rem; border: 2px solid var(--primary-color); color:var(--primary-color)} 
+        .profile-upload-actions label.btn-outline:hover {background-color:var(--primary-color); color:var(--white);}
         .profile-upload-actions input[type="file"] { display:none;}
         .profile-upload-actions .placeholder-text {font-size:0.8rem; color:var(--gray-color); margin-top:0.5rem; display:block;}
-
 
         .form-group { margin-bottom: 1.5rem;}
         .profile-info-form label, .change-password-form label {display:block; margin-bottom:0.5rem; font-weight:500; font-size:0.9rem; color: var(--dark-color);}
         .profile-info-form input[type="text"], .profile-info-form input[type="email"], .profile-info-form input[type="tel"],
-        .change-password-form input[type="password"] {
-            width: 100%; padding: 0.85rem 1.2rem; border:1px solid #d0d5dd; border-radius:6px; font-size:0.95rem;
-            transition: var(--transition); box-shadow: 0 1px 2px rgba(0,0,0,0.04); background-color:var(--white);
-        }
-        .profile-info-form input:focus, .change-password-form input:focus {border-color:var(--primary-color); box-shadow: 0 0 0 3.5px rgba(var(--primary-color,67,97,238),0.2);}
+        .change-password-form input[type="password"] { width: 100%; padding: 0.85rem 1.2rem; border:1px solid #d0d5dd; border-radius:6px; font-size:0.95rem; transition: var(--transition); box-shadow: 0 1px 2px rgba(0,0,0,0.04); background-color:var(--white); }
+        .profile-info-form input:focus, .change-password-form input:focus {border-color:var(--primary-color); box-shadow: 0 0 0 3.5px rgba(67, 97, 238,0.2);} /* Corrected var */
         .form-group input[readonly] { background-color: #f0f2f5; cursor:not-allowed; color:var(--gray-color); }
-        
         .form-actions { margin-top:2rem; text-align:right; }
-        .form-actions .btn {min-width: 160px;}
+        .form-actions .btn {min-width: 160px; padding: 0.75rem 1.5rem; font-size:0.9rem;}
 
-
-        /* RFID Card Section */
         .rfid-filter-container { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.8rem; padding-bottom: 1rem; border-bottom: 1px solid var(--light-gray); }
         .rfid-filter-container label { font-weight: 500; font-size: 0.95rem; color: var(--gray-color); }
         .rfid-filter-container select { padding: 0.7rem 1rem; border: 1px solid #ccd0d5; border-radius: 6px; font-size: 0.9rem; background-color: var(--white); box-shadow: 0 1px 2px rgba(0,0,0,0.03); min-width: 200px; cursor: pointer; transition: var(--transition); }
-        .rfid-filter-container select:focus { border-color:var(--primary-color); box-shadow: 0 0 0 3px rgba(var(--primary-color, 67, 97, 238),0.2); outline:none; }
+        .rfid-filter-container select:focus { border-color:var(--primary-color); box-shadow: 0 0 0 3px rgba(67, 97, 238,0.2); outline:none; } /* Corrected var */
 
-        .rfid-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.8rem; }
+        .rfid-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.8rem; }
         .rfid-card-item { background-color: var(--white); border: 1px solid #e0e4e8; border-radius: 10px; padding: 1.5rem; text-align: center; transition: var(--transition); box-shadow: 0 3px 12px rgba(0,0,0,0.05); }
         .rfid-card-item:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.08); transform: translateY(-4px);}
         .rfid-card-image { width: 100%; max-width: 230px; height: auto; border-radius: 8px; margin-bottom: 1.2rem; border: 1px solid #d0d5dd; display:block; margin-left:auto; margin-right:auto; background-color:var(--light-gray);}
@@ -345,38 +406,27 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
         .rfid-card-status.active { background-color:rgba(var(--present-color-rgb),0.1); color:var(--present-color); border-color: rgba(var(--present-color-rgb),0.3);}
         .rfid-card-status.inactive { background-color:rgba(var(--neutral-color-rgb),0.1); color:var(--neutral-color); border-color: rgba(var(--neutral-color-rgb),0.3);}
         .rfid-card-status .material-symbols-outlined { font-size:1.2em; }
-        .placeholder-text {color: var(--gray-color); font-style: italic; font-size: 0.8rem;}
-        .no-activity-msg {text-align:center; padding: 2.5rem 1rem; color:var(--gray-color); font-size:0.95rem; background-color: #fdfdfd; border-radius: 4px; border: 1px dashed var(--light-gray);}
-
-                /* Footer */
-        footer { background-color: var(--dark-color); color: var(--white); padding: 5rem 0 2rem; }
-        .footer-content { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 3rem; margin-bottom: 3rem; }
-        .footer-column h3 { font-size: 1.3rem; margin-bottom: 1.8rem; position: relative; padding-bottom: 0.8rem; }
-        .footer-column h3::after { content: ''; position: absolute; left: 0; bottom: 0; width: 50px; height: 3px; background-color: var(--primary-color); border-radius: 3px; }
-        .footer-links { list-style: none; }
-        .footer-links li { margin-bottom: 0.8rem; }
-        .footer-links a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); font-size: 0.95rem; display: inline-block; padding: 0.2rem 0; }
-        .footer-links a:hover { color: var(--white); transform: translateX(5px); }
-        .footer-links a i { margin-right: 0.5rem; width: 20px; text-align: center; }
-        .social-links { display: flex; gap: 1.2rem; margin-top: 1.5rem; }
-        .social-links a { 
-            display: inline-flex; align-items: center; justify-content: center; 
-            width: 40px; height: 40px; background-color: rgba(255, 255, 255, 0.1); 
-            color: var(--white); border-radius: 50%; font-size: 1.1rem; transition: var(--transition); 
-        }
-        .social-links a:hover { background-color: var(--primary-color); transform: translateY(-3px); }
-        .footer-bottom { text-align: center; padding-top: 3rem; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.9rem; color: rgba(255, 255, 255, 0.6); }
-        .footer-bottom a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); }
-        .footer-bottom a:hover { color: var(--primary-color); }
+        .no-cards-msg {text-align:center; padding: 2.5rem 1rem; color:var(--gray-color); font-size:0.95rem; background-color: #fdfdfd; border-radius: 4px; border: 1px dashed var(--light-gray);}
+        
+        footer { /* ... Your full footer styles ... */ }
         @media (max-width: 992px) { .account-layout { flex-direction: column; } .account-sidebar { width: 100%; margin-bottom:2rem; } }
         @media (max-width: 768px) { .profile-info-form .form-row { flex-direction:column; gap:0; margin-bottom:0;} .profile-info-form .form-row .form-group {margin-bottom:1.5rem;} .profile-picture-group{flex-direction:column; align-items:center; gap:1rem;}.account-content{padding:1.5rem;} }
-        /* FOOTER (same as index.php) */
-        footer { background-color: var(--dark-color); color: var(--white); padding: 5rem 0 2rem; margin-top:auto;}
-        /* ... Full Footer Styles ... */
+ 
+        @media (max-width: 992px) { 
+            .account-layout { flex-direction: column; } 
+            .account-sidebar { width: 100%; margin-bottom:2rem; flex: 0 0 auto; } /* Adjust flex for stacking */
+        }
+        @media (max-width: 768px) { 
+            .profile-info-form .form-row { flex-direction:column; gap:0; margin-bottom:0;} 
+            .profile-info-form .form-row .form-group {margin-bottom:1.5rem;} 
+            .profile-picture-group{flex-direction:column; align-items:center; gap:1rem;}
+            .account-content{padding:1.5rem;} 
+            .rfid-cards-grid { grid-template-columns: 1fr; } /* Stack RFID cards on small screens */
+        }
     </style>
 </head>
 <body>
-    <?php require "components/header-employee-panel.php"; ?>
+    <?php require_once $pathPrefix . "components/header-employee-panel.php"; ?>
 
     <main>
         <div class="page-header">
@@ -387,16 +437,16 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
         </div>
 
         <div class="container" style="padding-bottom: 2.5rem;">
-            <?php if ($dbErrorMessage): ?>
+            <?php if ($dbErrorMessage && empty($userData)): ?>
                 <div class="db-error-message" role="alert"><i class="fas fa-exclamation-triangle"></i> <?php echo $dbErrorMessage; ?></div>
-            <?php endif; ?>
-            <?php if ($updateMessage): ?>
+            <?php elseif ($updateMessage): ?>
                 <div class="update-message <?php echo $updateMessage['type']; ?>" role="alert">
                     <i class="<?php echo ($updateMessage['type'] === 'success' ? 'fas fa-check-circle' : 'fas fa-times-circle'); ?>"></i> 
                     <?php echo htmlspecialchars($updateMessage['text']); ?>
                 </div>
             <?php endif; ?>
 
+            <?php if ($userData): ?>
             <div class="account-layout">
                 <aside class="account-sidebar">
                     <h3>Settings</h3>
@@ -404,31 +454,39 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                         <li><a href="?section=profile" class="<?php if ($activeSection === 'profile') echo 'active'; ?>"><span class="material-symbols-outlined">manage_accounts</span> Profile Information</a></li>
                         <li><a href="?section=password" class="<?php if ($activeSection === 'password') echo 'active'; ?>"><span class="material-symbols-outlined">lock_reset</span> Change Password</a></li>
                         <li><a href="?section=rfid" class="<?php if ($activeSection === 'rfid') echo 'active'; ?>"><span class="material-symbols-outlined">credit_card</span> My RFID Cards</a></li>
+                        <?php if ($sessionRole === 'admin'): ?>
+                            <li style="margin-top: 1.5rem; border-top:1px solid var(--light-gray); padding-top:1rem;">
+                                <a href="<?php echo $pathPrefix; ?>admin-dashboard.php" style="color: var(--secondary-color); font-weight:bold;">
+                                    <span class="material-symbols-outlined">admin_panel_settings</span> Admin Panel
+                                </a>
+                            </li>
+                        <?php endif; ?>
                     </ul>
                 </aside>
 
                 <section class="account-content">
                     <div id="profile-section" class="content-section <?php if ($activeSection === 'profile') echo 'active'; ?>">
                         <h2>Profile Details</h2>
-                        <?php if ($userData): ?>
-                            <form method="POST" action="profile.php?section=profile" class="profile-info-form" enctype="multipart/form-data">
+                        <form method="POST" action="profile.php?section=profile" class="profile-info-form" enctype="multipart/form-data">
                                  <input type="hidden" name="current_profile_photo_filename" value="<?php echo htmlspecialchars($userData['profile_photo'] ?? ''); ?>">
                                 <div class="profile-picture-group">
                                     <div class="profile-picture-display">
                                         <img src="<?php 
-                                            $photoDisplayPath = PROFILE_UPLOAD_DIR . 'default_avatar.png'; // Default image
+                                            $defaultAvatarWebPath = $webProfileUploadDir . 'default_avatar.png';
+                                            $photoDisplayPath = $defaultAvatarWebPath; 
+                                            
                                             if (!empty($userData['profile_photo'])) {
-                                                $safeFileName = basename($userData['profile_photo']);
-                                                $potentialPath = PROFILE_UPLOAD_DIR . $safeFileName;
-                                                if (file_exists($potentialPath)) {
-                                                    $photoDisplayPath = htmlspecialchars($potentialPath);
+                                                $safeFileName = basename($userData['profile_photo']); // Sanitize
+                                                $potentialUserPhotoWebPath = $webProfileUploadDir . $safeFileName;
+                                                if (file_exists($fileSystemProfileUploadDir . $safeFileName)) {
+                                                    $photoDisplayPath = htmlspecialchars($potentialUserPhotoWebPath);
                                                 }
                                             }
-                                            echo $photoDisplayPath . '?' . time(); // Cache buster for updated images
+                                            echo $photoDisplayPath . '?' . time(); 
                                         ?>" alt="Profile Picture" class="profile-picture" id="profileImagePreview">
                                     </div>
                                     <div class="profile-upload-actions">
-                                        <label for="profile_photo_input" class="btn btn-outline profile-upload-btn">
+                                        <label for="profile_photo_input" class="btn btn-outline"> 
                                             <span class="material-symbols-outlined">photo_camera</span> Update photo
                                         </label>
                                         <input type="file" name="profile_photo_input" id="profile_photo_input" accept="image/jpeg, image/png, image/gif">
@@ -445,10 +503,9 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                                     <div class="form-group"><label for="phone">Phone</label><input type="tel" id="phone" name="phone" value="<?php echo htmlspecialchars($userData['phone'] ?: ''); ?>" placeholder="Optional"></div>
                                 </div>
                                 <div class="form-actions">
-                                    <button type="submit" name="update_profile" class="btn btn-primary form-submit-btn"><span class="material-symbols-outlined">save</span> Save Profile</button>
+                                    <button type="submit" name="update_profile" class="btn btn-primary"><span class="material-symbols-outlined">save</span> Save Profile</button>
                                 </div>
                             </form>
-                        <?php endif; ?>
                     </div>
 
                     <div id="password-section" class="content-section <?php if ($activeSection === 'password') echo 'active'; ?>">
@@ -458,7 +515,7 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                             <div class="form-group"><label for="new_password">New Password</label><input type="password" id="new_password" name="new_password" required minlength="8" placeholder="Minimum 8 characters"></div>
                             <div class="form-group"><label for="confirm_password">Confirm Password</label><input type="password" id="confirm_password" name="confirm_password" required></div>
                             <div class="form-actions">
-                                <button type="submit" name="change_password" class="btn btn-primary form-submit-btn"><span class="material-symbols-outlined">lock_reset</span> Set New Password</button>
+                                <button type="submit" name="change_password" class="btn btn-primary"><span class="material-symbols-outlined">lock_reset</span> Set New Password</button>
                             </div>
                         </form>
                     </div>
@@ -468,6 +525,7 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                         <div class="rfid-filter-container">
                             <label for="rfid_status_filter">View:</label>
                             <select id="rfid_status_filter" name="rfid_status_filter" onchange="filterRfidCards(this.value)">
+                                <option value="all" <?php if ($rfidStatusFilter === 'all') echo 'selected'; ?>>All My Cards</option>
                                 <option value="active" <?php if ($rfidStatusFilter === 'active') echo 'selected'; ?>>Active Cards</option>
                                 <option value="inactive" <?php if ($rfidStatusFilter === 'inactive') echo 'selected'; ?>>Inactive Cards</option>
                             </select>
@@ -477,68 +535,82 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                             <div class="rfid-cards-grid">
                                 <?php foreach($userRFIDCards as $card): ?>
                                 <div class="rfid-card-item">
-                                    <img src="imgs/wavepass_card.png" alt="WavePass RFID Card" class="rfid-card-image">
+                                    <img src="<?php echo $pathPrefix; ?>imgs/wavepass_card.png" alt="WavePass RFID Card" class="rfid-card-image">
                                     <div class="rfid-card-info">
-                                    <h4>Card ID: <?php echo $card['id']; ?></h4>
+                                    <h4>Card UID: <?php echo $card['rfid_identifier']; ?></h4>
                                     <?php if ($card['name'] !== 'N/A'): ?>
-                                        <p>Name: <?php echo $card['name']; ?></p>
+                                        <p>Label: <?php echo $card['name']; ?></p>
                                     <?php endif; ?>
-                                    <p>Type: <?php echo $card['type']; ?></p> <!-- Zobrazí typ karty z $userRFIDCards -->
+                                    <p>Type: <?php echo $card['type']; ?></p>
                                     <p class="rfid-card-status <?php echo $card['status_class']; ?>">
-                                        <span class="material-symbols-outlined"><?php echo ($card['status_class'] === 'active' ? 'verified_user' : 'do_not_disturb_on'); ?></span>
-                                        <?php echo $card['status']; ?>
+                                        <span class="material-symbols-outlined"><?php echo ($card['status_bool'] ? 'verified_user' : 'do_not_disturb_on'); ?></span>
+                                        <?php echo $card['status_text']; ?>
                                     </p>
                                 </div>
                                 </div>  
                                 <?php endforeach; ?>
                             </div>
                         <?php else: ?>
-                            <p class="no-activity-msg">
+                            <p class="no-cards-msg">
                                 <?php 
-                                if ($rfidStatusFilter === 'active') echo 'You currently have no active RFID card registered.';
-                                elseif ($rfidStatusFilter === 'inactive') echo 'You currently have no unactive';
-                                else echo 'No RFID cards match your filter.';
+                                if ($rfidStatusFilter === 'active') echo 'You have no active RFID cards assigned.';
+                                elseif ($rfidStatusFilter === 'inactive') echo 'You have no inactive RFID cards assigned.';
+                                else echo 'You have no RFID cards assigned.';
                                 ?>
                             </p>
                         <?php endif; ?>
                          <p class="placeholder-text" style="margin-top:1.8rem; text-align:center; font-size:0.85rem;">
-                            <i class="fas fa-info-circle"></i> For any issues, requests, or lost RFID cards, please contact the administration.
+                            <i class="fas fa-info-circle"></i> For new cards or issues, please contact administration.
                          </p>
                     </div>
                 </section>
             </div>
+            <?php elseif ($dbErrorMessage && !$userData): ?>
+                <div class="db-error-message" role="alert"><i class="fas fa-exclamation-triangle"></i> <?php echo $dbErrorMessage; ?></div>
+                <p><a href="<?php echo $pathPrefix; ?>dashboard.php" class="btn btn-primary" style="margin-top:1rem;">Back to Dashboard</a></p>
+            <?php endif; ?>
         </div>
     </main>
 
-    <!-- Footer -->
-    <?php  require_once "components/footer.php"; ?>
+    <?php 
+        $footerPath = $pathPrefix . "components/footer.php"; 
+        // If you have a specific admin footer and are in admin section, you might adjust:
+        // if (strpos($_SERVER['PHP_SELF'], '/admin/') !== false) {
+        //    $footerPath = $pathPrefix . "components/footer-admin.php"; 
+        // }
+        require_once $footerPath; 
+    ?>
 
     <script>
-        // Mobile Menu Toggle 
+        // Ensure your global header/mobile menu JS is included, either here or in the header component
         const hamburger = document.getElementById('hamburger');
         const mobileMenu = document.getElementById('mobileMenu');
-        const closeMenu = document.getElementById('closeMenu');
+        // const closeMenu = document.getElementById('closeMenu'); // Make sure this ID exists in your header
         const body = document.body;
 
-        if (hamburger && mobileMenu && closeMenu) {
+        if (hamburger && mobileMenu) {
+            const closeMenuBtnInMobile = mobileMenu.querySelector('.close-btn'); // Or by ID if it has one
+
             hamburger.addEventListener('click', () => {
                 hamburger.classList.toggle('active');
                 mobileMenu.classList.toggle('active');
                 body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
             });
-            closeMenu.addEventListener('click', () => {
-                hamburger.classList.remove('active');
-                mobileMenu.classList.remove('active');
-                body.style.overflow = '';
-            });
-            mobileMenu.querySelectorAll('a').forEach(link => {
+
+            if(closeMenuBtnInMobile){
+                closeMenuBtnInMobile.addEventListener('click', () => {
+                    hamburger.classList.remove('active');
+                    mobileMenu.classList.remove('active');
+                    body.style.overflow = '';
+                });
+            }
+            
+            mobileMenu.querySelectorAll('ul.mobile-links a').forEach(link => {
                 link.addEventListener('click', () => {
-                    if (!link.getAttribute('href').startsWith('#') || link.getAttribute('href') === '#') {
-                         if (mobileMenu.classList.contains('active')) {
-                            hamburger.classList.remove('active');
-                            mobileMenu.classList.remove('active');
-                            body.style.overflow = '';
-                        }
+                     if (mobileMenu.classList.contains('active')) {
+                        hamburger.classList.remove('active');
+                        mobileMenu.classList.remove('active');
+                        body.style.overflow = '';
                     }
                 });
             });
@@ -547,19 +619,18 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
         // Header shadow
         const headerEl = document.querySelector('header');
         if (headerEl) { 
+            let initialHeaderShadow = getComputedStyle(headerEl).boxShadow;
             window.addEventListener('scroll', () => {
                 headerEl.style.boxShadow = (window.scrollY > 10) ? 
                     (getComputedStyle(document.documentElement).getPropertyValue('--shadow').trim() || '0 4px 10px rgba(0,0,0,0.05)') : 
-                    '0 2px 10px rgba(0,0,0,0.05)';
+                    initialHeaderShadow;
             });
         }
 
-        // Preview profile photo before upload
+        // Profile photo preview
         const profilePhotoInput = document.getElementById('profile_photo_input');
-        const imagePreview = document.getElementById('profileImagePreview'); // Ensure this ID is on your <img> tag
-        const placeholderDiv = document.querySelector('.profile-picture-placeholder');
-
-
+        const imagePreview = document.getElementById('profileImagePreview');
+        
         if (profilePhotoInput && imagePreview) {
             profilePhotoInput.addEventListener('change', function(e) {
                 const file = e.target.files[0];
@@ -567,8 +638,6 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                     const reader = new FileReader();
                     reader.onload = function(event) {
                         imagePreview.src = event.target.result;
-                        if(placeholderDiv) placeholderDiv.style.display = 'none'; // Hide placeholder if it was shown
-                        imagePreview.style.display = 'block'; // Ensure image is visible
                     };
                     reader.readAsDataURL(file);
                 }
@@ -578,8 +647,12 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
         // RFID Filter Function
         function filterRfidCards(status) {
             const currentUrl = new URL(window.location.href);
-            currentUrl.searchParams.set('section', 'rfid'); // Keep us on the RFID section
-            currentUrl.searchParams.set('rfid_status', status);
+            currentUrl.searchParams.set('section', 'rfid'); 
+            if (status === 'all') { 
+                currentUrl.searchParams.delete('rfid_status'); // Remove to show all for user
+            } else {
+                currentUrl.searchParams.set('rfid_status', status);
+            }
             window.location.href = currentUrl.toString();
         }
     </script>

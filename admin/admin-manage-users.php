@@ -392,17 +392,5 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
     <?php require "../components/footer-admin.php"; ?>
 
-    <script>
-        // Basic mobile menu toggle (if not in a global JS file included by header)
-        const hamburger = document.getElementById('hamburger'); // Assuming ID from header
-        const mobileMenu = document.getElementById('mobileMenu'); // Assuming ID from header
-        if (hamburger && mobileMenu) {
-            hamburger.addEventListener('click', () => {
-                mobileMenu.classList.toggle('active');
-                // Optional: toggle body overflow
-            });
-            // Add close button functionality if present in mobileMenu
-        }
-    </script>
 </body>
 </html>
