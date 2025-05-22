@@ -89,7 +89,7 @@ if ($sessionIsLoggedIn && isset($_SESSION["profile_photo"]) && !empty($_SESSION[
     <div class="container"> 
         <nav class="navbar">
             <a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>index.php" class="logo">
-                <img src="<?php echo htmlspecialchars($base_path_for_assets); ?>imgs/logo.png" alt="WavePass Logo" class="logo-img">
+                <img src="<?php echo htmlspecialchars($base_path_for_assets); ?>../imgs/logo.png" alt="WavePass Logo" class="logo-img">
                 Wave<span>Pass</span> 
                 <?php if ($userRole === 'admin'): ?>
                     <span class="admin-badge">Admin</span>
@@ -219,7 +219,6 @@ header > .container {
 .logo-img {
     height: 40px; /* Mírně menší */
     width: auto;  
-    margin-right: 0.5rem; 
 }
 .logo span {
     color: var(--dark-color); 

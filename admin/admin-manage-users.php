@@ -174,8 +174,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="imgs/logo.png" type="image/x-icon"> 
-    <title>Manage Employees - Admin - WavePass</title>
+    <link rel="icon" href="../imgs/logo.png" type="image/x-icon"> 
+    <title>manage users - Admin - WavePass</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -205,7 +205,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .db-error-message { background-color: rgba(244,67,54,0.1); color: var(--danger-color); border-left-color: var(--danger-color); }
         .success-message { background-color: rgba(76,175,80,0.1); color: var(--success-color); border-left-color: var(--success-color); }
 
-        /* === MANAGE EMPLOYEES SPECIFIC STYLES === */
+        /* === manage users SPECIFIC STYLES === */
         .content-panel { background-color: var(--white); padding: 1.5rem 1.8rem; border-radius: 8px; box-shadow: var(--shadow); border: 1px solid var(--light-gray); margin-bottom: 2rem; }
         .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom:1.5rem; padding-bottom:1rem; border-bottom:1px solid var(--light-gray); }
         .panel-title { font-size: 1.3rem; color: var(--dark-color); margin:0; }
@@ -263,7 +263,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <main>
         <div class="page-header">
             <div class="container">
-                <h1>Manage Employees</h1>
+                <h1>Manage users</h1>
                 <p class="sub-heading">Add, view, edit, and manage user accounts and RFID assignments.</p>
             </div>
         </div>
