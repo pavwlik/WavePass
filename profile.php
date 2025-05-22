@@ -520,6 +520,7 @@ if (strpos($_SERVER['PHP_SELF'], '/admin/') !== false) {
                         </form>
                     </div>
 
+
                     <div id="rfid-section" class="content-section <?php if ($activeSection === 'rfid') echo 'active'; ?>">
                         <h2>My RFID Cards</h2>
                         <div class="rfid-filter-container">

@@ -20,14 +20,14 @@ $sessionRole = isset($_SESSION["role"]) ? $_SESSION["role"] : 'employee';
 $selectedDate = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
 
 // Default values
-$rfidStatus = "Status Unknown"; // More accurate default
+$rfidStatus = "Status Unknown"; 
 $rfidStatusClass = "neutral";
 $absencesThisMonthCount = 0; 
 $warningMessagesCount = 0; 
 $upcomingLeaveDisplay = "None upcoming"; 
 $activityForSelectedDate = [];
 $dbErrorMessage = null;
-$currentUserData = null; // Still useful for dateOfCreation for snapshot
+$currentUserData = null; 
 
 if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
     try {
@@ -35,45 +35,43 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
         $stmtUserMeta = $pdo->prepare("SELECT dateOfCreation FROM users WHERE userID = :userid");
         $stmtUserMeta->bindParam(':userid', $sessionUserId, PDO::PARAM_INT);
         $stmtUserMeta->execute();
-        $currentUserData = $stmtUserMeta->fetch(); // Will contain only dateOfCreation now
+        $currentUserData = $stmtUserMeta->fetch();
 
-        // --- DETERMINE CURRENT PRESENCE STATUS FROM ATTENDANCE LOGS ---
-        // Get the latest event for the current user for today
+        // --- DETERMINE CURRENT PRESENCE STATUS FROM 'attendance_logs' TABLE ---
         $todayDate = date('Y-m-d');
         $stmtLatestEvent = $pdo->prepare(
-            "SELECT event_type 
-             FROM attendance_logs 
-             WHERE userID = :userid AND DATE(log_timestamp) = :today_date
-             ORDER BY log_timestamp DESC 
+            // CORRECTED: Using 'attendance_logs' table and its columns 'logType' and 'logTime'
+            "SELECT logType 
+             FROM attendance_logs  -- Changed from attendance_attendance_logs
+             WHERE userID = :userid AND DATE(logTime) = :today_date -- Changed log_timestamp to logTime
+             ORDER BY logTime DESC -- Changed log_timestamp to logTime
              LIMIT 1"
         );
+        $stmtLatestEvent = $pdo->prepare("SELECT logType FROM attendance_logs WHERE userID = :userid LIMIT 1");
         $stmtLatestEvent->bindParam(':userid', $sessionUserId, PDO::PARAM_INT);
-        $stmtLatestEvent->bindParam(':today_date', $todayDate, PDO::PARAM_STR);
         $stmtLatestEvent->execute();
         $latestEvent = $stmtLatestEvent->fetch();
+        var_dump($latestEvent); // Check output
 
         if ($latestEvent) {
-            if ($latestEvent['event_type'] == 'check_in') {
+            // CORRECTED: Using 'logType' and matching your ENUM values 'entry'/'exit'
+            if ($latestEvent['logType'] == 'entry') {
                 $rfidStatus = "Present";
                 $rfidStatusClass = "present";
-            } elseif ($latestEvent['event_type'] == 'check_out') {
+            } elseif ($latestEvent['logType'] == 'exit') {
                 $rfidStatus = "Checked Out";
-                $rfidStatusClass = "absent"; // Or a different class like "checked-out"
+                $rfidStatusClass = "absent"; 
             } else {
-                // Should not happen if ENUM is 'check_in', 'check_out'
-                $rfidStatus = "Status Unknown"; 
+                $rfidStatus = "Status Unknown (Invalid Log Type)"; 
                 $rfidStatusClass = "neutral";
             }
         } else {
-            // No check-in/check-out events for today. Check the 'absence' table.
-            // This means the user hasn't interacted with the system today.
-            // We can fall back to the 'absence' table for scheduled absences or assume 'Absent' if no record.
-            
+            // No log events for today. Check the 'absence' table for scheduled absences.
             $stmtScheduledAbsence = $pdo->prepare(
-                "SELECT status FROM absence 
+                "SELECT status, absence_type FROM absence -- Added absence_type for better detail
                  WHERE userID = :userid 
                    AND :today_date_time BETWEEN absence_start_datetime AND absence_end_datetime
-                   AND status = 'approved' -- Only consider approved absences
+                   AND status = 'approved' 
                  LIMIT 1"
             );
              $todayDateTime = date('Y-m-d H:i:s');
@@ -83,35 +81,31 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
             $scheduledAbsence = $stmtScheduledAbsence->fetch();
 
             if ($scheduledAbsence) {
-                $rfidStatus = "Scheduled Absence"; // Or more specific based on absence_type
-                $rfidStatusClass = "absent"; // Or a specific class for scheduled absence
+                $absenceTypeDisplay = isset($scheduledAbsence['absence_type']) ? ucfirst(str_replace('_', ' ', $scheduledAbsence['absence_type'])) : "Absence";
+                $rfidStatus = "Scheduled " . htmlspecialchars($absenceTypeDisplay);
+                $rfidStatusClass = "absent"; 
             } else {
-                // No attendance log for today and no scheduled absence covering now.
-                // You might also check the users.absence flag as a last resort,
-                // or simply mark as "Not Checked In" or "Status Unknown".
+                // No log for today and no scheduled absence. Fallback to users.absence flag.
                 $stmtUserAbsenceFlag = $pdo->prepare("SELECT absence FROM users WHERE userID = :userid");
                 $stmtUserAbsenceFlag->bindParam(':userid', $sessionUserId, PDO::PARAM_INT);
                 $stmtUserAbsenceFlag->execute();
                 $userAbsenceFlagData = $stmtUserAbsenceFlag->fetch();
 
                 if ($userAbsenceFlagData && $userAbsenceFlagData['absence'] == 1) {
-                    $rfidStatus = "Marked Absent"; // From users.absence flag
+                    $rfidStatus = "Marked Absent"; 
                     $rfidStatusClass = "absent";
                 } else {
                     $rfidStatus = "Not Checked In";
-                    $rfidStatusClass = "neutral"; // Or 'absent' if you prefer
+                    $rfidStatusClass = "neutral"; 
                 }
             }
         }
         // --- END OF PRESENCE STATUS DETERMINATION ---
 
 
-        // --- ABSENCES THIS MONTH (More accurate calculation if 'absence' table is used) ---
+        // --- ABSENCES THIS MONTH (Uses 'absence' table, should be fine if table/columns exist) ---
         $currentMonthStart = date('Y-m-01 00:00:00');
-        $currentMonthEnd = date('Y-m-t 23:59:59'); // 't' gives the last day of the month
-
-        // This is a simplified count of approved absence requests that start or end this month.
-        // A more complex calculation would involve counting actual days of absence.
+        $currentMonthEnd = date('Y-m-t 23:59:59'); 
         $stmtAbsenceCount = $pdo->prepare(
             "SELECT COUNT(*) 
              FROM absence 
@@ -127,12 +121,11 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
         $stmtAbsenceCount->bindParam(':month_start', $currentMonthStart, PDO::PARAM_STR);
         $stmtAbsenceCount->bindParam(':month_end', $currentMonthEnd, PDO::PARAM_STR);
         $stmtAbsenceCount->execute();
-        $absencesThisMonthCount = $stmtAbsenceCount->fetchColumn();
-        // You might want to display it as "$absencesThisMonthCount Requests" or similar for clarity
-        // For "Currently Absent/Present", the $rfidStatus is more direct for today.
-        // This $absencesThisMonthCount is now a count of approved absence periods.
+        $absencesThisMonthCountValue = $stmtAbsenceCount->fetchColumn();
+        $absencesThisMonthCount = $absencesThisMonthCountValue ? $absencesThisMonthCountValue . " Requests" : "0 Requests";
 
-        // Activity Snapshot for Selected Date (remains largely the same, but adjust details)
+
+        // --- ACTIVITY SNAPSHOT FOR SELECTED DATE ---
         if ($currentUserData && $selectedDate == date("Y-m-d", strtotime($currentUserData['dateOfCreation']))) {
              $activityForSelectedDate[] = [
                  'date' => $selectedDate,
@@ -144,55 +137,59 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                 ];
         }
 
-        // Query actual attendance logs for the selected date to populate $activityForSelectedDate
-        $sqlActivity = "SELECT log_timestamp, event_type, notes 
-                        FROM attendance_logs
-                        WHERE userID = :userid AND DATE(log_timestamp) = :selected_date 
-                        ORDER BY log_timestamp ASC";
+        // Query actual 'attendance_logs' table for the selected date
+        // CORRECTED: Use 'logTime', 'logType', 'logResult' from 'attendance_logs' table
+        $sqlActivity = "SELECT logTime, logType, logResult 
+                        FROM attendance_logs -- Changed from attendance_attendance_logs
+                        WHERE userID = :userid AND DATE(logTime) = :selected_date -- Changed log_timestamp
+                        ORDER BY logTime ASC"; // Changed log_timestamp
         $stmtActivity = $pdo->prepare($sqlActivity);
         if ($stmtActivity) {
             $stmtActivity->bindParam(':userid', $sessionUserId, PDO::PARAM_INT);
             $stmtActivity->bindParam(':selected_date', $selectedDate, PDO::PARAM_STR);
             $stmtActivity->execute();
             
-            // If snapshot already added "Account Registered" and it's for today, we might merge
-            // or simply add new entries. For simplicity, let's add new entries.
-            // If you want to clear previous snapshot if real logs exist:
-            // if ($stmtActivity->rowCount() > 0 && $selectedDate != date("Y-m-d", strtotime($currentUserData['dateOfCreation'])) ) {
-            //    $activityForSelectedDate = []; 
-            // }
-
             while ($log = $stmtActivity->fetch(PDO::FETCH_ASSOC)) {
-                $activityTypeDisplay = ucfirst(str_replace('_', ' ', $log['event_type']));
+                // CORRECTED: Use 'logType' and map to user-friendly terms
+                $activityTypeDisplay = 'Unknown Event';
+                if ($log['logType'] == 'entry') {
+                    $activityTypeDisplay = 'Check In';
+                } elseif ($log['logType'] == 'exit') {
+                    $activityTypeDisplay = 'Check Out';
+                }
+                
+                $details = 'Access: ' . htmlspecialchars(ucfirst($log['logResult'] ?? 'N/A'));
+
                 $activityForSelectedDate[] = [
-                    'date' => date("M d, Y", strtotime($log['log_timestamp'])),
-                    'time' => date("H:i", strtotime($log['log_timestamp'])),
+                    'date' => date("M d, Y", strtotime($log['logTime'])), // Use logTime
+                    'time' => date("H:i", strtotime($log['logTime'])),   // Use logTime
                     'type' => $activityTypeDisplay,
-                    'details' => htmlspecialchars($log['notes'] ?: $activityTypeDisplay . ' event logged.'),
-                    'rfid_card' => 'System Log', // Or $log['rfid_used'] if you log it
-                    'status_class' => ($log['event_type'] == 'check_in' ? 'present' : 'absent') // Simple class
+                    'details' => $details, 
+                    'rfid_card' => 'System Log', // Your 'attendance_logs' table doesn't show specific RFID card used per log
+                    'status_class' => ($log['logType'] == 'entry' && $log['logResult'] == 'granted' ? 'present' : 
+                                      ($log['logType'] == 'exit' ? 'absent' : 
+                                      ($log['logResult'] == 'denied' ? 'danger' : 'neutral')))
                 ];
             }
             if($stmtActivity) $stmtActivity->closeCursor();
         }
         
-
-        // If it's today and no specific attendance logs yet, but we determined status from latest event, add it.
-        if ($selectedDate == date("Y-m-d") && empty(array_filter($activityForSelectedDate, function($act){ return $act['type'] === 'Check In' || $act['type'] === 'Check Out'; })) && $latestEvent) {
+        // If it's today and no specific attendance_logs yet, but we determined status from latest event, add it.
+        if ($selectedDate == date("Y-m-d") && 
+            empty(array_filter($activityForSelectedDate, function($act){ return strpos($act['type'], 'Check In') !== false || strpos($act['type'], 'Check Out') !== false; })) && 
+            $latestEvent) {
              $activityForSelectedDate[] = [
                  'date' => $selectedDate,
-                 'time' => date("H:i"), // Current time
+                 'time' => date("H:i"), 
                  'type' => $rfidStatus === "Present" ? 'Current Status: Present' : ($rfidStatus === "Checked Out" ? "Current Status: Checked Out" : "Current Status: " . $rfidStatus),
-                 'details' => 'Based on latest attendance log for today.',
+                 'details' => 'Based on latest log for today.',
                  'rfid_card' => 'N/A', 
                  'status_class' => $rfidStatusClass
                 ];
         }
 
-
-        // Message if no specific records for the day (and not future)
+        // Message if no specific records for the day
          if (empty($activityForSelectedDate) && $selectedDate <= date('Y-m-d')){
-             // Check if there's an approved absence for the selected day
             $stmtSelectedDayAbsence = $pdo->prepare(
                 "SELECT absence_type, reason FROM absence 
                  WHERE userID = :userid 
@@ -205,14 +202,19 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
             $stmtSelectedDayAbsence->execute();
             $selectedDayAbsenceInfo = $stmtSelectedDayAbsence->fetch();
 
+            $absenceTypeDetailForMsg = "Absence"; 
+            if($selectedDayAbsenceInfo && isset($selectedDayAbsenceInfo['absence_type']) && !empty($selectedDayAbsenceInfo['absence_type'])){
+                $absenceTypeDetailForMsg = htmlspecialchars(ucfirst(str_replace('_',' ',$selectedDayAbsenceInfo['absence_type'])));
+            }
+
             if($selectedDayAbsenceInfo){
                 $activityForSelectedDate[] = [
                      'date' => $selectedDate, 
                      'time' => '--:--', 
                      'type' => 'Scheduled Absence', 
-                     'details' => 'Type: ' . htmlspecialchars(ucfirst(str_replace('_',' ',$selectedDayAbsenceInfo['absence_type']))) . ($selectedDayAbsenceInfo['reason'] ? ' - Reason: '.htmlspecialchars($selectedDayAbsenceInfo['reason']) : ''), 
+                     'details' => 'Type: ' . $absenceTypeDetailForMsg . ($selectedDayAbsenceInfo['reason'] ? ' - Reason: '.htmlspecialchars($selectedDayAbsenceInfo['reason']) : ''), 
                      'rfid_card' => 'N/A', 
-                     'status_class' => 'absent' // Or a specific class like 'scheduled-absence'
+                     'status_class' => 'absent'
                     ];
             } else {
                  $activityForSelectedDate[] = [
@@ -226,8 +228,6 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
             }
         }
 
-        // (Other stats like warningMessagesCount, upcomingLeaveDisplay would need their own queries)
-
     } catch (PDOException $e) {
         $dbErrorMessage = "Database Query Error: " . $e->getMessage();
     } catch (Exception $e) {
@@ -239,16 +239,16 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
 }
 $currentPage = basename($_SERVER['PHP_SELF']);
 ?>
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link rel="icon" href="imgs/logo.png" type="image/x-icon"> 
-        <title>My WavePass Dashboard - <?php echo $sessionFirstName; ?></title>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-        <style>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="imgs/logo.png" type="image/x-icon"> 
+    <title>My WavePass Dashboard - <?php echo $sessionFirstName; ?></title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
             /* Copied STYLES FROM index.php (WavePass - Teacher Attendance System) */
             :root {
                 --primary-color: #4361ee; /* ... other root variables ... */
@@ -386,112 +386,132 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             .footer-bottom { text-align: center; padding-top: 3rem; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.9rem; color: rgba(255, 255, 255, 0.6); }
             .footer-bottom a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); }
             .footer-bottom a:hover { color: var(--primary-color); }
-
+            .activity-status.danger { 
+            background-color: rgba(var(--danger-color-val, 247, 37, 133), 0.15); /* Use your danger color */
+            color: var(--danger-color); 
+        }
         </style>
-    </head>
-    <body>
-            <!-- header !-->
-            <?php require "components/header-employee.php"; ?>
+</head>
+<body>
+    <!-- header -->
+    <?php 
+      // Determine the correct relative path to components based on current script's location
+      // This logic assumes dashboard.php is in the root.
+      // If you move dashboard.php into 'admin/' or other subfolders, adjust this path logic.
+      $pathToComponents = "components/"; 
+      if (strpos($_SERVER['PHP_SELF'], '/admin/') !== false) { // Example if it was in an admin folder
+          $pathToComponents = "../components/";
+      }
+      // Choose header based on role (if you have a separate admin header)
+      $headerFile = ($sessionRole === 'admin') ? "header-admin-panel.php" : "header-employee-panel.php";
+      // However, for the employee dashboard, you'd typically always use the employee header.
+      // If an admin is viewing this dashboard, they are viewing it *as an employee would*.
+      // So, header-employee.php is likely always correct here.
+      require_once $pathToComponents . "header-employee-panel.php"; 
+    ?>
 
-        <main>
-            <div class="page-header">
-                <div class="container">
-                    <h1>Hello, <?php echo $sessionFirstName; ?>!</h1>
-                    <p class="sub-heading">Your personal attendance summary and daily activity.</p>
+    <main>
+        <div class="page-header">
+            <div class="container">
+                <h1>Hello, <?php echo $sessionFirstName; ?>!</h1>
+                <p class="sub-heading">Your personal attendance summary and daily activity.</p>
+            </div>
+        </div>
+
+        <div class="container" style="padding-bottom: 2.5rem;">
+            <?php if ($dbErrorMessage): ?>
+                <div class="db-error-message" role="alert">
+                    <i class="fas fa-exclamation-triangle" style="margin-right: 0.5rem;"></i> <?php echo $dbErrorMessage; ?>
                 </div>
-            </div>
+            <?php endif; ?>
 
-            <div class="container" style="padding-bottom: 2.5rem;">
-                <?php if ($dbErrorMessage): ?>
-                    <div class="db-error-message" role="alert">
-                        <i class="fas fa-exclamation-triangle" style="margin-right: 0.5rem;"></i> <?php echo $dbErrorMessage; ?>
+            <section class="employee-stats-grid">
+                <div class="stat-card rfid-status <?php echo $rfidStatusClass; ?>">
+                    <div class="icon"><span class="material-symbols-outlined">
+                        <?php echo ($rfidStatusClass === "present" ? "person_check" : ($rfidStatusClass === "absent" ? "person_off" : "contactless")); ?>
+                    </span></div>
+                    <div class="info">
+                        <span class="value"><?php echo htmlspecialchars($rfidStatus); ?></span>
+                        <span class="label">Your Current Status</span>
                     </div>
-                <?php endif; ?>
+                </div>
+                <div class="stat-card absences-count">
+                    <div class="icon"><span class="material-symbols-outlined">calendar_month</span></div>
+                    <div class="info">
+                        <span class="value"><?php echo htmlspecialchars($absencesThisMonthCount); ?></span>
+                        <span class="label">Approved Absences <small class="placeholder-text">(this month)</small></span>
+                    </div>
+                </div>
+                <div class="stat-card warnings">
+                    <div class="icon"><span class="material-symbols-outlined">chat_error</span></div> 
+                    <div class="info">
+                        <span class="value"><?php echo $warningMessagesCount; ?></span>
+                        <span class="label">Unread Warnings <small class="placeholder-text">(N/A)</small></span>
+                    </div>
+                </div>
+                <div class="stat-card upcoming-leave">
+                    <div class="icon"><span class="material-symbols-outlined">flight_takeoff</span></div>
+                    <div class="info">
+                        <span class="value"><?php echo htmlspecialchars($upcomingLeaveDisplay); ?></span>
+                        <span class="label">Upcoming Leave <small class="placeholder-text">(N/A)</small></span>
+                    </div>
+                </div>
+            </section>
 
-                <section class="employee-stats-grid">
-                    <div class="stat-card rfid-status <?php echo $rfidStatusClass; ?>">
-                        <div class="icon"><span class="material-symbols-outlined">
-                            <?php echo ($rfidStatusClass === "present" ? "person_check" : ($rfidStatusClass === "absent" ? "person_off" : "contactless")); ?>
-                        </span></div>
-                        <div class="info">
-                            <span class="value"><?php echo htmlspecialchars($rfidStatus); ?></span>
-                            <span class="label">Your Current Status</span>
-                        </div>
+            <section class="content-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Activity for <span id="selectedDateDisplay"><?php echo date("F d, Y", strtotime($selectedDate)); ?></span></h2>
+                    <div class="date-navigation">
+                        <button class="btn-nav" id="prevDayBtn" title="Previous Day"><span class="material-symbols-outlined">chevron_left</span></button>
+                        <input type="date" id="activity-date-selector" value="<?php echo $selectedDate; ?>">
+                        <button class="btn-nav" id="nextDayBtn" title="Next Day"><span class="material-symbols-outlined">chevron_right</span></button>
                     </div>
-                    <div class="stat-card absences-count">
-                        <div class="icon"><span class="material-symbols-outlined">calendar_month</span></div>
-                        <div class="info">
-                            <span class="value"><?php echo htmlspecialchars($absencesThisMonthCount); ?></span>
-                            <span class="label">Absence Indicator <small class="placeholder-text">(this month)</small></span>
-                        </div>
-                    </div>
-                    <div class="stat-card warnings">
-                        <div class="icon"><span class="material-symbols-outlined">chat_error</span></div> 
-                        <div class="info">
-                            <span class="value"><?php echo $warningMessagesCount; ?></span>
-                            <span class="label">Unread Warnings <small class="placeholder-text">(N/A)</small></span>
-                        </div>
-                    </div>
-                    <div class="stat-card upcoming-leave">
-                        <div class="icon"><span class="material-symbols-outlined">flight_takeoff</span></div>
-                        <div class="info">
-                            <span class="value"><?php echo htmlspecialchars($upcomingLeaveDisplay); ?></span>
-                            <span class="label">Upcoming Leave <small class="placeholder-text">(next 7 days)</small></span>
-                        </div>
-                    </div>
-                </section>
+                </div>
+                <p class="placeholder-text" style="margin-bottom:1.2rem; font-size:0.8rem;"><i class="fas fa-info-circle"></i> This view shows basic activity. For a comprehensive history, visit the <a href="my_attendance_log.php?date=<?php echo $selectedDate; ?>" style="color:var(--primary-color)">Full Attendance Log</a>.</p>
 
-                <section class="content-panel">
-                    <div class="panel-header">
-                        <h2 class="panel-title">Activity for <span id="selectedDateDisplay"><?php echo date("F d, Y", strtotime($selectedDate)); ?></span></h2>
-                        <div class="date-navigation">
-                            <button class="btn-nav" id="prevDayBtn" title="Previous Day"><span class="material-symbols-outlined">chevron_left</span></button>
-                            <input type="date" id="activity-date-selector" value="<?php echo $selectedDate; ?>">
-                            <button class="btn-nav" id="nextDayBtn" title="Next Day"><span class="material-symbols-outlined">chevron_right</span></button>
-                        </div>
-                    </div>
-                    <p class="placeholder-text" style="margin-bottom:1.2rem; font-size:0.8rem;"><i class="fas fa-info-circle"></i> This view shows basic activity. For a comprehensive history, visit the <a href="my_attendance_log.php?date=<?php echo $selectedDate; ?>" style="color:var(--primary-color)">Full Attendance Log</a>.</p>
-
-                    <div class="activity-table-wrapper">
-                        <table class="activity-table" id="employeeActivityTable_singleDay">
-                            <thead>
-                                <tr>
-                                    <th>Time</th> 
-                                    <th>Activity Type</th>
-                                    <th>Details</th>
-                                    <th>RFID Card</th> 
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if (!empty($activityForSelectedDate)): ?>
-                                    <?php foreach ($activityForSelectedDate as $activity): ?>
-                                        <tr>
-                                            <td><?php echo htmlspecialchars($activity['time']); ?></td>
-                                            <td>
-                                                <span class="activity-status <?php echo htmlspecialchars($activity['status_class']); ?>">
-                                                    <?php echo htmlspecialchars($activity['type']); ?>
-                                                </span>
-                                            </td>
-                                            <td><?php echo htmlspecialchars($activity['details']); ?></td>
-                                            <td class="rfid-cell"><?php echo htmlspecialchars($activity['rfid_card']); ?></td> 
-                                        </tr>
-                                    <?php endforeach; ?>
-                                <?php else: ?>
+                <div class="activity-table-wrapper">
+                    <table class="activity-table" id="employeeActivityTable_singleDay">
+                        <thead>
+                            <tr>
+                                <th>Time</th> 
+                                <th>Activity Type</th>
+                                <th>Details</th>
+                                <th>Card Used</th> 
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (!empty($activityForSelectedDate)): ?>
+                                <?php foreach ($activityForSelectedDate as $activity): ?>
                                     <tr>
-                                        <td colspan="4" class="no-activity-msg">No specific activity recorded for <?php echo date("M d, Y", strtotime($selectedDate)); ?>.</td>  
+                                        <td><?php echo htmlspecialchars($activity['time']); ?></td>
+                                        <td>
+                                            <span class="activity-status <?php echo htmlspecialchars($activity['status_class']); ?>">
+                                                <?php echo htmlspecialchars($activity['type']); ?>
+                                            </span>
+                                        </td>
+                                        <td><?php echo htmlspecialchars($activity['details']); ?></td>
+                                        <td class="rfid-cell"><?php echo htmlspecialchars($activity['rfid_card']); ?></td> 
                                     </tr>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-            </div>
-        </main>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="4" class="no-activity-msg">No specific activity recorded for <?php echo date("M d, Y", strtotime($selectedDate)); ?>.</td>  
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </main>
 
-        <!-- Footer (Full HTML for footer should be placed here) -->
-        <?php require "components/footer-user.php"; ?>
+    <?php 
+        $footerFile = "footer-user.php"; // Default for employee dashboard
+        // if ($sessionRole === 'admin') { $footerFile = "footer-admin.php"; } // If you had a different admin footer for some reason
+        require_once $pathToComponents . $footerFile; 
+    ?>
 
-        <script>
+<script>
             // Mobile Menu Toggle (Using logic from index.php/assistent.html for hamburger, mobileMenu, closeMenu IDs)
             const hamburger = document.getElementById('hamburger');
             const mobileMenu = document.getElementById('mobileMenu');
@@ -571,5 +591,5 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 });
             }
         </script>
-    </body>
-    </html>  
+</body>
+</html>
