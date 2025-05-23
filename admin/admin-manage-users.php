@@ -281,7 +281,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <div class="panel-header">
                     <h2 class="panel-title">Add New Employee/Admin</h2>
                 </div>
-                <form action="admin-manage-employees.php" method="POST">
+                <form action="admin-manage-users.php" method="POST">
                     <input type="hidden" name="action" value="add_user">
                     <div class="form-grid">
                         <div class="form-group">
@@ -371,7 +371,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                         <td class="actions-cell">
                                             <a href="admin-edit-user.php?userID=<?php echo $user['userID']; ?>" class="btn-edit" title="Edit User"><span class="material-symbols-outlined" style="font-size:1em; vertical-align:middle;">edit</span></a>
                                             <?php if ($user['userID'] != $sessionUserId): // Prevent self-deletion ?>
-                                            <form action="admin-manage-employees.php" method="POST" onsubmit="return confirm('Are you sure you want to delete this user? This action cannot be undone.');">
+                                            <form action="admin-manage-users.php" method="POST" onsubmit="return confirm('Are you sure you want to delete this user? This action cannot be undone.');">
                                                 <input type="hidden" name="action" value="delete_user">
                                                 <input type="hidden" name="user_id_to_delete" value="<?php echo $user['userID']; ?>">
                                                 <button type="submit" class="btn-danger" title="Delete User"><span class="material-symbols-outlined" style="font-size:1em; vertical-align:middle;">delete</span></button>
