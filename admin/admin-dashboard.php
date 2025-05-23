@@ -190,9 +190,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             line-height: 1.6; color: var(--dark-color); background-color: #f4f6f9;
             overflow-x: hidden; scroll-behavior: smooth; display: flex; flex-direction: column; min-height: 100vh;
-            visibility: hidden;"
         }
-        main { flex-grow: 1;  }
+        main { flex-grow: 1; padding-top: 80px; }
         
         .container, .page-header .container {
             max-width: 1440px; 
