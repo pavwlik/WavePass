@@ -179,7 +179,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        /* === BASIC STYLES (from admin-dashboard.php) === */
+        /* === BASIC STYLES (from admin-panel.php) === */
         :root {
             --primary-color: #4361ee; --primary-dark: #3a56d4; --secondary-color: #3f37c9;
             --primary-color-rgb: 67, 97, 238;

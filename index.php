@@ -208,6 +208,22 @@ require_once "db.php";
             box-shadow: 0 4px 14px rgba(67, 97, 238, 0.3);
             font-size: 0.95rem;
         }
+        .faq-answer-content {
+    padding: 0 1.5rem; /* Default horizontal padding, vertical padding added when active */
+    color: var(--gray-color);
+    line-height: 1.6;
+    font-size: 0.95rem;
+}
+.faq-item.active .faq-answer-content {
+    padding: 1.5rem; /* Add full padding when active */
+}
+.faq-answer {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s ease-out; /* Removed padding transition here */
+    background-color: rgba(67, 97, 238, 0.03);
+    /* Padding will be on .faq-answer-content */
+}
         .btn:hover {
             background-color: var(--primary-dark);
             box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
@@ -959,6 +975,28 @@ require_once "db.php";
                 window.scrollTo({ top: 0, behavior: "smooth" });
             });
         }
+        // FAQ Accordion Functionality
+const faqItems = document.querySelectorAll('.faq-item');
+faqItems.forEach(item => {
+    const question = item.querySelector('.faq-question');
+    const answer = item.querySelector('.faq-answer');
+    const answerContent = item.querySelector('.faq-answer-content'); // Target the content div
+
+    if(question && answer && answerContent) { // Check if answerContent also exists
+        question.addEventListener('click', () => {
+            const isActive = item.classList.contains('active');
+
+            if (isActive) {
+                item.classList.remove('active');
+                answer.style.maxHeight = null;
+            } else {
+                item.classList.add('active');
+                // Set max-height to the scrollHeight of the *content* div
+                answer.style.maxHeight = answerContent.scrollHeight + "px";
+            }
+        });
+    }
+});
     </script>
 </body>
 </html>

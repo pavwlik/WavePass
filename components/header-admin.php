@@ -73,7 +73,7 @@ if ($sessionIsLoggedIn && isset($_SESSION["profile_photo"]) && !empty($_SESSION[
 
 // Define paths for key pages
 $user_dashboard_path_target = "dashboard.php"; // Target filename
-$admin_dashboard_path_target = "admin-dashboard.php"; // Target filename
+$admin_dashboard_path_target = "admin-panel.php"; // Target filename
 
 // Links FROM admin folder TO root folder need "../"
 // Links FROM root folder TO admin folder need "admin/" (if admin files are in /admin/)
@@ -89,7 +89,7 @@ if ($is_in_admin_folder) {
 // For links to admin pages (assuming admin pages are in /admin/ folder)
 if (!$is_in_admin_folder && $userRole === 'admin') {
     // If user is admin and on a root page, link to admin pages needs 'admin/' prefix
-    // BUT your admin files (admin-dashboard.php) are at the root according to the image.
+    // BUT your admin files (admin-panel.php) are at the root according to the image.
     // So, no prefix needed here for your structure.
     $admin_page_link_prefix = "";
 } else {
@@ -111,8 +111,8 @@ if (!$is_in_admin_folder && $userRole === 'admin') {
             <ul class="nav-links">
                 <?php if ($sessionIsLoggedIn): ?>
                     <?php if ($userRole === 'admin'): ?>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>./dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-link'; ?>">User Dashboard</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-dashboard.php" class="<?php if ($currentPage === 'admin-dashboard.php') echo 'active-link'; ?>">Admin Panel</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-dashboard.php" class="<?php if ($currentPage === 'admin-dashboard.php') echo 'active-link'; ?>">User Dashboard</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-panel.php" class="<?php if ($currentPage === 'admin-panel.php') echo 'active-link'; ?>">Admin Panel</a></li>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-rfid.php" class="<?php if ($currentPage === 'admin-manage-rfid.php') echo 'active-link'; ?>">RFID Cards</a></li>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-users.php" class="<?php if ($currentPage === 'admin-manage-employees.php') echo 'active-link'; ?>">Employees</a></li>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-absence.php" class="<?php if ($currentPage === 'admin-manage-absence.php') echo 'active-link'; ?>">Absences</a></li>
@@ -125,7 +125,7 @@ if (!$is_in_admin_folder && $userRole === 'admin') {
                     <?php endif; ?>
                     
                     <li>
-                        <a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>profile.php?section=profile" class="<?php if ($currentPage === 'profile.php') echo 'active-link'; ?>">
+                        <a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-profile.php?section=profile" class="<?php if ($currentPage === 'admin-profile.php') echo 'active-link'; ?>">
                             <img src="<?php echo $profile_photo_url; ?>?<?php echo time(); ?>" alt="Profile" class="nav-user-photo">
                             <?php echo $sessionFirstName; ?>
                         </a>
@@ -146,8 +146,8 @@ if (!$is_in_admin_folder && $userRole === 'admin') {
         <ul class="mobile-links">
             <?php if ($sessionIsLoggedIn): ?>
                 <?php if ($userRole === 'admin'): ?>
-                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>./dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-link'; ?>">User Dashboard</a></li>
-                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-dashboard.php" class="<?php if ($currentPage === 'admin-dashboard.php') echo 'active-link'; ?>">Admin Panel</a></li>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-dashboard.php" class="<?php if ($currentPage === 'admin-dashboard.php') echo 'active-link'; ?>">User Dashboard</a></li>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-panel.php" class="<?php if ($currentPage === 'admin-panel.php') echo 'active-link'; ?>">Admin Panel</a></li>
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-rfid.php" class="<?php if ($currentPage === 'admin-manage-rfid.php') echo 'active-link'; ?>">RFID Cards</a></li>
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-employees.php" class="<?php if ($currentPage === 'admin-manage-employees.php') echo 'active-link'; ?>">Employees</a></li>
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-absence.php" class="<?php if ($currentPage === 'admin-manage-absence.php') echo 'active-link'; ?>">Absences</a></li>
@@ -159,7 +159,7 @@ if (!$is_in_admin_folder && $userRole === 'admin') {
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>messages.php" class="<?php if ($currentPage === 'messages.php' && (!isset($_GET['context']) || $_GET['context'] !== 'admin') ) echo 'active-link'; ?>">Messages</a></li>
                 <?php endif; ?>
                 <li class="nav-item-profile">
-                        <a href="<?php echo htmlspecialchars($asset_prefix . 'profile.php?section=profile'); ?>" class="profile-link <?php if ($currentPage === 'profile.php') echo 'active-link'; ?>">
+                        <a href="<?php echo htmlspecialchars($asset_prefix . 'admin-profile.php?section=profile'); ?>" class="profile-link <?php if ($currentPage === 'profile.php') echo 'active-link'; ?>">
                             <img src="<?php echo $profile_photo_url; ?>?<?php echo time(); /* Cache buster */ ?>" alt="Profile" class="nav-user-photo">
                             <span class="nav-user-name"><?php echo $sessionFirstName; ?></span>
                         </a>

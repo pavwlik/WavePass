@@ -11,7 +11,7 @@ if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
     exit;
 }
 
-require_once 'db.php'; 
+require_once '../db.php'; 
 
 $sessionFirstName = isset($_SESSION["first_name"]) ? htmlspecialchars($_SESSION["first_name"]) : 'User';
 $sessionUserId = isset($_SESSION["user_id"]) ? (int)$_SESSION["user_id"] : null;
@@ -38,12 +38,12 @@ $updateMessage = null;
 // Logika pro $projectBasePath, WEB_ROOT_PATH, $fileSystemProfileUploadDir, $webProfileUploadDir zůstává stejná
 $projectBasePath = ''; 
 $docRoot = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
-$scriptName = $_SERVER['SCRIPT_NAME']; // např. /profile.php nebo /admin/profile.php
+$scriptName = $_SERVER['SCRIPT_NAME']; // např. /admin-profile.php nebo /admin/admin-profile.php
 $scriptDir = dirname($scriptName); // např. / nebo /admin
 
 // Pokud je skript v rootu, $projectBasePath je '', jinak je to $scriptDir
 // Toto předpokládá, že projekt je přímo v document rootu nebo v podadresáři
-// a že profile.php je buď v rootu projektu nebo v přímém podadresáři projektu.
+// a že admin-profile.php je buď v rootu projektu nebo v přímém podadresáři projektu.
 if ($scriptDir === '/' || $scriptDir === '\\') {
     $projectBasePath = '';
 } else {
@@ -307,7 +307,7 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
         if($stmtUserDisplay) $stmtUserDisplay->closeCursor(); 
 
     } catch (PDOException $e) {
-        error_log("DB Error loading user data {$sessionUserId} in profile.php: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+        error_log("DB Error loading user data {$sessionUserId} in admin-profile.php: " . $e->getMessage() . "\n" . $e->getTraceAsString());
         $dbErrorMessage = "Database error on page load: " . htmlspecialchars($e->getMessage()) . ". Please contact support.";
     }
 } elseif (!$sessionUserId) {
@@ -467,7 +467,7 @@ if (strpos($_SERVER['SCRIPT_FILENAME'], DIRECTORY_SEPARATOR . 'admin' . DIRECTOR
 </head>
 <body>
         <!-- header !-->
-        <?php require "components/header-admin.php"; ?>
+        <?php require "../components/header-admin.php"; ?>
 
     <main>
         <div class="page-header">
@@ -513,7 +513,7 @@ if (strpos($_SERVER['SCRIPT_FILENAME'], DIRECTORY_SEPARATOR . 'admin' . DIRECTOR
                     <!-- Sekce Profile Details -->
                     <div id="profile-section" class="content-section <?php if ($activeSection === 'profile') echo 'active'; ?>">
                         <h2>Profile Details</h2>
-                        <form method="POST" action="profile.php?section=profile" class="profile-info-form" enctype="multipart/form-data">
+                        <form method="POST" action="admin-profile.php?section=profile" class="profile-info-form" enctype="multipart/form-data">
                             <div class="profile-picture-group">
                                 <div class="profile-picture-display">
                                     <img src="<?php 
@@ -558,7 +558,7 @@ if (strpos($_SERVER['SCRIPT_FILENAME'], DIRECTORY_SEPARATOR . 'admin' . DIRECTOR
                     <!-- Sekce Change Password -->
                     <div id="password-section" class="content-section <?php if ($activeSection === 'password') echo 'active'; ?>">
                          <h2>Change Your Password</h2>
-                         <form method="POST" action="profile.php?section=password" class="change-password-form">
+                         <form method="POST" action="admin-profile.php?section=password" class="change-password-form">
                             <div class="form-group"><label for="current_password" class="form-label">Current Password</label><input type="password" id="current_password" name="current_password" class="form-control" required></div>
                             <div class="form-group"><label for="new_password" class="form-label">New Password</label><input type="password" id="new_password" name="new_password" class="form-control" required minlength="8" placeholder="Minimum 8 characters"></div>
                             <div class="form-group"><label for="confirm_password" class="form-label">Confirm Password</label><input type="password" id="confirm_password" name="confirm_password" class="form-control" required></div>

@@ -32,7 +32,7 @@ if (isset($_SESSION["role_name"])) {
 $pathPrefix = ""; // Předpoklad: header je v components/, skript je v rootu projektu
 // Zjistíme, zda je aktuální skript ve složce 'admin/'
 if (strpos($_SERVER['SCRIPT_FILENAME'], DIRECTORY_SEPARATOR . 'admin' . DIRECTORY_SEPARATOR) !== false) {
-    // Jsme v admin sekci (např. /var/www/html/projekt/admin/admin-dashboard.php)
+    // Jsme v admin sekci (např. /var/www/html/projekt/admin/admin-panel.php)
     // components/ je o úroveň výš
     $pathPrefix = "../"; 
 }
@@ -84,7 +84,7 @@ if ($sessionIsLoggedIn && isset($_SESSION["profile_photo"]) && !empty($_SESSION[
                     <?php if ($userRole === 'admin'): ?>
                         <!-- Admin Links -->
                         <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>../dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-nav-link'; ?>">User Dashboard</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_admin_links); ?>admin-dashboard.php" class="<?php if ($currentPage === 'admin-dashboard.php') echo 'active-nav-link'; ?>">Admin Panel</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_admin_links); ?>admin-panel.php" class="<?php if ($currentPage === 'admin-panel.php') echo 'active-nav-link'; ?>">Admin Panel</a></li>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_admin_links); ?>admin-manage-rfid.php" class="<?php if ($currentPage === 'admin-manage-rfid.php') echo 'active-nav-link'; ?>">RFID Cards</a></li>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_admin_links); ?>admin-manage-employees.php" class="<?php if ($currentPage === 'admin-manage-employees.php') echo 'active-nav-link'; ?>">Employees</a></li>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_admin_links); ?>admin-manage-absences.php" class="<?php if ($currentPage === 'admin-manage-absences.php') echo 'active-nav-link'; ?>">Absences</a></li>
@@ -124,7 +124,7 @@ if ($sessionIsLoggedIn && isset($_SESSION["profile_photo"]) && !empty($_SESSION[
         <?php if ($sessionIsLoggedIn): ?>
             <?php if ($userRole === 'admin'): ?>
                 <li><a href="<?php echo htmlspecialchars($base_path_for_root_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-nav-link'; ?>">User Dashboard</a></li>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_admin_links); ?>admin-dashboard.php" class="<?php if ($currentPage === 'admin-dashboard.php') echo 'active-nav-link'; ?>">Admin Panel</a></li>
+                <li><a href="<?php echo htmlspecialchars($base_path_for_admin_links); ?>admin-panel.php" class="<?php if ($currentPage === 'admin-panel.php') echo 'active-nav-link'; ?>">Admin Panel</a></li>
                 <li><a href="<?php echo htmlspecialchars($base_path_for_admin_links); ?>admin-manage-rfid.php" class="<?php if ($currentPage === 'admin-manage-rfid.php') echo 'active-nav-link'; ?>">RFID Cards</a></li>
                 <li><a href="<?php echo htmlspecialchars($base_path_for_admin_links); ?>admin-manage-employees.php" class="<?php if ($currentPage === 'admin-manage-employees.php') echo 'active-nav-link'; ?>">Employees</a></li>
                 <li><a href="<?php echo htmlspecialchars($base_path_for_admin_links); ?>admin-manage-absences.php" class="<?php if ($currentPage === 'admin-manage-absences.php') echo 'active-nav-link'; ?>">Absences</a></li>
