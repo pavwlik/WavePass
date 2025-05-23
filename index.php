@@ -583,7 +583,7 @@ require_once "db.php";
 <body>
     
     <!-- Header -->
-    <?php require_once "components/header.php" ?>
+    <?php require_once "components/header-main.php" ?>
 
     <main>
         <!-- Hero Section -->

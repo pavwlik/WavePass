@@ -227,7 +227,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 </head>
 <body>
     <!-- Header -->
-    <?php require_once "components/header.php" ?> 
+    <?php require_once "components/header-main.php" ?>
 
     <main>
         <div class="page-header-docs">

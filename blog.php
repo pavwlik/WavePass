@@ -440,7 +440,7 @@ require_once "db.php";
         }
 
         @media (max-width: 768px) { /* Mobile breakpoint */
-            main { padding-top: 80px; }
+            main { padding-top: 80px;; }
             .nav-links { display: none; }
             .hamburger { display: flex; flex-direction: column; justify-content: space-between; }
             

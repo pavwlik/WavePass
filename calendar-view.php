@@ -129,7 +129,7 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; line-height: 1.6; color: var(--dark-color); background-color: #f4f6f9; display: flex; flex-direction: column; min-height: 100vh; }
-        main { flex-grow: 1; padding-top: 80px; }
+        main { flex-grow: 1; padding-top: 80px;; }
         .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
         h1,h2,h3,h4 {font-weight: 600;}
 

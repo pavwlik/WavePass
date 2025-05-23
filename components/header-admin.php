@@ -17,9 +17,8 @@ if ($sessionIsLoggedIn) {
     if (isset($_SESSION["role_name"])) {
         $userRole = strtolower(htmlspecialchars($_SESSION["role_name"]));
     } elseif (isset($_SESSION["role"])) {
+        // Fallback if role_name isn't set but role is (e.g. 'admin', 'employee')
         $userRole = strtolower(htmlspecialchars($_SESSION["role"]));
-    } elseif (isset($_SESSION["roleID"])) {
-        $userRole = strtolower(htmlspecialchars($_SESSION["roleID"]));
     }
 } else {
     $userRole = 'guest';
@@ -30,67 +29,81 @@ if (!isset($currentPage)) {
     $currentPage = basename($_SERVER['PHP_SELF']); // Fallback
 }
 
-// --- Path Adjustments ---
-// $pathPrefix určuje relativní cestu z aktuálně spouštěného skriptu 
-// k rootu projektu, pokud je main-header.php v components/
-$pathPrefix = ""; 
-$scriptDir = dirname($_SERVER['SCRIPT_FILENAME']); // Adresář aktuálně spouštěného skriptu
-$headerDir = dirname(__FILE__); // Adresář tohoto header souboru (components/)
+// Path adjustments
+// $base_path_for_page_links determines if links need ../ or not.
+// Generally for pages within the same directory level.
+$base_path_for_page_links = "";
 
-// Pokud je header v podadresáři (např. components/) a spouštěný skript je o úroveň výš (v rootu)
-if (basename($headerDir) === 'components' && $scriptDir === dirname($headerDir)) {
-    $pathPrefix = ""; // Pro odkazy na stránky v rootu
-    $base_path_for_assets_from_root = ""; // Assety jsou také v rootu (nebo podsložkách rootu)
-} 
-// Pokud je header v components/ a spouštěný skript je také v components/ (méně časté)
-elseif ($scriptDir === $headerDir) {
-    $pathPrefix = ""; // Pro odkazy na stránky v rootu
-    $base_path_for_assets_from_root = "../"; // Musíme jít o úroveň výš k rootu pro assety
-}
-// Pokud je header v components/ a spouštěný skript je v admin/ (který je na stejné úrovni jako components/)
-// Toto je scénář z vašich předchozích požadavků, který teď není aktivní, ale nechávám pro úplnost.
-// V tomto případě by detekce $pathPrefix na začátku souboru (strpos 'admin') byla relevantnější.
-// Pro jednoduchost předpokládáme, že buď je vše v rootu, nebo header v components a stránky v rootu.
+// $asset_prefix is used for assets like images, CSS, JS that are in root folders
+// when the current page is in a subdirectory (like /admin/).
+$asset_prefix = "";
+$is_admin_page_context = (strpos($currentPage, 'admin-') === 0);
 
-// Toto je jednodušší předpoklad pro vaši aktuální strukturu (header v components/, stránky v rootu)
-if (basename(dirname(__FILE__)) === 'components') {
-    $base_path_for_page_links = ""; // Odkazy na stránky v rootu jsou přímé
-    $base_path_for_assets = "";  // Z components/ do rootu pro imgs/ a profile_photos/
-} else {
-    // Pokud by main-header.php byl v rootu
-    $base_path_for_page_links = "";
-    $base_path_for_assets = "";
+// Determine if the current script is inside the 'admin' directory based on its path
+$current_script_path = $_SERVER['SCRIPT_FILENAME'];
+$is_in_admin_folder = (strpos($current_script_path, DIRECTORY_SEPARATOR . 'admin' . DIRECTORY_SEPARATOR) !== false);
+
+
+if ($is_in_admin_folder) { // If the script itself is in /admin/
+    $asset_prefix = "../";
+    $base_path_for_page_links = ""; // Links to other admin pages are direct
+} else { // Script is in root
+    $asset_prefix = "";
+    $base_path_for_page_links = ""; // Links to other root pages are direct
 }
 
 
 // --- Profile Photo URL Construction ---
-// Adresář pro fotky relativně k rootu projektu (z pohledu rootu)
-$profile_upload_dir_relative_to_project_root = defined('PROFILE_UPLOAD_DIR_FROM_PROJECT_ROOT') ? PROFILE_UPLOAD_DIR_FROM_PROJECT_ROOT : 'profile_photos/';
-// Název výchozího avataru
-$default_avatar_filename = defined('DEFAULT_AVATAR_FILENAME') ? DEFAULT_AVATAR_FILENAME : 'default_avatar.jpg';
+$profile_upload_dir_from_root = 'profile_photos/'; // Always relative to project root
+$default_avatar_filename = 'default_avatar.jpg';   // Always relative to project root
 
-// Sestavení webové cesty k adresáři profilových fotek
-// $base_path_for_assets (např. "../") + $profile_upload_dir_relative_to_project_root (např. "profile_photos/")
-$web_profile_photos_path = htmlspecialchars($base_path_for_assets . $profile_upload_dir_relative_to_project_root);
+// The $asset_prefix will correctly make it ../profile_photos/ if we are in /admin/
+// or profile_photos/ if we are in root.
+$web_profile_photos_path_resolved = htmlspecialchars($asset_prefix . $profile_upload_dir_from_root);
 
-// Výchozí URL pro avatar
-$profile_photo_url = $web_profile_photos_path . $default_avatar_filename;
+$profile_photo_url = $web_profile_photos_path_resolved . $default_avatar_filename;
 
 if ($sessionIsLoggedIn && isset($_SESSION["profile_photo"]) && !empty($_SESSION["profile_photo"])) {
     $current_photo_filename = basename($_SESSION["profile_photo"]);
     if ($current_photo_filename !== $default_avatar_filename) {
-        // Použije specifickou fotku uživatele
-        $profile_photo_url = $web_profile_photos_path . htmlspecialchars($current_photo_filename);
+        $profile_photo_url = $web_profile_photos_path_resolved . htmlspecialchars($current_photo_filename);
     }
-    // Jinak zůstane $profile_photo_url nastavena na výchozí avatar
 }
+
+
+// Define paths for key pages
+$user_dashboard_path_target = "dashboard.php"; // Target filename
+$admin_dashboard_path_target = "admin-dashboard.php"; // Target filename
+
+// Links FROM admin folder TO root folder need "../"
+// Links FROM root folder TO admin folder need "admin/" (if admin files are in /admin/)
+// Links within the same folder are direct.
+
+// For the "User Dashboard" link when admin is in admin context
+if ($is_in_admin_folder) {
+    $user_dashboard_link = "../" . $user_dashboard_path_target;
+} else {
+    $user_dashboard_link = $user_dashboard_path_target;
+}
+
+// For links to admin pages (assuming admin pages are in /admin/ folder)
+if (!$is_in_admin_folder && $userRole === 'admin') {
+    // If user is admin and on a root page, link to admin pages needs 'admin/' prefix
+    // BUT your admin files (admin-dashboard.php) are at the root according to the image.
+    // So, no prefix needed here for your structure.
+    $admin_page_link_prefix = "";
+} else {
+    // If inside admin folder, or not admin, links to admin pages are direct (or not shown)
+    $admin_page_link_prefix = "";
+}
+
 ?>
 <header>
-    <div class="container"> 
+    <div class="container">
         <nav class="navbar">
             <a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>index.php" class="logo">
-                <img src="<?php echo htmlspecialchars($base_path_for_assets); ?>../imgs/logo.png" alt="WavePass Logo" class="logo-img">
-                Wave<span>Pass</span> 
+                <i class="fas fa-chalkboard-teacher"></i>
+                Wave<span>Pass</span>
                 <?php if ($userRole === 'admin'): ?>
                     <span class="admin-badge">Admin</span>
                 <?php endif; ?>
@@ -98,88 +111,84 @@ if ($sessionIsLoggedIn && isset($_SESSION["profile_photo"]) && !empty($_SESSION[
             <ul class="nav-links">
                 <?php if ($sessionIsLoggedIn): ?>
                     <?php if ($userRole === 'admin'): ?>
-                        <!-- Admin Links (všechny jsou v rootu projektu) -->
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-nav-link'; ?>">User Dashboard</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-dashboard.php" class="<?php if ($currentPage === 'admin-dashboard.php') echo 'active-nav-link'; ?>">Admin Panel</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-rfid.php" class="<?php if ($currentPage === 'admin-manage-rfid.php') echo 'active-nav-link'; ?>">RFID Cards</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-users.php" class="<?php if ($currentPage === 'admin-manage-employees.php') echo 'active-nav-link'; ?>">Employees</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-absence.php" class="<?php if ($currentPage === 'admin-manage-absence.php') echo 'active-nav-link'; ?>">Absences</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-messages.php?context=admin" class="<?php if ($currentPage === 'messages.php' && isset($_GET['context']) && $_GET['context'] === 'admin') echo 'active-nav-link'; ?>">Messages</a></li>
-
-                    <?php else: // Employee Links (všechny jsou v rootu projektu) ?>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-nav-link'; ?>">My Dashboard</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>my_attendance_log.php" class="<?php if ($currentPage === 'my_attendance_log.php') echo 'active-nav-link'; ?>">Attendance Log</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>absences.php" class="<?php if ($currentPage === 'absences.php') echo 'active-nav-link'; ?>">Absence</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>messages.php" class="<?php if ($currentPage === 'messages.php' && (!isset($_GET['context']) || $_GET['context'] !== 'admin') ) echo 'active-nav-link'; ?>">Messages</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>./dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-link'; ?>">User Dashboard</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-dashboard.php" class="<?php if ($currentPage === 'admin-dashboard.php') echo 'active-link'; ?>">Admin Panel</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-rfid.php" class="<?php if ($currentPage === 'admin-manage-rfid.php') echo 'active-link'; ?>">RFID Cards</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-users.php" class="<?php if ($currentPage === 'admin-manage-employees.php') echo 'active-link'; ?>">Employees</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-absence.php" class="<?php if ($currentPage === 'admin-manage-absence.php') echo 'active-link'; ?>">Absences</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-messages.php?context=admin" class="<?php if ($currentPage === 'messages.php' && isset($_GET['context']) && $_GET['context'] === 'admin') echo 'active-link'; ?>">Messages</a></li>
+                    <?php else: ?>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-link'; ?>">My Dashboard</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>my_attendance_log.php" class="<?php if ($currentPage === 'my_attendance_log.php') echo 'active-link'; ?>">Attendance Log</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>absences.php" class="<?php if ($currentPage === 'absences.php') echo 'active-link'; ?>">Absence</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>messages.php" class="<?php if ($currentPage === 'messages.php' && (!isset($_GET['context']) || $_GET['context'] !== 'admin') ) echo 'active-link'; ?>">Messages</a></li>
                     <?php endif; ?>
                     
-                    <!-- Common Logged In Links -->
                     <li>
-                        <a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>profile.php?section=profile" class="nav-profile-link <?php if ($currentPage === 'profile.php') echo 'active-nav-link'; ?>"> 
-                            <img src="<?php echo $profile_photo_url; ?>?<?php echo time(); // Cache buster ?>" alt="Profile" class="nav-user-photo">
+                        <a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>profile.php?section=profile" class="<?php if ($currentPage === 'profile.php') echo 'active-link'; ?>">
+                            <img src="<?php echo $profile_photo_url; ?>?<?php echo time(); ?>" alt="Profile" class="nav-user-photo">
                             <?php echo $sessionFirstName; ?>
                         </a>
                     </li>
-                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>logout.php" class="btn btn-outline">Logout</a></li> 
-                <?php else: // Logged Out Links ?>
-                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>index.php#features" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#features') !== false) echo 'active-nav-link'; ?>">Features</a></li>
-                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>pricing.php" class="<?php if ($currentPage === 'pricing.php') echo 'active-nav-link'; ?>">Pricing</a></li>
-                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>index.php#faq" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#faq') !== false) echo 'active-nav-link'; ?>">FAQ</a></li>
-                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>login.php" class="btn btn-outline">Login</a></li> 
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>logout.php" class="btn"><span class="material-symbols-outlined">logout</span> Logout</a></li>
+                <?php else: ?>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>index.php#features" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#features') !== false) echo 'active-link'; ?>">Features</a></li>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>pricing.php" class="<?php if ($currentPage === 'pricing.php') echo 'active-link'; ?>">Pricing</a></li>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>index.php#faq" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#faq') !== false) echo 'active-link'; ?>">FAQ</a></li>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>login.php" class="btn <?php echo $currentPage === 'login.php' ? 'active-link' : ''; ?>"><span class="material-symbols-outlined">account_circle</span> Login</a></li>
                 <?php endif; ?>
             </ul>
-            <div class="hamburger" id="hamburger">
-                <span></span><span></span><span></span>
-            </div>
+            <div class="hamburger" id="hamburger"><span></span><span></span><span></span></div>
         </nav>
     </div>
-</header>
-<div class="mobile-menu" id="mobileMenu"> 
-    <span class="close-btn" id="closeMenu"><i class="fas fa-times"></i></span>
-    <ul class="mobile-links">
-        <?php if ($sessionIsLoggedIn): ?>
-            <?php if ($userRole === 'admin'): ?>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-nav-link'; ?>">User Dashboard</a></li>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-dashboard.php" class="<?php if ($currentPage === 'admin-dashboard.php') echo 'active-nav-link'; ?>">Admin Panel</a></li>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-rfid.php" class="<?php if ($currentPage === 'admin-manage-rfid.php') echo 'active-nav-link'; ?>">RFID Cards</a></li>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-employees.php" class="<?php if ($currentPage === 'admin-manage-employees.php') echo 'active-nav-link'; ?>">Employees</a></li>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-absence.php" class="<?php if ($currentPage === 'admin-manage-absence.php') echo 'active-nav-link'; ?>">Absences</a></li>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-messages.php?context=admin" class="<?php if ($currentPage === 'messages.php' && isset($_GET['context']) && $_GET['context'] === 'admin') echo 'active-nav-link'; ?>">Messages</a></li>
-
+    <div class="mobile-menu" id="mobileMenu">
+        <span class="close-btn" id="closeMenu"></i></span>
+        <ul class="mobile-links">
+            <?php if ($sessionIsLoggedIn): ?>
+                <?php if ($userRole === 'admin'): ?>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>./dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-link'; ?>">User Dashboard</a></li>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-dashboard.php" class="<?php if ($currentPage === 'admin-dashboard.php') echo 'active-link'; ?>">Admin Panel</a></li>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-rfid.php" class="<?php if ($currentPage === 'admin-manage-rfid.php') echo 'active-link'; ?>">RFID Cards</a></li>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-employees.php" class="<?php if ($currentPage === 'admin-manage-employees.php') echo 'active-link'; ?>">Employees</a></li>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-absence.php" class="<?php if ($currentPage === 'admin-manage-absence.php') echo 'active-link'; ?>">Absences</a></li>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-messages.php?context=admin" class="<?php if ($currentPage === 'messages.php' && isset($_GET['context']) && $_GET['context'] === 'admin') echo 'active-link'; ?>">Messages</a></li>
+                <?php else: ?>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-link'; ?>">My Dashboard</a></li>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>my_attendance_log.php" class="<?php if ($currentPage === 'my_attendance_log.php') echo 'active-link'; ?>">Attendance Log</a></li>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>absences.php" class="<?php if ($currentPage === 'absences.php') echo 'active-link'; ?>">Absence</a></li>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>messages.php" class="<?php if ($currentPage === 'messages.php' && (!isset($_GET['context']) || $_GET['context'] !== 'admin') ) echo 'active-link'; ?>">Messages</a></li>
+                <?php endif; ?>
+                <li class="nav-item-profile">
+                        <a href="<?php echo htmlspecialchars($asset_prefix . 'profile.php?section=profile'); ?>" class="profile-link <?php if ($currentPage === 'profile.php') echo 'active-link'; ?>">
+                            <img src="<?php echo $profile_photo_url; ?>?<?php echo time(); /* Cache buster */ ?>" alt="Profile" class="nav-user-photo">
+                            <span class="nav-user-name"><?php echo $sessionFirstName; ?></span>
+                        </a>
+                    </li>
+                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>logout.php" class="btn"><span class="material-symbols-outlined">logout</span> Log out</a></li>
             <?php else: ?>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-nav-link'; ?>">My Dashboard</a></li>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>my_attendance_log.php" class="<?php if ($currentPage === 'my_attendance_log.php') echo 'active-nav-link'; ?>">Attendance Log</a></li>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>absences.php" class="<?php if ($currentPage === 'absences.php') echo 'active-nav-link'; ?>">Absence</a></li>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>messages.php" class="<?php if ($currentPage === 'messages.php' && (!isset($_GET['context']) || $_GET['context'] !== 'admin') ) echo 'active-nav-link'; ?>">Messages</a></li>
+                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>index.php#features" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#features') !== false) echo 'active-link'; ?>">Features</a></li>
+                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>pricing.php" class="<?php if ($currentPage === 'pricing.php') echo 'active-link'; ?>">Pricing</a></li>
+                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>index.php#faq" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#faq') !== false) echo 'active-link'; ?>">FAQ</a></li>
+                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>login.php" class="btn <?php echo $currentPage === 'login.php' ? 'active-link' : ''; ?>"><span class="material-symbols-outlined">account_circle</span> Login</a></li>
             <?php endif; ?>
-            <li>
-                <a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>profile.php?section=profile" class="<?php if ($currentPage === 'profile.php') echo 'active-nav-link'; ?>">
-                    <img src="<?php echo $profile_photo_url; ?>?<?php echo time(); ?>" alt="Profile" class="nav-user-photo mobile-nav-user-photo">
-                    My Profile
-                </a>
-            </li>
-            <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>logout.php" class="btn btn-outline" style="width:100%; margin-top:1rem;">Log out</a> </li>
-        <?php else: // Logged Out Links Mobile ?>
-            <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>index.php#features" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#features') !== false) echo 'active-nav-link'; ?>">Features</a></li>
-            <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>pricing.php" class="<?php if ($currentPage === 'pricing.php') echo 'active-nav-link'; ?>">Pricing</a></li>
-            <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>index.php#faq" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#faq') !== false) echo 'active-nav-link'; ?>">FAQ</a></li>
-            <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>login.php" class="btn btn-primary" style="width:100%; margin-top:1rem;">Login</a></li>
-        <?php endif; ?>
-    </ul>
-</div>
-
+        </ul>
+    </div>
+</header>
 
 <style>
-/* Základní styly pro header, pokud nejsou globálně definovány */
 :root {
     --primary-color: #4361ee;
     --primary-dark: #3a56d4;
-    --primary-color-rgb: 67, 97, 238;
+    --secondary-color: #3f37c9;
     --dark-color: #1a1a2e;
-    --white: #ffffff;
-    --light-gray: #e9ecef;
+    --light-color: #f8f9fa;
     --gray-color: #6c757d;
-    --danger-color: #F44336;
+    --light-gray: #e9ecef;
+    --white: #ffffff;
+    --success-color: #4cc9f0;
+    --warning-color: #f8961e;
+    --danger-color: #f72585;
+    --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     --transition: all 0.3s ease;
 }
 
@@ -191,48 +200,50 @@ header {
     top: 0;
     z-index: 1000;
 }
-header > .container {
-    max-width: 1440px; 
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: 20px; 
-    padding-right: 20px;
-    height: 80px; /* Výška headeru */
-    display: flex; /* Pro zarovnání .navbar */
-    align-items: center; /* Pro zarovnání .navbar */
+
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px;
 }
+
 .navbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    width: 100%;
+    padding: 1rem 0;
+    height: 80px;
 }
 
 .logo {
-    font-size: 1.7rem; /* Mírně menší */
+    font-size: 1.8rem;
     font-weight: 800;
     color: var(--primary-color);
     text-decoration: none;
     display: flex;
     align-items: center;
+    gap: 0.5rem;
 }
-.logo-img {
-    height: 40px; /* Mírně menší */
-    width: auto;  
+
+.logo i {
+    font-size: 1.5rem;
 }
+
 .logo span {
-    color: var(--dark-color); 
-    font-weight: 600; 
+    color: var(--dark-color);
+    font-weight: 600;
 }
+
 .admin-badge {
-    font-size: 0.75rem; /* Zvětšeno pro čitelnost */
-    font-weight: 600; /* Zvýraznění */
+    font-size: 0.75rem;
+    font-weight: 600;
     color: var(--white);
-    background-color: var(--primary-color); /* Lepší kontrast */
-    padding: 3px 7px; /* Více paddingu */
+    background-color: var(--primary-color);
+    padding: 3px 7px;
     border-radius: 4px;
     margin-left: 0.6rem;
-    vertical-align: middle; /* Lepší zarovnání */
+    vertical-align: middle;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -241,184 +252,281 @@ header > .container {
     display: flex;
     list-style: none;
     align-items: center;
-    gap: 0.5rem; /* Mírně větší mezery */
-    margin: 0; /* Odstranění výchozího marginu */
-    padding: 0; /* Odstranění výchozího paddingu */
-}
-.nav-links a:not(.btn-outline) {
-    color: var(--dark-color);
-    text-decoration: none;
-    font-weight: 500; 
-    padding: 0.7rem 1rem; /* Upravený padding */
-    font-size: 0.9rem; 
-    border-radius: 6px; 
-    transition: var(--transition);
-    display: inline-flex; 
-    align-items: center; 
-}
-.nav-links a:not(.btn-outline):hover, 
-.nav-links a:not(.btn-outline).active-nav-link {
-    color: var(--primary-color);
-    background-color: rgba(var(--primary-color-rgb), 0.08); /* Mírně výraznější pozadí */
+    gap: 0.5rem;
 }
 
-.nav-links .btn-outline {
-    padding: 0.7rem 1.3rem; /* Upravený padding */
-    border-radius: 6px;
-    font-weight: 600;
-    font-size: 0.9rem; /* Sjednocení velikosti písma */
-    border: 2px solid var(--primary-color);
-    color: var(--primary-color);
-    background-color: transparent;
+.nav-links a:not(.btn) {
+    color: var(--dark-color);
     text-decoration: none;
-    transition: var(--transition);
+    font-weight: 500;
+    padding: 0.7rem 1rem;
+    font-size: 0.95rem;
+    border-radius: 8px;
+    position: relative;
+    transition: color .3s ease, background-color .3s ease;
+}
+
+.nav-links a:not(.btn):hover, 
+.nav-links a:not(.btn).active-link {
+    color: var(--primary-color);
+    background-color: rgba(67,97,238,0.07);
+}
+
+.nav-links .btn {
     display: inline-flex;
+    gap: 8px;
     align-items: center;
     justify-content: center;
-}
-.nav-links .btn-outline:hover {
+    padding: 0.7rem 1.5rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: var(--transition);
+    cursor: pointer;
+    font-size: 0.9rem;
     background-color: var(--primary-color);
     color: var(--white);
-    transform: translateY(-1px); /* Jemný hover efekt */
+    box-shadow: 0 4px 14px rgba(67,97,238,0.2);
+}
+
+.nav-links .btn .material-symbols-outlined {
+    font-size: 1.2em;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+.nav-links .btn:hover {
+    background-color: var(--primary-dark);
+    box-shadow: 0 6px 20px rgba(67,97,238,0.3);
+    transform: translateY(-2px);
 }
 
 .nav-user-photo {
-    width: 32px; 
+    width: 32px;
     height: 32px;
-    border-radius: 50%; 
-    object-fit: cover; 
-    margin-right: 10px; /* Větší mezera */
-    border: 2px solid var(--light-gray); /* Výraznější okraj */
-}
-.nav-links a.nav-profile-link { /* Specifické styly pro profilový odkaz */
-    padding-right: 0.5rem; /* Menší padding vpravo, pokud je fotka */
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 10px;
+    border: 2px solid var(--light-gray);
 }
 
 /* Hamburger and Mobile Menu */
 .hamburger {
-    display: none; 
-    flex-direction: column;
-    justify-content: space-around; 
-    width: 28px; 
-    height: 22px; 
-    background: transparent;
-    border: none;
+    display: none;
     cursor: pointer;
-    padding: 0;
-    z-index: 1002; 
+    width: 30px;
+    height: 24px;
+    position: relative;
+    z-index: 1001;
 }
-.hamburger span {
-    display: block; width: 100%; height: 3px;
-    background-color: var(--dark-color);
-    border-radius: 3px; /* Mírně menší radius */
-    transition: all 0.3s linear;
-}
-.hamburger.active span:nth-child(1) { transform: rotate(45deg) translate(2px, -2px); } /* Upravená transformace */
-.hamburger.active span:nth-child(2) { opacity: 0; transform: translateX(15px); }
-.hamburger.active span:nth-child(3) { transform: rotate(-45deg) translate(2px, 1px); } /* Upravená transformace */
 
+.hamburger span {
+    display: block;
+    width: 100%;
+    height: 3px;
+    background-color: var(--dark-color);
+    position: absolute;
+    left: 0;
+    transition: var(--transition);
+    transform-origin: center;
+}
+
+.hamburger span:nth-child(1) { top: 0; }
+.hamburger span:nth-child(2) { top: 50%; transform: translateY(-50%); }
+.hamburger span:nth-child(3) { bottom: 0; }
+
+.hamburger.active span:nth-child(1) { top: 50%; transform: translateY(-50%) rotate(45deg); }
+.hamburger.active span:nth-child(2) { opacity: 0; }
+.hamburger.active span:nth-child(3) { bottom: 50%; transform: translateY(50%) rotate(-45deg); }
 
 .mobile-menu {
-    position: fixed; top: 0; right: -100%;
-    width: 280px; height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
     background-color: var(--white);
-    box-shadow: -3px 0 15px rgba(0, 0, 0, 0.1); /* Mírnější stín */
-    padding: 20px; /* Sjednocený padding */
-    padding-top: 70px; /* Místo pro close button */
-    transition: right 0.35s cubic-bezier(0.68, -0.55, 0.27, 1.55); /* Upravená animace */
-    z-index: 1001; 
-    display: flex; flex-direction: column;
-    overflow-y: auto;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transform: translateX(-100%);
+    transition: transform 0.4s cubic-bezier(0.23,1,0.32,1);
+    padding: 2rem;
 }
-.mobile-menu.active { right: 0; }
+
+.mobile-menu.active {
+    transform: translateX(0);
+}
 
 .mobile-links {
-    list-style: none; padding: 0; margin: 0;
-    display: flex; flex-direction: column;
-    gap: 0.8rem; /* Větší mezery mezi odkazy */
-    flex-grow: 1; 
+    list-style: none;
+    text-align: center;
+    width: 100%;
+    max-width: 300px;
 }
-.mobile-links li { width: 100%; }
+
+.mobile-links li {
+    margin-bottom: 1.5rem;
+}
+
 .mobile-links a {
-    display: flex; align-items: center;
-    padding: 0.9rem 1.2rem; /* Větší padding */
-    text-decoration: none; color: var(--dark-color);
-    font-size: 1rem; border-radius: 8px; /* Větší radius */
+    color: var(--dark-color);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1.2rem;
+    display: inline-block;
+    padding: 0.5rem 1rem;
     transition: var(--transition);
-    font-weight: 500;
+    border-radius: 8px;
 }
-.mobile-links a:hover, .mobile-links a.active-nav-link {
+
+.mobile-links a:hover, 
+.mobile-links a.active-link {
     color: var(--primary-color);
-    background-color: rgba(var(--primary-color-rgb), 0.08);
+    background-color: rgba(67,97,238,0.1);
 }
-.mobile-menu .btn-outline {
-    width: 100%; 
-    margin-top: 1.5rem; /* Větší horní margin */
-    padding: 0.9rem 1.2rem; /* Sjednocený padding */
-    font-size: 0.95rem; /* Mírně větší písmo */
-    margin-bottom: 1rem;
+
+.mobile-menu .btn {
+    margin-top: 2rem;
+    width: 100%;
+    max-width: 200px;
 }
+
 .close-btn {
     position: absolute;
-    top: 20px; 
-    right: 20px;
-    font-size: 1.6rem; /* Mírně menší pro lepší vzhled s ikonou */
+    top: 30px;
+    right: 30px;
+    font-size: 1.8rem;
     color: var(--dark-color);
     cursor: pointer;
-    background: none; border: none;
-    padding: 8px; /* Větší klikací plocha */
+    transition: var(--transition);
     line-height: 1;
 }
+
 .close-btn:hover {
-    color: var(--danger-color);
+    color: var(--primary-color);
+    transform: rotate(90deg);
 }
 
-.mobile-links a .nav-user-photo.mobile-nav-user-photo {
-    width: 30px; 
+.mobile-nav-user-photo {
+    width: 30px;
     height: 30px;
-    margin-right: 12px; 
+    margin-right: 12px;
 }
 
-@media (max-width: 1024px) { /* Změna breakpointu pro zobrazení hamburgeru */
-    .nav-links { display: none; } 
-    .hamburger { display: flex; } 
+@media (max-width: 768px) {
+    .nav-links { display: none; }
+    .hamburger { display: flex; }
 }
 </style>
 
 <script>
-// Tento skript by měl být ideálně v samostatném souboru a linkován,
-// nebo alespoň na konci body, aby se prvky načetly.
-document.addEventListener('DOMContentLoaded', function() {
+    // Mobile menu functionality
     const hamburger = document.getElementById('hamburger');
     const mobileMenu = document.getElementById('mobileMenu');
-    const closeMenuButton = document.getElementById('closeMenu'); // Ujistěte se, že ID 'closeMenu' existuje u zavíracího tlačítka
-
-    if (hamburger && mobileMenu) {
-        hamburger.addEventListener('click', function() {
-            this.classList.toggle('active');
+    const closeMenu = document.getElementById('closeMenu');
+    const body = document.body;
+    
+    if (hamburger && mobileMenu && closeMenu) {
+        hamburger.addEventListener('click', () => {
+            hamburger.classList.toggle('active');
             mobileMenu.classList.toggle('active');
-            document.body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
+            body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
         });
-
-        if (closeMenuButton) {
-            closeMenuButton.addEventListener('click', function() {
-                hamburger.classList.remove('active');
-                mobileMenu.classList.remove('active');
-                document.body.style.overflow = '';
-            });
-        }
-
-        // Zavření menu po kliknutí na odkaz v mobilním menu
-        const mobileLinks = mobileMenu.querySelectorAll('.mobile-links a');
+        
+        closeMenu.addEventListener('click', () => {
+            hamburger.classList.remove('active');
+            mobileMenu.classList.remove('active');
+            body.style.overflow = '';
+        });
+        
+        const mobileLinks = document.querySelectorAll('.mobile-menu a');
         mobileLinks.forEach(link => {
-            link.addEventListener('click', function() {
-                if (mobileMenu.classList.contains('active')) {
+            link.addEventListener('click', () => {
+                const href = link.getAttribute('href');
+                let close = false;
+                if (href) {
+                    if (href.startsWith('#') || href.startsWith('index.php#')) close = true;
+                    else if (href.includes('.php') && !href.startsWith('http')) close = true;
+                }
+                if (link.classList.contains('btn')) close = true;
+                if (close) {
                     hamburger.classList.remove('active');
                     mobileMenu.classList.remove('active');
-                    document.body.style.overflow = '';
+                    body.style.overflow = '';
                 }
             });
         });
     }
-});
+    
+    // Smooth scrolling for anchor links
+    document.querySelectorAll('a[href^="#"], a[href^="index.php#"]').forEach(anchor => {
+        anchor.addEventListener('click', function(e) {
+            const href = this.getAttribute('href');
+            if (href === '#' || href.length === 1) return;
+            
+            let targetId;
+            let targetPage = window.location.pathname;
+            
+            if (href.startsWith('index.php#')) {
+                targetId = href.substring(href.indexOf('#') + 1);
+                targetPage = 'index.php';
+            } else if (href.startsWith('#')) {
+                targetId = href.substring(1);
+            } else { return; }
+            
+            if (!window.location.pathname.endsWith(targetPage) && targetPage === 'index.php') {
+                window.location.href = href; 
+                return;
+            }
+            
+            const targetElement = document.getElementById(targetId);
+            if (targetElement) {
+                e.preventDefault();
+                const headerHeight = document.querySelector('header') ? document.querySelector('header').offsetHeight : 0;
+                const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset - headerHeight;
+                window.scrollTo({ top: targetPosition, behavior: 'smooth' });
+            }
+        });
+    });
+    
+    // Header shadow on scroll
+    const pageHeader = document.querySelector('header');
+    if (pageHeader) {
+        window.addEventListener('scroll', () => {
+            pageHeader.style.boxShadow = (window.scrollY > 10) ? '0 4px 10px rgba(0,0,0,0.05)' : '0 2px 10px rgba(0,0,0,0.05)';
+        });
+    }
+    
+    // Set active nav link based on current page
+    function setActiveNavLink() {
+        const navLinks = document.querySelectorAll('.nav-links a:not(.btn), .mobile-links a:not(.btn)');
+        const currentPath = window.location.pathname.split('/').pop();
+        const navLoginBtn = document.querySelector('.nav-item-login a.btn');
+        const mobileLoginBtn = document.querySelector('.mobile-menu a.btn[href="login.php"]');
+
+        navLinks.forEach(link => {
+            const linkPath = link.getAttribute('href').split('/').pop().split('#')[0];
+            if (link.getAttribute('href').startsWith('index.php#') && currentPath === 'index.php') {
+                link.classList.remove('active-link');
+            } else if (linkPath === currentPath && currentPath !== "" && currentPath !== "index.php") {
+                link.classList.add('active-link');
+            } else {
+                link.classList.remove('active-link');
+            }
+        });
+        
+        if (currentPath === 'login.php') {
+            if (navLoginBtn) navLoginBtn.classList.add('active-link');
+            if (mobileLoginBtn) mobileLoginBtn.classList.add('active-link');
+        } else {
+            if (navLoginBtn) navLoginBtn.classList.remove('active-link');
+            if (mobileLoginBtn) mobileLoginBtn.classList.remove('active-link');
+        }
+    }
+    
+    // Initialize
+    setActiveNavLink();
 </script>

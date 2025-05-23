@@ -175,7 +175,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; line-height: 1.6; color: var(--dark-color); background-color: #f4f6f9; display: flex; flex-direction: column; min-height: 100vh; }
-        main { flex-grow: 1; padding-top: 80px; }
+        main { flex-grow: 1; padding-top: 80px;; }
         
         .page-container { /* Nový kontejner pro layout */
             max-width: 1440px; margin-left: auto; margin-right: auto; padding-left: 20px; padding-right: 20px;
@@ -307,7 +307,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             <aside class="sidebar">
                 <h3>Filter Requests</h3>
                 <ul class="filter-list">
-                    <li><a href="admin-manage-absence.php?filter=pending_approval" class="<?php if ($currentFilter == 'pending_approval') echo 'active-filter'; ?>"><span class="material-symbols-outlined">pending_actions</span> Pending Approval</a></li>
+                    <li><a href="admin-manage-absence.php?filter=pending_approval" class="<?php if ($currentFilter == 'pending_approval') echo 'active-filter'; ?>"><span class="material-symbols-outlined">pending_actions</span> Pending</a></li>
                     <li><a href="admin-manage-absence.php?filter=approved" class="<?php if ($currentFilter == 'approved') echo 'active-filter'; ?>"><span class="material-symbols-outlined">check_circle</span> Approved</a></li>
                     <li><a href="admin-manage-absence.php?filter=rejected" class="<?php if ($currentFilter == 'rejected') echo 'active-filter'; ?>"><span class="material-symbols-outlined">cancel</span> Rejected</a></li>
                     <li><a href="admin-manage-absence.php?filter=all" class="<?php if ($currentFilter == 'all') echo 'active-filter'; ?>"><span class="material-symbols-outlined">list_alt</span> All Requests</a></li>

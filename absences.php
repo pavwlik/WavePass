@@ -367,7 +367,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <h3>Filter Requests</h3>
                 <ul class="filter-list">
                     <li><a href="absences.php?filter=all" class="<?php if ($currentFilter == 'all') echo 'active-filter'; ?>"><span class="material-symbols-outlined">list_alt</span> All My Requests</a></li>
-                    <li><a href="absences.php?filter=pending" class="<?php if ($currentFilter == 'pending') echo 'active-filter'; ?>"><span class="material-symbols-outlined">pending_actions</span> Pending Approval</a></li>
+                    <li><a href="absences.php?filter=pending" class="<?php if ($currentFilter == 'pending') echo 'active-filter'; ?>"><span class="material-symbols-outlined">pending_actions</span> Pending</a></li>
                     <li><a href="absences.php?filter=approved" class="<?php if ($currentFilter == 'approved') echo 'active-filter'; ?>"><span class="material-symbols-outlined">check_circle</span> Approved</a></li>
                     <li><a href="absences.php?filter=rejected" class="<?php if ($currentFilter == 'rejected') echo 'active-filter'; ?>"><span class="material-symbols-outlined">cancel</span> Rejected</a></li>
                 </ul>

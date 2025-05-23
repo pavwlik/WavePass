@@ -166,7 +166,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="imgs/logo.png" type="image/x-icon"> 
+    <link rel="icon" href="./imgs/logo.png" type="image/x-icon"> 
     <title>Admin Dashboard - WavePass</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -190,8 +190,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             line-height: 1.6; color: var(--dark-color); background-color: #f4f6f9;
             overflow-x: hidden; scroll-behavior: smooth; display: flex; flex-direction: column; min-height: 100vh;
+            visibility: hidden;"
         }
-        main { flex-grow: 1; padding-top: 80px; /* Space for fixed header */ }
+        main { flex-grow: 1;  }
         
         .container, .page-header .container {
             max-width: 1440px; 
@@ -482,42 +483,42 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             <section class="admin-actions-panel">
                 <h2>Quick Actions & Management</h2>
                 <div class="action-links-grid">
-                    <a href="admin/admin-manage-users.php" class="action-link-card">
+                    <a href="admin-manage-users.php" class="action-link-card">
                         <div class="icon"><span class="material-symbols-outlined">manage_accounts</span></div>
                         <div class="text">
                             <h3>Manage Employees</h3>
                             <p>Add, edit, and view employee details.</p>
                         </div>
                     </a>
-                    <a href="admin/admin-manage-rfid.php" class="action-link-card">
+                    <a href="admin-manage-rfid.php" class="action-link-card">
                         <div class="icon"><span class="material-symbols-outlined">contactless</span></div>
                         <div class="text">
                             <h3>Manage RFID Cards</h3>
                             <p>Assign, activate, or deactivate RFID cards.</p>
                         </div>
                     </a>
-                    <a href="messages.php" class="action-link-card">
+                    <a href="admin-messages.php" class="action-link-card">
                         <div class="icon"><span class="material-symbols-outlined">chat</span></div>
                         <div class="text">
                             <h3>Manage Messages</h3>
                             <p>Send announcements and warnings to users.</p>
                         </div>
                     </a>
-                     <a href="admin/admin-manage-absence.php" class="action-link-card">
+                     <a href="admin-manage-absence.php" class="action-link-card">
                         <div class="icon"><span class="material-symbols-outlined">rule</span></div>
                         <div class="text">
                             <h3>Approve Absences</h3>
                             <p>Review and approve/reject leave requests.</p>
                         </div>
                     </a>
-                    <a href="admin/admin-system-logs.php" class="action-link-card">
+                    <a href="admin-system-logs.php" class="action-link-card">
                         <div class="icon"><span class="material-symbols-outlined">receipt_long</span></div>
                         <div class="text">
                             <h3>System Logs</h3>
                             <p>View important system activity and audit trails.</p>
                         </div>
                     </a>
-                    <a href="admin/admin-settings.php" class="action-link-card">
+                    <a href="admin-settings.php" class="action-link-card">
                         <div class="icon"><span class="material-symbols-outlined">settings</span></div>
                         <div class="text">
                             <h3>System Settings</h3>

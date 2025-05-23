@@ -234,7 +234,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             font-family: 'Inter', sans-serif; line-height: 1.6; color: var(--dark-color);
             background-color: #f4f6f9; display: flex; flex-direction: column; min-height: 100vh;
         }
-        main { flex-grow: 1; padding-top: 80px; }
+        main { flex-grow: 1; padding-top: 80px;; }
         .container-messages { 
             display: flex; 
             flex-direction: column; /* Default pro mobily */

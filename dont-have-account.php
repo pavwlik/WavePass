@@ -46,7 +46,7 @@
 
         main {
             flex-grow: 1;
-            padding-top: 80px; /* Height of the fixed header */
+            padding-top: 80px;; /* Height of the fixed header */
         }
 
         h1, h2, h3, h4 {

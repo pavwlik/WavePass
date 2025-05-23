@@ -524,26 +524,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         </style>
 </head>
 <body>
-    <?php
-        $headerPath = ''; // Cesta k headeru
-        if ($sessionRole === 'admin') {
-            $headerPath = 'components/header-admin.php';
-        } else {
-            $headerPath = 'components/header-employee.php';
-        }
-
-        if (file_exists($headerPath)) {
-            require_once $headerPath;
-        } else {
-            // Fallback header, pokud soubor neexistuje
-            echo "<header><div class='navbar container'><div class='logo'><img src='imgs/logo.png' alt='WavePass Logo'><span>WavePass</span></div><button class='hamburger' id='hamburger' aria-label='Menu' aria-expanded='false'><span></span><span></span><span></span></button><div class='mobile-menu' id='mobileMenu' aria-hidden='true'><button class='close-btn' id='closeMenu' aria-label='Close menu'>×</button><ul class='mobile-links'><li><a href='dashboard.php'>Dashboard</a></li><li><a href='logout.php'>Logout</a></li></ul></div></div></header>";
-            if ($sessionRole === 'admin') {
-                 error_log("Admin header not found at: " . realpath(dirname(__FILE__)) . DIRECTORY_SEPARATOR . $headerPath);
-            } else {
-                 error_log("Employee header not found at: " . realpath(dirname(__FILE__)) . DIRECTORY_SEPARATOR . $headerPath);
-            }
-        }
-    ?>
+    <!-- Header -->
+    <?php require_once "components/header-admin.php" ?>
 
     <main>
         <div class="page-header">
