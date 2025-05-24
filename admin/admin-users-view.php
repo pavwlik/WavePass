@@ -24,7 +24,8 @@ $dbErrorMessage = null;
 if (isset($pdo) && $pdo instanceof PDO) {
     try {
         // 1. Fetch all users
-        $stmtUsers = $pdo->query("SELECT userID, firstName, lastName, email, username, role FROM users ORDER BY lastName, firstName");
+        // MODIFIED LINE: Changed 'role' to 'roleID AS role'
+        $stmtUsers = $pdo->query("SELECT userID, firstName, lastName, email, username, roleID AS role FROM users ORDER BY lastName, firstName");
         $users = $stmtUsers->fetchAll(PDO::FETCH_ASSOC);
 
         // 2. Fetch all primary, active RFIDs
@@ -66,7 +67,7 @@ if (isset($pdo) && $pdo instanceof PDO) {
 
         // 5. Combine data for each user
         foreach ($users as $user) {
-            $userData = $user; // Includes userID, firstName, lastName, email, username, role
+            $userData = $user; // Now $user['role'] will correctly contain the value from roleID
 
             $userData['rfid_name'] = $primaryRfids[$user['userID']]['name'] ?? 'N/A';
             $userData['rfid_uid'] = $primaryRfids[$user['userID']]['rfid_url'] ?? 'N/A';
@@ -87,7 +88,7 @@ if (isset($pdo) && $pdo instanceof PDO) {
                         $lastAction = "Entry";
                     } elseif ($log['logType'] == 'exit') {
                         $status = "Absent (Checked Out)";
-                        $statusClass = "absent"; // Or a different class like 'checked-out'
+                        $statusClass = "absent";
                         $lastAction = "Exit";
                     }
                 } elseif ($log['logResult'] == 'denied') {
@@ -99,10 +100,9 @@ if (isset($pdo) && $pdo instanceof PDO) {
                 $absence = $approvedAbsences[$user['userID']];
                 $absenceTypeDisplay = ucfirst(str_replace('_', ' ', $absence['absence_type']));
                 $status = "On Leave (" . htmlspecialchars($absenceTypeDisplay) . ")";
-                $statusClass = "info"; // Or a specific 'on-leave' class
+                $statusClass = "info";
                 $lastAction = "N/A";
             }
-            // If no log and no absence, defaults remain: "Absent (Not Checked In)", "neutral", "N/A"
 
             $userData['current_status'] = $status;
             $userData['status_class'] = $statusClass;
@@ -114,7 +114,7 @@ if (isset($pdo) && $pdo instanceof PDO) {
 
     } catch (PDOException $e) {
         error_log("Admin Users Page DB Error: " . $e->getMessage());
-        $dbErrorMessage = "A database error occurred while fetching user data. Please try again later.";
+        $dbErrorMessage = "A database error occurred while fetching user data. Please try again later. Details: " . $e->getMessage(); // Added more detail for debugging
     } catch (Exception $e) {
         error_log("Admin Users Page App Error: " . $e->getMessage());
         $dbErrorMessage = "An application error occurred. Please try again later.";
@@ -124,6 +124,7 @@ if (isset($pdo) && $pdo instanceof PDO) {
 }
 $currentPage = basename($_SERVER['PHP_SELF']);
 ?>
+<!-- HTML part remains the same -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -208,8 +209,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .user-role.admin { background-color: var(--primary-color); }
         .user-role.employee { background-color: var(--secondary-color); } /* Or another color */
         .user-role.manager { background-color: var(--warning-color); color: var(--dark-color); } /* Example */
-
-
     </style>
 </head>
 <body>
@@ -255,7 +254,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                     <tr>
                                         <td>
                                             <?php echo htmlspecialchars($user['firstName'] . ' ' . $user['lastName']); ?>
-                                            <span class="user-role <?php echo htmlspecialchars(strtolower($user['role'])); ?>"><?php echo htmlspecialchars($user['role']); ?></span>
+                                            <span class="user-role <?php echo htmlspecialchars(strtolower($user['role'])); // This will now work ?>"><?php echo htmlspecialchars($user['role']); // This will now work ?></span>
                                         </td>
                                         <td><?php echo htmlspecialchars($user['email'] ?: $user['username']); ?></td>
                                         <td>
@@ -270,7 +269,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                     </tr>
                                 <?php endforeach; ?>
                             <?php else: ?>
-                                <?php if (!$dbErrorMessage): // Only show "no users" if there wasn't a DB error already displayed ?>
+                                <?php if (!$dbErrorMessage): ?>
                                 <tr>
                                     <td colspan="7" class="no-users-msg">No users found in the system.</td>
                                 </tr>
@@ -286,11 +285,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <?php require_once "../components/footer-admin.php"; ?>
 
 <script>
-    // Basic JS, if any, can go here. For now, not much is needed for this static table.
-    // Sorting or filtering could be added in the future.
     document.addEventListener('DOMContentLoaded', function() {
-        // Hamburger & Mobile menu script is assumed to be in header-admin.php
-        // Header shadow on scroll is assumed to be in header-admin.php
     });
 </script>
 </body>

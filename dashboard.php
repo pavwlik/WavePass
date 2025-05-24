@@ -350,7 +350,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 line-height: 1.6; color: var(--dark-color); background-color: var(--light-color);
                 overflow-x: hidden; scroll-behavior: smooth; display: flex; flex-direction: column; min-height: 100vh;
             }
-            main { flex-grow: 1; padding-top: 0; background-color: #f4f6f9; }
+            main { flex-grow: 1; padding-top: 80px; background-color: #f4f6f9; }
             .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
             h1, h2, h3, h4 { font-weight: 700; line-height: 1.2; }
 

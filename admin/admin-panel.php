@@ -482,6 +482,13 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             <section class="admin-actions-panel">
                 <h2>Quick Actions & Management</h2>
                 <div class="action-links-grid">
+                <a href="admin-users-view.php" class="action-link-card">
+                        <div class="icon"><span class="material-symbols-outlined">manage_accounts</span></div>
+                        <div class="text">
+                            <h3>All users views</h3>
+                            <p>View all..</p>
+                        </div>
+                    </a>
                     <a href="admin-manage-users.php" class="action-link-card">
                         <div class="icon"><span class="material-symbols-outlined">manage_accounts</span></div>
                         <div class="text">

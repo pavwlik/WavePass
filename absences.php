@@ -339,15 +339,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     </style>
 </head>
 <body>
-    <?php 
-      $pathToComponents = "";
-      if (strpos($_SERVER['PHP_SELF'], '/admin/') !== false) { 
-          $pathToComponents = "../components/";
-      } else { 
-          $pathToComponents = "components/";
-      }
-      require_once $pathToComponents . "header-employee-panel.php"; 
-    ?>
+<?php require_once "components/header-admin.php" ?>
 
     <main>
         <div class="page-header">
