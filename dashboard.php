@@ -373,8 +373,13 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
         }
         if (!empty($activityForSelectedDate)) {
             usort($activityForSelectedDate, function($a, $b) {
-                if ($a['time'] === '--:--') return -1; if ($b['time'] === '--:--') return 1;
-                return strtotime($a['time']) - strtotime($b['time']);
+                // Speciální záznamy (--:--) vždy nahoře
+                if ($a['time'] === '--:--' && $b['time'] !== '--:--') return -1;
+                if ($a['time'] !== '--:--' && $b['time'] === '--:--') return 1;
+                if ($a['time'] === '--:--' && $b['time'] === '--:--') return 0; // Pokud jsou oba '--:--', pořadí je jedno
+
+                // Ostatní záznamy řadit sestupně podle času
+                return strtotime($b['time']) - strtotime($a['time']); // ZMĚNA: $b - $a pro sestupné řazení
             });
         }
 
@@ -743,7 +748,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <!-- Footer -->
     <?php require "components/footer-admin.php"; ?>
 
-<script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Proměnná body může být potřeba pro modální okno (zakázání skrolování)
+        const body = document.body; 
         
         const headerEl = document.querySelector('header');
         if (headerEl) {
@@ -807,11 +815,11 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
         function openLateModal(isEditing = false) {
             if (!lateModal || !plannedTimeInput || !notesInput || !cancelLateBtnInModal || !modalTitleEl || !modalSubmitButton) {
-                console.error("One or more modal elements are missing from the DOM.");
+                console.error("One or more modal elements are missing from the DOM for late departure.");
                 return;
             }
             lateModal.classList.add('show');
-            document.body.style.overflow = 'hidden';
+            if (body) body.style.overflow = 'hidden'; // Použití proměnné body
 
             if (modalMsgDiv) {
                 modalMsgDiv.textContent = '';
@@ -869,13 +877,20 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             modalCloseButtons.forEach(btn => {
                 btn.addEventListener('click', () => {
                     lateModal.classList.remove('show');
-                    document.body.style.overflow = '';
+                    if (body) body.style.overflow = ''; // Použití proměnné body
                 });
             });
             window.addEventListener('click', (event) => {
                 if (event.target === lateModal) {
                     lateModal.classList.remove('show');
-                    document.body.style.overflow = '';
+                    if (body) body.style.overflow = ''; // Použití proměnné body
+                }
+            });
+             // Zavření modálu klávesou Escape, pokud je otevřený
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape' && lateModal.classList.contains('show')) {
+                    lateModal.classList.remove('show');
+                    if (body) body.style.overflow = '';
                 }
             });
         }
@@ -932,7 +947,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
                 const formData = new FormData();
                 formData.append('action', 'cancel_late_departure');
-                // notification_date se na serveru vezme jako $todayDateForAction
                 
                 this.disabled = true;
 

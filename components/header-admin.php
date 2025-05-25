@@ -119,7 +119,7 @@ if (!$is_in_admin_folder && $userRole === 'admin') {
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-messages.php?context=admin" class="<?php if ($currentPage === 'messages.php' && isset($_GET['context']) && $_GET['context'] === 'admin') echo 'active-link'; ?>">Messages</a></li>
                     <?php else: ?>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-link'; ?>">My Dashboard</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>my_attendance_log.php" class="<?php if ($currentPage === 'my_attendance_log.php') echo 'active-link'; ?>">Attendance Log</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>attendance-logs.php" class="<?php if ($currentPage === 'attendance-logs.php') echo 'active-link'; ?>">Attendance Log</a></li>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>absences.php" class="<?php if ($currentPage === 'absences.php') echo 'active-link'; ?>">Absence</a></li>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>messages.php" class="<?php if ($currentPage === 'messages.php' && (!isset($_GET['context']) || $_GET['context'] !== 'admin') ) echo 'active-link'; ?>">Messages</a></li>
                     <?php endif; ?>
@@ -154,7 +154,7 @@ if (!$is_in_admin_folder && $userRole === 'admin') {
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-messages.php?context=admin" class="<?php if ($currentPage === 'messages.php' && isset($_GET['context']) && $_GET['context'] === 'admin') echo 'active-link'; ?>">Messages</a></li>
                 <?php else: ?>
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-link'; ?>">My Dashboard</a></li>
-                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>my_attendance_log.php" class="<?php if ($currentPage === 'my_attendance_log.php') echo 'active-link'; ?>">Attendance Log</a></li>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>attendance-logs.php" class="<?php if ($currentPage === 'attendance-logs.php') echo 'active-link'; ?>">Attendance Log</a></li>
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>absences.php" class="<?php if ($currentPage === 'absences.php') echo 'active-link'; ?>">Absence</a></li>
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>messages.php" class="<?php if ($currentPage === 'messages.php' && (!isset($_GET['context']) || $_GET['context'] !== 'admin') ) echo 'active-link'; ?>">Messages</a></li>
                 <?php endif; ?>

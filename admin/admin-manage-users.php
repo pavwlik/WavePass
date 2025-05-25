@@ -192,7 +192,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; line-height: 1.6; color: var(--dark-color); background-color: #f4f6f9; display: flex; flex-direction: column; min-height: 100vh; }
         main { flex-grow: 1; padding-top: 80px;; }
-        .container, .page-header .container { max-width: 1440px; margin-left: auto; margin-right: auto; padding-left: 20px; padding-right: 20px; }
         header { background-color: var(--white); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: fixed; width: 100%; top: 0; z-index: 1000; }
         .navbar { display: flex; justify-content: space-between; align-items: center; height: 80px; }
         .nav-links { display: flex; /* ... */ } .hamburger { display: none; /* ... */ } .mobile-menu { /* ... */ }

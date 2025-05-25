@@ -193,11 +193,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         }
         main { flex-grow: 1; padding-top: 80px; }
         
-        .container, .page-header .container {
-            max-width: 1440px; 
-            margin-left: auto; margin-right: auto;
-            padding-left: 20px; padding-right: 20px;
-        }
+
 
         /* Header Styles */
         header {
@@ -279,7 +275,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         }
 
         /* Page Header */
-        .page-header { padding: 1.8rem 0; margin-bottom: 1.5rem; background-color:var(--white); box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+        .page-header { padding: 1.8rem 0; margin-bottom: 1.8rem; background-color:var(--white); box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
         .page-header h1 { font-size: 1.7rem; color: var(--dark-color); margin: 0; }
         .page-header .sub-heading { font-size: 0.9rem; color: var(--gray-color); }
         .db-error-message {background-color: rgba(var(--danger-color-val, 247, 37, 133),0.1); color: var(--danger-color); padding: 1rem; border-left: 4px solid var(--danger-color); margin-bottom: 1.5rem; border-radius: 4px; font-size:0.9rem;}
@@ -406,7 +402,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <main>
         <div class="page-header">
             <div class="container">
-                <h1>Admin Dashboard</h1>
+                <h1>Admin Panel</h1>
                 <p class="sub-heading">Welcome, <?php echo $sessionFirstName; ?>! Overview of the system.</p>
             </div>
         </div>

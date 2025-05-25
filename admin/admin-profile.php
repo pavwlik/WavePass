@@ -444,11 +444,6 @@ if (strpos($_SERVER['SCRIPT_FILENAME'], DIRECTORY_SEPARATOR . 'admin' . DIRECTOR
         .no-cards-msg {text-align:center; padding: 2.5rem 1rem; color:var(--gray-color); font-size:0.95rem; background-color: #fdfdfd; border-radius: 4px; border: 1px dashed var(--light-gray);}
         .placeholder-text { color: var(--gray-color); font-size:0.85rem; font-style:italic;}
         
-        footer { background-color: var(--dark-color); color: var(--white); padding: 3rem 0 1.5rem; margin-top: auto; }
-        .footer-content { text-align: center; }
-        .footer-content p { margin: 0; font-size: 0.9rem; color: rgba(255,255,255,0.7); }
-        .footer-content a { color: rgba(255,255,255,0.9); text-decoration:none; }
-        .footer-content a:hover { color:var(--white); text-decoration:underline;}
         
         @media (max-width: 992px) { 
             .account-layout { flex-direction: column; } 
@@ -624,15 +619,7 @@ if (strpos($_SERVER['SCRIPT_FILENAME'], DIRECTORY_SEPARATOR . 'admin' . DIRECTOR
         </div>
     </main>
 
-    <?php 
-        $footerComponent = $pathPrefix . "components/footer-user.php"; // Předpokládá se footer pro uživatele
-        if (file_exists($footerComponent)) {
-            require_once $footerComponent;
-        } else {
-            echo "<!-- Footer component not found at: " . htmlspecialchars($footerComponent) . " -->";
-            echo "<footer>FOOTER MISSING</footer>"; 
-        }
-    ?>
+    <?php require_once "../components/footer-admin.php"; ?>
 
     <script>
         // ... (Váš existující JavaScript pro menu, náhled fotky, filtrování RFID) ...

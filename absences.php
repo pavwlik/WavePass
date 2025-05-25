@@ -13,94 +13,121 @@ if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
 
 require_once 'db.php'; 
 
-// Inicializace proměnných hned na začátku
 $dbErrorMessage = null;
 $successMessage = null;
 $userAbsences = [];
-$showRequestForm = false; // Výchozí stav - formulář je skrytý
+$showRequestForm = false; 
 
 $sessionFirstName = isset($_SESSION["first_name"]) ? htmlspecialchars($_SESSION["first_name"]) : 'Employee';
 $sessionUserId = isset($_SESSION["user_id"]) ? (int)$_SESSION["user_id"] : null;
 $sessionRole = isset($_SESSION["role"]) ? $_SESSION["role"] : 'employee';
 
+// --- HANDLE ACTIONS (NEW REQUEST / CANCEL REQUEST) ---
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $sessionUserId) {
+    if ($_POST['action'] == 'request_absence') {
+        $showRequestForm = true; 
+        $start_datetime = trim($_POST['absence_start_datetime']);
+        $end_datetime = trim($_POST['absence_end_datetime']);
+        $absence_type_input = trim($_POST['absence_type']); 
+        $reason = trim(filter_input(INPUT_POST, 'reason', FILTER_SANITIZE_SPECIAL_CHARS));
+        $notes = trim(filter_input(INPUT_POST, 'notes', FILTER_SANITIZE_SPECIAL_CHARS));
 
-// --- HANDLE NEW ABSENCE REQUEST SUBMISSION ---
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['action'] == 'request_absence' && $sessionUserId) {
-    // Pokud je odeslán formulář a nastane chyba, chceme formulář nechat zobrazený
-    $showRequestForm = true; 
-    
-    $start_datetime = trim($_POST['absence_start_datetime']);
-    $end_datetime = trim($_POST['absence_end_datetime']);
-    $absence_type_input = trim($_POST['absence_type']); 
-    $reason = trim(filter_input(INPUT_POST, 'reason', FILTER_SANITIZE_SPECIAL_CHARS));
-    $notes = trim(filter_input(INPUT_POST, 'notes', FILTER_SANITIZE_SPECIAL_CHARS));
-
-    if (empty($start_datetime) || empty($end_datetime) || empty($absence_type_input) ) {
-        $dbErrorMessage = "Start date/time, end date/time, and absence type are required.";
-    } elseif (strtotime($start_datetime) === false || strtotime($end_datetime) === false) {
-        $dbErrorMessage = "Invalid date/time format.";
-    } elseif (strtotime($start_datetime) >= strtotime($end_datetime)) {
-        $dbErrorMessage = "End date/time must be after start date/time.";
-    } elseif (strtotime($start_datetime) < time() && date('Y-m-d', strtotime($start_datetime)) < date('Y-m-d')) {
-        $dbErrorMessage = "Cannot request absence for a past date. You can request for today or future dates.";
-    } else {
-        try {
-            $sqlCheckOverlap = "SELECT absenceID FROM absence 
-                                WHERE userID = :userID 
-                                AND status != 'rejected'
-                                AND (
-                                    (:start_dt_check1 BETWEEN absence_start_datetime AND absence_end_datetime) OR
-                                    (:end_dt_check1 BETWEEN absence_start_datetime AND absence_end_datetime) OR
-                                    (absence_start_datetime BETWEEN :start_dt_check2 AND :end_dt_check2)
-                                )
-                                AND absence_end_datetime > :start_dt_check3 
-                                AND absence_start_datetime < :end_dt_check3";
-            
-            $stmtCheckOverlap = $pdo->prepare($sqlCheckOverlap);
-            $paramsCheckOverlap = [
-                ':userID' => $sessionUserId,
-                ':start_dt_check1' => $start_datetime, ':end_dt_check1' => $end_datetime,
-                ':start_dt_check2' => $start_datetime, ':end_dt_check2' => $end_datetime,
-                ':start_dt_check3' => $start_datetime, ':end_dt_check3' => $end_datetime,
-            ];
-            $stmtCheckOverlap->execute($paramsCheckOverlap);
-
-            if ($stmtCheckOverlap->fetch()) {
-                $dbErrorMessage = "You already have an approved or pending absence request that overlaps with these dates.";
-            } else {
-                $sqlInsertAbsence = "INSERT INTO absence (userID, absence_start_datetime, absence_end_datetime, absence_type, reason, notes, status, created_at) 
-                                     VALUES (:userID, :start_datetime, :end_datetime, :absence_type, :reason, :notes, 'pending_approval', NOW())";
-                $stmt = $pdo->prepare($sqlInsertAbsence);
-                $insertParams = [
-                    ':userID' => $sessionUserId, ':start_datetime' => $start_datetime,
-                    ':end_datetime' => $end_datetime, ':absence_type' => $absence_type_input,
-                    ':reason' => $reason, ':notes' => $notes
+        if (empty($start_datetime) || empty($end_datetime) || empty($absence_type_input) ) {
+            $dbErrorMessage = "Start date/time, end date/time, and absence type are required.";
+        } elseif (strtotime($start_datetime) === false || strtotime($end_datetime) === false) {
+            $dbErrorMessage = "Invalid date/time format.";
+        } elseif (strtotime($start_datetime) >= strtotime($end_datetime)) {
+            $dbErrorMessage = "End date/time must be after start date/time.";
+        } elseif (strtotime($start_datetime) < time() && date('Y-m-d', strtotime($start_datetime)) < date('Y-m-d')) {
+            $dbErrorMessage = "Cannot request absence for a past date. You can request for today or future dates.";
+        } else {
+            try {
+                $sqlCheckOverlap = "SELECT absenceID FROM absence 
+                                    WHERE userID = :userID AND status != 'rejected' AND status != 'cancelled'
+                                    AND (
+                                        (:start_dt_check1 BETWEEN absence_start_datetime AND absence_end_datetime) OR
+                                        (:end_dt_check1 BETWEEN absence_start_datetime AND absence_end_datetime) OR
+                                        (absence_start_datetime BETWEEN :start_dt_check2 AND :end_dt_check2)
+                                    )
+                                    AND absence_end_datetime > :start_dt_check3 
+                                    AND absence_start_datetime < :end_dt_check3";
+                $stmtCheckOverlap = $pdo->prepare($sqlCheckOverlap);
+                $paramsCheckOverlap = [
+                    ':userID' => $sessionUserId,
+                    ':start_dt_check1' => $start_datetime, ':end_dt_check1' => $end_datetime,
+                    ':start_dt_check2' => $start_datetime, ':end_dt_check2' => $end_datetime,
+                    ':start_dt_check3' => $start_datetime, ':end_dt_check3' => $end_datetime,
                 ];
+                $stmtCheckOverlap->execute($paramsCheckOverlap);
 
-                if ($stmt->execute($insertParams)) {
-                    $successMessage = "Absence request submitted successfully. It is now pending approval.";
-                    $_POST = array(); // Vyčistit data formuláře po úspěšném odeslání
-                    $showRequestForm = false; // Skrýt formulář po úspěšném odeslání
+                if ($stmtCheckOverlap->fetch()) {
+                    $dbErrorMessage = "You already have an approved or pending absence request that overlaps with these dates.";
                 } else {
-                    $errorInfo = $stmt->errorInfo();
-                    if ($errorInfo[1] == 1265) {
-                        $dbErrorMessage = "Failed to submit: The selected 'Type of Absence' ('" . htmlspecialchars($absence_type_input) . "') is not a valid option. Please check your database ENUM definition for 'absence_type'. (Error: " . $errorInfo[2] . ")";
+                    $sqlInsertAbsence = "INSERT INTO absence (userID, absence_start_datetime, absence_end_datetime, absence_type, reason, notes, status, created_at) 
+                                         VALUES (:userID, :start_datetime, :end_datetime, :absence_type, :reason, :notes, 'pending_approval', NOW())";
+                    $stmt = $pdo->prepare($sqlInsertAbsence);
+                    $insertParams = [
+                        ':userID' => $sessionUserId, ':start_datetime' => $start_datetime,
+                        ':end_datetime' => $end_datetime, ':absence_type' => $absence_type_input,
+                        ':reason' => $reason, ':notes' => $notes
+                    ];
+
+                    if ($stmt->execute($insertParams)) {
+                        $successMessage = "Absence request submitted successfully. It is now pending approval.";
+                        $_POST = array(); 
+                        $showRequestForm = false; 
                     } else {
-                        $dbErrorMessage = "Failed to submit absence request. Please try again. (PDO Error: " . $errorInfo[2] . ")";
+                        $errorInfo = $stmt->errorInfo();
+                        if ($errorInfo[1] == 1265) {
+                            $dbErrorMessage = "Failed to submit: The selected 'Type of Absence' ('" . htmlspecialchars($absence_type_input) . "') is not a valid option. Error: " . $errorInfo[2];
+                        } else {
+                            $dbErrorMessage = "Failed to submit absence request. PDO Error: " . $errorInfo[2];
+                        }
                     }
                 }
+            } catch (PDOException $e) {
+                $dbErrorMessage = "Database error: " . $e->getMessage();
             }
-        } catch (PDOException $e) {
-            $dbErrorMessage = "Database error: " . $e->getMessage();
+        }
+    } elseif ($_POST['action'] == 'cancel_absence' && isset($_POST['absence_id'])) {
+        $absenceIdToCancel = filter_input(INPUT_POST, 'absence_id', FILTER_VALIDATE_INT);
+        if ($absenceIdToCancel) {
+            try {
+                // Ověřit, že žádost patří uživateli a je 'pending_approval'
+                $stmtCheckOwner = $pdo->prepare("SELECT absenceID FROM absence WHERE absenceID = :absenceID AND userID = :userID AND status = 'pending_approval'");
+                $stmtCheckOwner->execute([':absenceID' => $absenceIdToCancel, ':userID' => $sessionUserId]);
+                
+                if ($stmtCheckOwner->fetch()) {
+                    // Možnost 1: Smazání žádosti
+                    $stmtCancel = $pdo->prepare("DELETE FROM absence WHERE absenceID = :absenceID");
+                     $actionVerb = "deleted";
+                    // Možnost 2: Změna statusu na 'cancelled' (lepší pro audit)
+                    // $stmtCancel = $pdo->prepare("UPDATE absence SET status = 'cancelled', updated_at = NOW() WHERE absenceID = :absenceID");
+                    // $actionVerb = "cancelled";
+
+                    if ($stmtCancel->execute([':absenceID' => $absenceIdToCancel])) {
+                        if ($stmtCancel->rowCount() > 0) {
+                            $successMessage = "Absence request successfully " . $actionVerb . ".";
+                        } else {
+                             $dbErrorMessage = "Could not " . $actionVerb . " the request. It might have been already processed or does not exist.";
+                        }
+                    } else {
+                        $dbErrorMessage = "Failed to " . $actionVerb . " absence request.";
+                    }
+                } else {
+                    $dbErrorMessage = "You can only cancel your own pending absence requests.";
+                }
+            } catch (PDOException $e) {
+                $dbErrorMessage = "Database error cancelling request: " . $e->getMessage();
+            }
+        } else {
+            $dbErrorMessage = "Invalid absence ID for cancellation.";
         }
     }
 }
 
 // --- DATA FETCHING for current user's absences ---
 $currentFilter = isset($_GET['filter']) ? $_GET['filter'] : 'all'; 
-
-// Logika pro $showRequestForm je již ošetřena výše v bloku pro zpracování POST.
-// Pokud není POST a není chyba, formulář zůstane skrytý (výchozí $showRequestForm = false).
 
 if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
     try {
@@ -113,6 +140,10 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
             $sqlWhereClauses[] = "a.status = 'approved'";
         } elseif ($currentFilter == 'rejected') {
             $sqlWhereClauses[] = "a.status = 'rejected'";
+        }
+        // Přidáme podmínku, aby se nezobrazovaly 'cancelled' žádosti, pokud je explicitně nefiltrujeme
+        if ($currentFilter != 'cancelled') { // Předpokládáme, že byste mohli chtít filtr 'cancelled' v budoucnu
+            $sqlWhereClauses[] = "a.status != 'cancelled'";
         }
         
         $sqlFetch = "SELECT a.absenceID, a.absence_start_datetime, a.absence_end_datetime, 
@@ -130,12 +161,7 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
             $dbErrorMessage = "Database Query Error fetching absences: " . $e->getMessage();
         }
     }
-} else {
-    if (empty($dbErrorMessage)) {
-        if (!$sessionUserId) $dbErrorMessage = "User session is invalid.";
-        elseif (!isset($pdo) || !($pdo instanceof PDO)) $dbErrorMessage = "Database connection is not available.";
-    }
-}
+} else { /* ... stávající chybové hlášky ... */ }
 
 $currentPage = basename($_SERVER['PHP_SELF']);
 ?>
@@ -159,47 +185,39 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             --pending-color: var(--warning-color); 
             --approved-color: var(--success-color);
             --rejected-color: var(--danger-color);
+            --cancelled-color: var(--gray-color); /* Barva pro zrušené */
             --shadow: 0 4px 20px rgba(0, 0, 0, 0.08); --transition: all 0.3s ease;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; line-height: 1.6; color: var(--dark-color); background-color: #f4f6f9; display: flex; flex-direction: column; min-height: 100vh; }
-        main { flex-grow: 1; /* padding-top již není potřeba, je na body */ }
+        body { font-family: 'Inter', sans-serif; line-height: 1.6; color: var(--dark-color); background-color: #f4f6f9; display: flex; flex-direction: column; min-height: 100vh;}
+        main { flex-grow: 1; }
         .container, .page-header .container, .container-absences { 
             max-width: 1440px; margin-left: auto; margin-right: auto; padding-left: 20px; padding-right: 20px; 
         }
-        .container-absences { display: flex; gap: 1.8rem; margin: 1.5rem auto; align-items: flex-start; } 
+        .container-absences { display: flex; gap: 1.8rem; margin-top: 1.5rem; align-items: flex-start; } 
         
         header {
-            background-color: var(--white);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            position: fixed;
-            width: 100%;
-            top: 0;
-            z-index: 1000;
-            height: 80px;
+            background-color: var(--white); box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            position: fixed; width: 100%; top: 0; z-index: 1000; height: 80px;
         }
-        header .container { 
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            height: 100%;
-        }
-        .navbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            width: 100%; 
-        }
-        .logo {
-            font-size: 1.8rem; font-weight: 800; color: var(--primary-color);
-            text-decoration: none; display: flex; align-items: center;
-        }
-        .logo img.logo-img { height: 45px; width: auto; margin-right: 0.6rem; }
-        .logo span { color: var(--dark-color); font-weight: 600; }
+        header .container { display: flex; justify-content: space-between; align-items: center; height: 100%; }
+        .navbar { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        .logo { font-size: 1.8rem; font-weight: 800; color: var(--primary-color); text-decoration: none; display: flex; align-items: center;}
+        .logo img.logo-img { height: 45px; margin-right: 0.6rem; } .logo span { color: var(--dark-color); }
+        .nav-links { display: none; list-style: none; align-items: center; gap: 1rem; } 
+        @media (min-width: 993px) { .nav-links { display: flex; } .hamburger { display: none; } }
+        /* ... (zbytek stylů pro header, které již máte) ... */
+        .nav-links a:not(.btn-outline) { color: var(--dark-color); text-decoration: none; font-weight: 500; padding: 0.6rem 0.9rem; font-size: 0.9rem; border-radius: 6px; transition: var(--transition); display: inline-flex; align-items: center; }
+        .nav-links a:not(.btn-outline):hover, .nav-links a:not(.btn-outline).active-nav-link { color: var(--primary-color); background-color: rgba(var(--primary-color-rgb), 0.07); }
+        .nav-links .btn-outline { display: inline-flex; gap: 8px; align-items: center; justify-content: center; padding: 0.6rem 1.2rem; border-radius: 6px; text-decoration: none; font-weight: 600; transition: var(--transition); cursor: pointer; font-size: 0.85rem; background-color: transparent; border: 2px solid var(--primary-color); color: var(--primary-color); }
+        .nav-links .btn-outline:hover { background-color: var(--primary-color); color: var(--white); transform: translateY(-2px); }
+        .nav-user-photo { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; margin-right: 8px; vertical-align: middle; border: 1.5px solid var(--light-gray); }
+        .nav-links a .material-symbols-outlined { font-size: 1.4em; vertical-align: middle; margin-right: 6px; line-height: 1; }
+        .hamburger { display: block; cursor: pointer; }
 
 
         @media (max-width: 992px) { 
-            .container-absences { flex-direction: column; margin-left: 20px; margin-right: 20px; } 
+            .container-absences { flex-direction: column; } 
             .absences-sidebar { flex: 0 0 auto; width: 100%; margin-bottom: 1.5rem; }
         }
         
@@ -223,7 +241,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .request-absence-form-panel { 
             background-color: var(--white); padding: 1.8rem 2rem; border-radius: 8px; 
             box-shadow: var(--shadow); border: 1px solid var(--light-gray); margin-bottom: 2rem; 
-            /* display: <?php echo $showRequestForm ? 'block' : 'none'; ?>;  <-- ŘÍZENO PŘÍMO V HTML níže */
         }
         .request-absence-form-panel h2 { font-size: 1.4rem; margin-bottom:1.5rem; padding-bottom:1rem; border-bottom:1px solid var(--light-gray); color: var(--dark-color);}
         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem 1.8rem; }
@@ -244,24 +261,40 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .absence-card.status-pending_approval { border-left-color: var(--pending-color); }
         .absence-card.status-approved { border-left-color: var(--approved-color); } 
         .absence-card.status-rejected { border-left-color: var(--rejected-color); } 
+        .absence-card.status-cancelled { border-left-color: var(--cancelled-color); } /* Nový styl pro zrušené */
+
 
         .absence-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;}
-        .absence-title { font-size: 1.2rem; font-weight: 600; color: var(--dark-color);} 
-        .absence-status-badge { padding: 0.35rem 0.9rem; border-radius: 15px; font-size: 0.8rem; font-weight: 600; color: var(--white); text-transform: capitalize; line-height: 1.3; }
+        .absence-title { font-size: 1.2rem; font-weight: 600; color: var(--dark-color); margin-right: auto; /* Odsune status doprava */ } 
+        .absence-status-badge { padding: 0.35rem 0.9rem; border-radius: 15px; font-size: 0.8rem; font-weight: 600; color: var(--white); text-transform: capitalize; line-height: 1.3; white-space: nowrap; }
         
         .absence-card.status-pending_approval .absence-status-badge { background-color: var(--pending-color); }
         .absence-card.status-approved .absence-status-badge { background-color: var(--approved-color); }
         .absence-card.status-rejected .absence-status-badge { background-color: var(--rejected-color); }
+        .absence-card.status-cancelled .absence-status-badge { background-color: var(--cancelled-color); } /* Nový styl */
+
 
         .absence-dates { font-size: 0.95rem; color: var(--dark-color); margin-bottom: 0.8rem; font-weight:500; display:flex; align-items:center; gap:0.4rem; }
         .absence-dates .material-symbols-outlined { font-size: 1.2em; color:var(--gray-color); }
         .absence-details p { margin-bottom: 0.4rem; font-size: 0.9rem; line-height: 1.5; color:var(--gray-color)}
         .absence-details strong { font-weight: 600; color: var(--dark-color); } 
         .absence-details p small { font-size: 0.85rem; color: #999; }
+        
+        .absence-actions { margin-top: 1rem; text-align: right; }
+        .btn-cancel-absence {
+            background-color: var(--danger-color); color: var(--white);
+            border: none; padding: 0.5rem 1rem; border-radius: 5px;
+            font-size: 0.85rem; font-weight: 500; cursor: pointer;
+            transition: var(--transition); display: inline-flex; align-items: center; gap: 0.3rem;
+        }
+        .btn-cancel-absence:hover { opacity: 0.85; }
+        .btn-cancel-absence .material-symbols-outlined { font-size: 1.1em; }
+
         .no-absences { text-align: center; padding: 3rem 1rem; background-color: var(--white); border-radius: 8px; box-shadow: var(--shadow); color: var(--gray-color); font-size: 1.1rem; }
         .no-absences .material-symbols-outlined { font-size: 3.5rem; display: block; margin-bottom: 1rem; color: var(--primary-color); opacity: 0.7; }
 
         footer { background-color: var(--dark-color); color: var(--white); padding: 3rem 0 2rem; margin-top:auto; }
+        /* ... (zbytek stylů pro footer) ... */
         .footer-content { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
         .footer-column h3 { font-size: 1.2rem; margin-bottom: 1.2rem; position: relative; padding-bottom: 0.6rem; }
         .footer-column h3::after { content: ''; position: absolute; left: 0; bottom: 0; width: 40px; height: 2px; background-color: var(--primary-color); border-radius: 3px; }
@@ -275,10 +308,26 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .footer-bottom { text-align: center; padding-top: 2rem; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.85rem; color: rgba(255, 255, 255, 0.6); }
         .footer-bottom a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); }
         .footer-bottom a:hover { color: var(--primary-color); }
+
     </style>
 </head>
 <body>
-<?php require "components/header-admin.php"; ?>
+<?php 
+    // Header - předpokládáme, že components/header.php existuje a je správně nastaven
+    // nebo použijte specifický header, pokud je potřeba
+    if ($sessionRole == 'admin' && file_exists("components/header-admin.php")) {
+        require_once "components/header-admin.php";
+        $headerLoaded = true;
+    } elseif (file_exists("components/header-user.php")) {
+        require_once "components/header-user.php";
+        $headerLoaded = true;
+    } elseif (file_exists("components/header.php")) { 
+         require_once "components/header.php";
+         $headerLoaded = true;
+    } else {
+        echo "<!-- Header component could not be found. Please check path and naming (e.g., components/header.php or components/header-user.php) -->";
+    }
+?>
 
     <main>
         <div class="page-header">
@@ -391,6 +440,17 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                         <?php endif; ?>
                                         <p><small><strong>Requested on:</strong> <?php echo date("M d, Y H:i", strtotime($absence['created_at'])); ?></small></p>
                                     </div>
+                                    <?php if ($absence['status'] == 'pending_approval'): ?>
+                                    <div class="absence-actions">
+                                        <form action="absences.php?filter=<?php echo htmlspecialchars($currentFilter); ?>#absence-<?php echo $absence['absenceID']; ?>" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to cancel this absence request?');">
+                                            <input type="hidden" name="action" value="cancel_absence">
+                                            <input type="hidden" name="absence_id" value="<?php echo $absence['absenceID']; ?>">
+                                            <button type="submit" class="btn-cancel-absence">
+                                                <span class="material-symbols-outlined">delete_forever</span> Cancel Request
+                                            </button>
+                                        </form>
+                                    </div>
+                                    <?php endif; ?>
                                 </article>
                             <?php endforeach; ?>
                         <?php else: ?>
@@ -408,16 +468,58 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     </main>
 
     <?php 
-    if (file_exists("components/footer-user.php")) { // Prioritize user footer
+    if (file_exists("components/footer-user.php")) { 
         require_once "components/footer-user.php";
-    } elseif (file_exists("components/footer-admin.php")) { // Fallback
-        require_once "components/footer-admin.php";
     } else {
         echo "<!-- Footer component not found -->";
     }
     ?>
 
     <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Hamburger menu functionality
+            const hamburger = document.getElementById('hamburger');
+            const mobileMenu = document.getElementById('mobileMenu');
+            const closeMenuBtn = document.getElementById('closeMenu'); 
+            const body = document.body;
+
+            if (hamburger && mobileMenu) {
+                hamburger.addEventListener('click', () => {
+                    hamburger.classList.toggle('active');
+                    mobileMenu.classList.toggle('active');
+                    body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
+                    hamburger.setAttribute('aria-expanded', mobileMenu.classList.contains('active'));
+                    if (mobileMenu) mobileMenu.setAttribute('aria-hidden', !mobileMenu.classList.contains('active'));
+                });
+                if (closeMenuBtn) {
+                    closeMenuBtn.addEventListener('click', () => {
+                        if (mobileMenu) mobileMenu.classList.remove('active');
+                        if (hamburger) hamburger.classList.remove('active'); 
+                        body.style.overflow = '';
+                        if (hamburger) hamburger.setAttribute('aria-expanded', 'false');
+                        if (mobileMenu) mobileMenu.setAttribute('aria-hidden', 'true');
+                        if (hamburger) hamburger.focus(); 
+                    });
+                }
+                if (mobileMenu) {
+                    mobileMenu.querySelectorAll('a').forEach(link => {
+                        link.addEventListener('click', () => {
+                            if (mobileMenu.classList.contains('active')) {
+                                mobileMenu.classList.remove('active');
+                                if (hamburger) hamburger.classList.remove('active');
+                                body.style.overflow = '';
+                                if (hamburger) hamburger.setAttribute('aria-expanded', 'false');
+                                mobileMenu.setAttribute('aria-hidden', 'true');
+                            }
+                        });
+                    });
+                }
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && mobileMenu && mobileMenu.classList.contains('active')) {
+                        if(closeMenuBtn) closeMenuBtn.click(); else if (hamburger) hamburger.click();
+                    }
+                });
+            }
 
             // Toggle Absence Request Form
             const toggleFormBtn = document.getElementById('toggleRequestFormBtn');
@@ -425,54 +527,55 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             const toggleIcon = document.getElementById('toggleIcon');
             const toggleText = document.getElementById('toggleText');
 
-            // Funkce pro aktualizaci tlačítka a ikony
             function updateToggleButton(isVisible) {
-                if (toggleIcon && toggleText) {
+                if (toggleIcon && toggleText && toggleFormBtn && requestFormPanel) {
                     if (isVisible) {
                         toggleIcon.textContent = 'remove_circle';
                         toggleText.textContent = 'Hide Request Form';
-                        if (toggleFormBtn) toggleFormBtn.setAttribute('aria-expanded', 'true');
-                        if (requestFormPanel) requestFormPanel.setAttribute('aria-hidden', 'false');
+                        toggleFormBtn.setAttribute('aria-expanded', 'true');
+                        requestFormPanel.setAttribute('aria-hidden', 'false');
                     } else {
                         toggleIcon.textContent = 'add_circle';
                         toggleText.textContent = 'Request New Absence';
-                        if (toggleFormBtn) toggleFormBtn.setAttribute('aria-expanded', 'false');
-                        if (requestFormPanel) requestFormPanel.setAttribute('aria-hidden', 'true');
+                        toggleFormBtn.setAttribute('aria-expanded', 'false');
+                        requestFormPanel.setAttribute('aria-hidden', 'true');
                     }
                 }
             }
             
-            // Inicializace stavu na základě PHP
-            // V HTML je již display: <?php echo $showRequestForm ? 'block' : 'none'; ?>;
-            // Takže JS jen synchronizuje text a ikonu tlačítka
-            if (requestFormPanel && toggleFormBtn) { // Ujistěte se, že oba prvky existují
+            if (requestFormPanel && toggleFormBtn) {
+                // Nastavení počátečního stavu tlačítka na základě toho, zda je formulář viditelný
+                // (což je určeno PHP proměnnou $showRequestForm a inline stylem)
                 updateToggleButton(requestFormPanel.style.display === 'block');
-            }
 
-
-            if (toggleFormBtn && requestFormPanel) {
                 toggleFormBtn.addEventListener('click', () => {
                     const isCurrentlyVisible = requestFormPanel.style.display === 'block';
                     requestFormPanel.style.display = isCurrentlyVisible ? 'none' : 'block';
-                    updateToggleButton(!isCurrentlyVisible); // Aktualizovat tlačítko na nový stav
+                    updateToggleButton(!isCurrentlyVisible); // Aktualizovat tlačítko na nový (opačný) stav
                     
-                    if (!isCurrentlyVisible) { 
-                        requestFormPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    // Scroll to form if it's being shown
+                    if (!isCurrentlyVisible && requestFormPanel.style.display === 'block') { 
+                        requestFormPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                     }
                 });
             }
             
+            // Skrytí zpráv při úpravě formuláře
             const formInputs = document.querySelectorAll('#request-form input, #request-form select, #request-form textarea');
             formInputs.forEach(input => {
                 input.addEventListener('input', () => {
                     const successMsg = document.querySelector('.success-message');
                     const errorMsg = document.querySelector('.db-error-message');
-                    if(successMsg) successMsg.style.display = 'none';
+                    if(successMsg && successMsg.style.display !== 'none') successMsg.style.display = 'none';
                     
+                    // Skrýt pouze chyby související s formulářem při psaní, ne obecné DB chyby
                     <?php if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($dbErrorMessage) && $dbErrorMessage): ?>
-                    if(errorMsg && errorMsg.style.display !== 'none' && (errorMsg.textContent.includes("required") || errorMsg.textContent.includes("Invalid parameter number") || errorMsg.textContent.includes("Data truncated") )) { 
-                        // Optionally hide specific errors on input, or just let them persist until next submit
-                        // errorMsg.style.display = 'none'; 
+                    if(errorMsg && errorMsg.style.display !== 'none') {
+                        const formRelatedErrorKeywords = ["required", "Invalid date/time format", "End date/time must be after", "Cannot request absence for a past date", "overlaps with these dates", "not a valid option"];
+                        let isFormError = formRelatedErrorKeywords.some(keyword => errorMsg.textContent.includes(keyword));
+                        if (isFormError) {
+                           // errorMsg.style.display = 'none'; // Ponecháno zakomentované, může být lepší nechat chybu, dokud není opravena
+                        }
                     }
                     <?php endif; ?>
                 });

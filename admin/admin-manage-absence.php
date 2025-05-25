@@ -282,18 +282,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         }
 
 
-        footer { background-color: var(--dark-color); color:var(--light-gray); padding: 2rem 0; text-align: center; font-size: 0.9rem; margin-top: auto;}
     </style>
 </head>
 <body>
-    <?php 
-        $headerPath = "../components/header-admin.php"; 
-        if (file_exists($headerPath)) {
-            require_once $headerPath;
-        } else {
-            echo "<!-- Admin header file not found -->";
-        }
-    ?>
+    <?php require "../components/header-admin.php"; ?>
 
     <main>
         <div class="page-header">
@@ -405,14 +397,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         </div> <!-- end .page-container -->
     </main>
 
-    <?php 
-        $footerPath = "../components/footer-admin.php"; 
-        if (file_exists($footerPath)) {
-            require_once $footerPath;
-        } else {
-            echo "<!-- Admin footer file not found -->";
-        }
-    ?>
+    <?php require_once "../components/footer-admin.php"; ?>
+
     <script>
         const hamburger = document.getElementById('hamburger');
         const mobileMenu = document.getElementById('mobileMenu');
