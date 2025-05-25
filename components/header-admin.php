@@ -195,10 +195,12 @@ if (!$is_in_admin_folder && $userRole === 'admin') {
 header {
     background-color: var(--white);
     box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    position: fixed;
+    position: fixed; /* Důležité pro header, který zůstává nahoře */
     width: 100%;
     top: 0;
+    left: 0; /* Přidáno pro plnou šířku */
     z-index: 1000;
+    height: 80px; /* Explicitní výška headeru */
 }
 
 
@@ -206,14 +208,15 @@ header {
     max-width: 1400px;
     margin: 0 auto;
     padding: 0 20px;
+    height: 100%; /* Aby .navbar mohl být vertikálně centrován */
 }
 
 .navbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem 0;
-    height: 80px;
+    /* padding: 1rem 0;  Odstraněno, výška se řeší na headeru a containeru */
+    height: 100%; /* Navbar zabere celou výšku headeru */
 }
 
 .logo {
@@ -222,13 +225,20 @@ header {
     color: var(--primary-color);
     text-decoration: none;
     display: flex;
-    align-items: center;
+    align-items: center; /* Vertikální centrování obsahu loga */
     gap: 0.5rem;
 }
 
-.logo i {
-    font-size: 1.5rem;
+.logo i { /* Pokud používáte FontAwesome pro logo */
+    font-size: 1.5rem; /* Můžete upravit velikost ikony */
+    /* vertical-align: middle; Není potřeba, pokud je rodič flex a align-items: center */
 }
+.logo img.logo-img { /* Pokud používáte obrázek v logu */
+    height: 35px; /* Upravte dle potřeby */
+    width: auto;
+    margin-right: 0.6rem;
+}
+
 
 .logo span {
     color: var(--dark-color);
@@ -243,7 +253,7 @@ header {
     padding: 3px 7px;
     border-radius: 4px;
     margin-left: 0.6rem;
-    vertical-align: middle;
+    vertical-align: middle; /* Pro lepší zarovnání s textem, pokud není flex */
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -251,8 +261,15 @@ header {
 .nav-links {
     display: flex;
     list-style: none;
-    align-items: center;
-    gap: 0.5rem;
+    align-items: center; /* Vertikální centrování všech položek v nav-links */
+    gap: 0.5rem; /* Odsazení mezi položkami */
+    margin: 0; /* Reset marginu */
+    padding: 0; /* Reset paddingu */
+}
+
+.nav-links li { /* Přidáno pro lepší kontrolu nad položkami seznamu */
+    display: flex; /* Umožní align-items na jednotlivých <a> */
+    align-items: center; /* Vertikálně centruje obsah každé <li> */
 }
 
 .nav-links a:not(.btn) {
@@ -264,6 +281,8 @@ header {
     border-radius: 8px;
     position: relative;
     transition: color .3s ease, background-color .3s ease;
+    display: inline-flex; /* Pro lepší zarovnání s ikonami a textem */
+    align-items: center;  /* Vertikální centrování obsahu v <a> */
 }
 
 .nav-links a:not(.btn):hover, 
@@ -291,8 +310,8 @@ header {
 
 .nav-links .btn .material-symbols-outlined {
     font-size: 1.2em;
-    vertical-align: middle;
-    margin-right: 4px;
+    /* vertical-align: middle; Není potřeba s flex */
+    margin-right: 4px; /* Může být i jen gap na rodiči .btn */
 }
 
 .nav-links .btn:hover {
@@ -302,12 +321,13 @@ header {
 }
 
 .nav-user-photo {
-    width: 32px;
+    width: 32px; /* Velikost obrázku */
     height: 32px;
     border-radius: 50%;
-    object-fit: cover;
+    object-fit: cover; /* Zajistí, že obrázek vyplní kruh bez deformace */
     margin-right: 10px;
     border: 2px solid var(--light-gray);
+    /* vertical-align: middle; Odstraněno, řeší se flexboxem na rodiči <a> nebo <li> */
 }
 
 /* Hamburger and Mobile Menu */
@@ -410,10 +430,13 @@ header {
     transform: rotate(90deg);
 }
 
-.mobile-nav-user-photo {
+.mobile-nav-user-photo { /* Již definováno jako .nav-user-photo, ale pro jistotu */
     width: 30px;
     height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
     margin-right: 12px;
+    border: 1.5px solid var(--light-gray);
 }
 
 @media (max-width: 768px) {

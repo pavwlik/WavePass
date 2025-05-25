@@ -657,36 +657,7 @@ require_once "db.php";
     </footer>
 
     <script>
-        // Mobile Menu Toggle
-        const hamburger = document.getElementById('hamburger');
-        const mobileMenu = document.getElementById('mobileMenu');
-        const closeMenu = document.getElementById('closeMenu');
-        const body = document.body;
-        
-        if (hamburger && mobileMenu && closeMenu) {
-            hamburger.addEventListener('click', () => {
-                hamburger.classList.toggle('active');
-                mobileMenu.classList.toggle('active');
-                body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
-            });
-            
-            closeMenu.addEventListener('click', () => {
-                hamburger.classList.remove('active');
-                mobileMenu.classList.remove('active');
-                body.style.overflow = '';
-            });
-            
-            const mobileNavLinks = document.querySelectorAll('.mobile-menu a'); // Renamed to avoid conflict
-            mobileNavLinks.forEach(link => {
-                link.addEventListener('click', () => {
-                    if (link.getAttribute('href').startsWith('#') || link.getAttribute('href').startsWith('index.html#') || link.classList.contains('btn')) {
-                        hamburger.classList.remove('active');
-                        mobileMenu.classList.remove('active');
-                        body.style.overflow = '';
-                    }
-                });
-            });
-        }
+
         
         // Smooth scrolling for anchor links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {

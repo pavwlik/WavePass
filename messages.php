@@ -519,41 +519,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     </footer>
 
     <script>
-        const hamburger = document.getElementById('hamburger');
-        const mobileMenu = document.getElementById('mobileMenu');
-        const body = document.body;
-        const closeMenuButton = mobileMenu ? mobileMenu.querySelector('.close-btn') : null;
 
-
-        if (hamburger && mobileMenu) { 
-            hamburger.addEventListener('click', () => {
-                hamburger.classList.toggle('active');
-                mobileMenu.classList.toggle('active');
-                body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
-            });
-            
-            if(closeMenuButton) { // Změněno z closeMenuInMobile
-                closeMenuButton.addEventListener('click', () => {
-                    hamburger.classList.remove('active');
-                    mobileMenu.classList.remove('active');
-                    body.style.overflow = '';
-                });
-            }
-             mobileMenu.querySelectorAll('a').forEach(link => {
-                link.addEventListener('click', (e) => {
-                    if (link.getAttribute('href') === '#' && e) { 
-                        e.preventDefault();
-                    }
-                    if (!link.getAttribute('href').startsWith('#') || link.getAttribute('href') === '#') {
-                        if (mobileMenu.classList.contains('active')) {
-                            hamburger.classList.remove('active');
-                            mobileMenu.classList.remove('active');
-                            body.style.overflow = '';
-                        }
-                    }
-                });
-            });
-        }
 
         const headerEl = document.querySelector('header');
         if (headerEl) { 

@@ -197,52 +197,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .logo img.logo-img { height: 45px; width: auto; margin-right: 0.6rem; }
         .logo span { color: var(--dark-color); font-weight: 600; }
 
-        .nav-links { display: flex; list-style: none; align-items: center; gap: 0.3rem; margin:0; padding:0; }
-        .nav-links a:not(.btn-outline) {
-            color: var(--dark-color); text-decoration: none; font-weight: 500;
-            padding: 0.6rem 0.9rem; font-size: 0.9rem; border-radius: 6px;
-            transition: var(--transition); display: inline-flex; align-items: center;
-        }
-        .nav-links a:not(.btn-outline):hover, 
-        .nav-links a:not(.btn-outline).active-nav-link {
-            color: var(--primary-color); background-color: rgba(var(--primary-color-rgb), 0.07);
-        }
-        .nav-links .btn-outline {
-            display: inline-flex; gap: 8px; align-items: center; justify-content: center;
-            padding: 0.6rem 1.2rem; border-radius: 6px; text-decoration: none;
-            font-weight: 600; transition: var(--transition); cursor: pointer;
-            font-size: 0.85rem; background-color: transparent;
-            border: 2px solid var(--primary-color); color: var(--primary-color);
-        }
-        .nav-links .btn-outline:hover { background-color: var(--primary-color); color: var(--white); transform: translateY(-2px); }
-        .nav-user-photo { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; margin-right: 8px; vertical-align: middle; border: 1.5px solid var(--light-gray); }
-        .nav-links a .material-symbols-outlined { font-size: 1.4em; vertical-align: middle; margin-right: 6px; line-height: 1; }
-
-        .hamburger { display: none; flex-direction: column; justify-content: space-around; width: 28px; height: 22px; background: transparent; border: none; cursor: pointer; padding: 0; z-index: 1002; }
-        .hamburger span { display: block; width: 100%; height: 3px; background-color: var(--dark-color); border-radius: 10px; transition: all 0.3s linear; position: relative; transform-origin: 1px; }
-        .hamburger.active span:nth-child(1) { transform: rotate(45deg) translate(1px, -1px); }
-        .hamburger.active span:nth-child(2) { opacity: 0; transform: translateX(20px); }
-        .hamburger.active span:nth-child(3) { transform: rotate(-45deg) translate(2px, 0px); }
-
-        .mobile-menu {
-            position: fixed; top: 0; right: -100%; width: 280px; height: 100vh;
-            background-color: var(--white); box-shadow: -5px 0 15px rgba(0,0,0,0.1);
-            padding: 60px 20px 20px; transition: right 0.4s cubic-bezier(0.23, 1, 0.32, 1);
-            z-index: 1001; display: flex; flex-direction: column; overflow-y: auto;
-        }
-        .mobile-menu.active { right: 0; }
-        .mobile-links { list-style: none; padding: 0; margin: 20px 0 0 0; display: flex; flex-direction: column; gap: 0.5rem; flex-grow: 1; }
-        .mobile-links li { width: 100%; }
-        .mobile-links a { display: flex; align-items: center; padding: 0.8rem 1rem; text-decoration: none; color: var(--dark-color); font-size: 1rem; border-radius: 6px; transition: var(--transition); font-weight: 500; }
-        .mobile-links a:hover, .mobile-links a.active-nav-link { color: var(--primary-color); background-color: rgba(var(--primary-color-rgb), 0.07); }
-        .mobile-menu .btn-outline { width: 100%; margin-top: auto; padding-top: 0.8rem; padding-bottom: 0.8rem; margin-bottom: 1rem; font-size: 0.9rem; }
-        .close-btn { position: absolute; top: 18px; right: 20px; font-size: 1.8rem; color: var(--dark-color); cursor: pointer; background: none; border: none; padding: 5px; line-height: 1;}
-         .close-btn .material-symbols-outlined { font-size: 2rem; vertical-align: middle;}
-        .mobile-links a .nav-user-photo.mobile-nav-user-photo { width: 28px; height: 28px; margin-right: 10px; }
 
         @media (max-width: 992px) { 
-            header .container .navbar .nav-links { display: none; } 
-            header .container .navbar .hamburger { display: flex; } 
             .container-absences { flex-direction: column; margin-left: 20px; margin-right: 20px; } 
             .absences-sidebar { flex: 0 0 auto; width: 100%; margin-bottom: 1.5rem; }
         }
@@ -322,13 +278,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     </style>
 </head>
 <body>
-<?php 
-    if ($sessionRole == 'admin') {
-        if (file_exists("components/header-admin.php")) require_once "components/header-admin.php";
-    } else {
-        if (file_exists("components/header-user.php")) require_once "components/header-user.php";
-    }
-?>
+<?php require "components/header-admin.php"; ?>
 
     <main>
         <div class="page-header">
@@ -468,47 +418,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     ?>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const hamburger = document.getElementById('hamburger');
-            const mobileMenu = document.getElementById('mobileMenu');
-            const closeMenuBtn = document.getElementById('closeMenu'); 
-            const body = document.body;
-
-            if (hamburger && mobileMenu) {
-                hamburger.addEventListener('click', () => {
-                    hamburger.classList.toggle('active');
-                    mobileMenu.classList.toggle('active');
-                    body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
-                    hamburger.setAttribute('aria-expanded', mobileMenu.classList.contains('active'));
-                    mobileMenu.setAttribute('aria-hidden', !mobileMenu.classList.contains('active'));
-                });
-                if (closeMenuBtn) {
-                    closeMenuBtn.addEventListener('click', () => {
-                        mobileMenu.classList.remove('active');
-                        hamburger.classList.remove('active'); 
-                        body.style.overflow = '';
-                        hamburger.setAttribute('aria-expanded', 'false');
-                        mobileMenu.setAttribute('aria-hidden', 'true');
-                        if (hamburger) hamburger.focus(); 
-                    });
-                }
-                mobileMenu.querySelectorAll('a').forEach(link => {
-                    link.addEventListener('click', () => {
-                        if (mobileMenu.classList.contains('active')) {
-                            mobileMenu.classList.remove('active');
-                            hamburger.classList.remove('active');
-                            body.style.overflow = '';
-                            hamburger.setAttribute('aria-expanded', 'false');
-                            mobileMenu.setAttribute('aria-hidden', 'true');
-                        }
-                    });
-                });
-                document.addEventListener('keydown', (e) => {
-                    if (e.key === 'Escape' && mobileMenu.classList.contains('active')) {
-                        if(closeMenuBtn) closeMenuBtn.click(); else hamburger.click();
-                    }
-                });
-            }
 
             // Toggle Absence Request Form
             const toggleFormBtn = document.getElementById('toggleRequestFormBtn');

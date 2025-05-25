@@ -744,38 +744,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <?php require "components/footer-admin.php"; ?>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const hamburger = document.getElementById('hamburger'); 
-        const mobileMenu = document.getElementById('mobileMenu'); 
-        const closeMenuButton = document.getElementById('closeMenu');
-        const body = document.body;
-        
-        if (hamburger && mobileMenu) {
-            if (closeMenuButton) {
-                closeMenuButton.addEventListener('click', () => {
-                    hamburger.classList.remove('active');
-                    mobileMenu.classList.remove('active');
-                    body.style.overflow = '';
-                });
-            }
-            hamburger.addEventListener('click', () => {
-                hamburger.classList.toggle('active');
-                mobileMenu.classList.toggle('active');
-                body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
-            });
-            const mobileNavLinks = document.querySelectorAll('.mobile-menu a'); 
-            mobileNavLinks.forEach(link => {
-                link.addEventListener('click', (e) => {
-                    if (mobileMenu.classList.contains('active')) {
-                        if (link.getAttribute('href') !== '#' && !link.getAttribute('href').startsWith('#')) {
-                            hamburger.classList.remove('active');
-                            mobileMenu.classList.remove('active');
-                            body.style.overflow = '';
-                        }
-                    }
-                });
-            });
-        }
         
         const headerEl = document.querySelector('header');
         if (headerEl) {
