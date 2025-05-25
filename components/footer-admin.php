@@ -72,7 +72,7 @@
 }
 
         /* Footer (Copied from existing styles) */
-        footer { background-color: var(--dark-color); color: var(--white); padding: 5rem 0 2rem; }
+        footer { background-color: var(--dark-color); color: var(--white); padding: 5rem 0 2rem; margin-top: 80px; }
         .footer-content { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 3rem; margin-bottom: 3rem; }
         .footer-column h3 { font-size: 1.3rem; margin-bottom: 1.8rem; position: relative; padding-bottom: 0.8rem; }
         .footer-column h3::after { content: ''; position: absolute; left: 0; bottom: 0; width: 50px; height: 3px; background-color: var(--primary-color); border-radius: 3px; }
