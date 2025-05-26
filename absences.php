@@ -312,22 +312,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     </style>
 </head>
 <body>
-<?php 
-    // Header - předpokládáme, že components/header.php existuje a je správně nastaven
-    // nebo použijte specifický header, pokud je potřeba
-    if ($sessionRole == 'admin' && file_exists("components/header-admin.php")) {
-        require_once "components/header-admin.php";
-        $headerLoaded = true;
-    } elseif (file_exists("components/header-user.php")) {
-        require_once "components/header-user.php";
-        $headerLoaded = true;
-    } elseif (file_exists("components/header.php")) { 
-         require_once "components/header.php";
-         $headerLoaded = true;
-    } else {
-        echo "<!-- Header component could not be found. Please check path and naming (e.g., components/header.php or components/header-user.php) -->";
-    }
-?>
+  <!-- Header -->
+  <?php require "components/header-admin.php"; ?>
 
     <main>
         <div class="page-header">

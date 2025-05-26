@@ -101,7 +101,7 @@ if (!$is_in_admin_folder && $userRole === 'admin') {
 <header>
     <div class="container">
         <nav class="navbar">
-            <a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>index.php" class="logo">
+            <a href="/imgs/logo.png" class="logo">
                 <i class="fas fa-chalkboard-teacher"></i>
                 Wave<span>Pass</span>
                 <?php if ($userRole === 'admin'): ?>
@@ -130,7 +130,7 @@ if (!$is_in_admin_folder && $userRole === 'admin') {
                             <?php echo $sessionFirstName; ?>
                         </a>
                     </li>
-                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>logout.php" class="btn"><span class="material-symbols-outlined">logout</span> Logout</a></li>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>../logout.php" class="btn"><span class="material-symbols-outlined">logout</span> Logout</a></li>
                 <?php else: ?>
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>index.php#features" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#features') !== false) echo 'active-link'; ?>">Features</a></li>
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>pricing.php" class="<?php if ($currentPage === 'pricing.php') echo 'active-link'; ?>">Pricing</a></li>
@@ -164,7 +164,7 @@ if (!$is_in_admin_folder && $userRole === 'admin') {
                             <span class="nav-user-name"><?php echo $sessionFirstName; ?></span>
                         </a>
                     </li>
-                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>logout.php" class="btn"><span class="material-symbols-outlined">logout</span> Log out</a></li>
+                <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>../logout.php" class="btn"><span class="material-symbols-outlined">logout</span> Log out</a></li>
             <?php else: ?>
                 <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>index.php#features" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#features') !== false) echo 'active-link'; ?>">Features</a></li>
                 <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>pricing.php" class="<?php if ($currentPage === 'pricing.php') echo 'active-link'; ?>">Pricing</a></li>

@@ -662,7 +662,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                             <?php endif; ?>
                             <button id="editLateDepartureBtn" class="btn-action-card btn-edit-late">Change / Cancel</button>
                         <?php else: ?>
-                            <button id="notifyLateDepartureBtn" class="btn-action-card">Notify Late Departure</button>
+                            <button id="notifyLateDepartureBtn" class="btn-action-card">Notify Late Exit</button>
                             <span class="label">Staying past 15:30? Let us know.</span>
                         <?php endif; ?>
                     </div>
