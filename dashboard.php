@@ -179,7 +179,7 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                     $rfidStatus = "Checked Out";
                     $rfidStatusClass = "absent"; 
                 } elseif ($latestEvent['logResult'] == 'denied') {
-                    $rfidStatus = ($latestEvent['logType'] == 'entry' ? "Check In Denied" : "Exit Denied");
+                    $rfidStatus = ($latestEvent['logType'] == 'entry' ? "entry Denied" : "Exit Denied");
                     $rfidStatusClass = "danger"; 
                 } else {
                     $rfidStatus = "Status Unknown"; 
@@ -315,9 +315,9 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
             while ($log = $stmtActivityLog->fetch(PDO::FETCH_ASSOC)) {
                 $logTypeDisplay = 'Unknown'; $statusClass = 'neutral';
                 if ($log['logType'] == 'entry') {
-                    $logTypeDisplay = 'Check In'; $statusClass = ($log['logResult'] == 'granted') ? 'present' : 'danger';
+                    $logTypeDisplay = 'entry'; $statusClass = ($log['logResult'] == 'granted') ? 'present' : 'danger';
                 } elseif ($log['logType'] == 'exit') {
-                    $logTypeDisplay = 'Check Out'; $statusClass = ($log['logResult'] == 'granted') ? 'absent' : 'danger';
+                    $logTypeDisplay = 'exit'; $statusClass = ($log['logResult'] == 'granted') ? 'absent' : 'danger';
                 }
                 $activityForSelectedDate[] = [
                     'time' => date("H:i", strtotime($log['logTime'])),
@@ -330,7 +330,7 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
         }
         $hasCheckInOutActivity = false;
         foreach($activityForSelectedDate as $act) {
-            if (isset($act['log_type']) && (strpos($act['log_type'], 'Check In') !== false || strpos($act['log_type'], 'Check Out') !== false)) {
+            if (isset($act['log_type']) && (strpos($act['log_type'], 'entry') !== false || strpos($act['log_type'], 'exit') !== false)) {
                 $hasCheckInOutActivity = true;
                 break;
             }
@@ -460,15 +460,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             transition: var(--transition);
             height: 80px; 
         }
-        .navbar { 
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 0 20px; 
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            height: 100%;
-        }
+
         .logo { font-size: 1.8rem; font-weight: 800; color: var(--primary-color); text-decoration: none; display: flex; align-items: center; gap: 0.5rem;}
         .logo img { height: 30px; margin-right: 0.5rem; } 
         .logo span { color: var(--dark-color); font-weight: 600; }
@@ -563,7 +555,22 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .activity-table th { background-color: #f9fafb; font-weight: 500; color: var(--gray-color); white-space: nowrap; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px; }
         .activity-table tbody tr:last-child td { border-bottom:none; }
         .activity-table tbody tr:hover { background-color: #f0f4ff; }
-        .activity-status { display: inline-flex; align-items:center; gap:0.4rem; padding: 0.25rem 0.7rem; border-radius: 15px; font-size: 0.78rem; font-weight: 500; white-space: nowrap; }
+        .activity-status { 
+            display: inline-flex; 
+            align-items:center; 
+            gap:0.4rem; 
+            padding: 0.25rem 0.7rem; 
+            border-radius: 15px; 
+            font-size: 0.78rem; 
+            font-weight: 500; 
+            white-space: nowrap; 
+        }
+        .activity-status .material-symbols-outlined {
+            font-size: 1.1em; /* Velikost ikony relativní k textu statusu */
+            /* Není třeba explicitně nastavovat barvu, měla by se zdědit z rodiče .activity-status */
+            /* vertical-align: middle; - pro flexbox není obvykle potřeba */
+        }
+
         .activity-status.present { background-color: rgba(var(--present-color-val), 0.15); color: var(--present-color); } 
         .activity-status.absent { background-color: rgba(var(--absent-color-val), 0.15); color: var(--absent-color); }
         .activity-status.info { background-color: rgba(var(--info-color-val), 0.15); color: var(--info-color); }
@@ -697,7 +704,25 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                         <td><?php echo htmlspecialchars($activity['time']); ?></td>
                                         <td>
                                             <span class="activity-status <?php echo htmlspecialchars($activity['status_class']); ?>">
-                                                <?php echo htmlspecialchars($activity['log_type']); ?>
+                                                <?php 
+                                                // Přidání ikon na základě 'log_type' nebo upraveného 'log_type' v $activity
+                                                $logTypeClean = strtolower(str_replace(' ', '', $activity['log_type'])); // Např. 'entry', 'exit', 'scheduledabsence'
+                                                if ($logTypeClean === 'entry'): ?>
+                                                    <span class="material-symbols-outlined">login</span>
+                                                <?php elseif ($logTypeClean === 'exit'): ?>
+                                                    <span class="material-symbols-outlined">logout</span>
+                                                <?php elseif ($logTypeClean === 'scheduledabsence' || $logTypeClean === 'currentstatus' && strpos(strtolower($activity['log_result']), 'leave') !== false): // Pro "On Leave" nebo "Scheduled Holiday" ?>
+                                                    <span class="material-symbols-outlined">event_busy</span>
+                                                <?php elseif ($logTypeClean === 'system' || ($logTypeClean === 'currentstatus' && strpos(strtolower($activity['log_result']), 'present') !== false)): ?>
+                                                    <span class="material-symbols-outlined">verified_user</span>
+                                                <?php elseif ($logTypeClean === 'currentstatus' && strpos(strtolower($activity['log_result']), 'checked out') !== false): ?>
+                                                     <span class="material-symbols-outlined">person_off</span>
+                                                <?php elseif ($logTypeClean === 'norecord'): ?>
+                                                     <span class="material-symbols-outlined">manage_search</span>
+                                                <?php else: // Fallback pro neznámé typy nebo pokud není ikona explicitně definována ?>
+                                                    <span class="material-symbols-outlined">help_outline</span>
+                                                <?php endif; ?>
+                                                <?php echo htmlspecialchars($activity['log_type']); // Původní text logu ?>
                                             </span>
                                         </td>
                                         <td><?php echo htmlspecialchars($activity['log_result']); ?></td>

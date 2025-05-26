@@ -140,7 +140,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         main { flex-grow: 1; /* Account for fixed header */ }
         .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
         header { background-color: var(--white); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: fixed; width: 100%; top: 0; z-index: 1000; }
-        .navbar { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; height: 80px; }
         .logo { font-size: 1.8rem; font-weight: 800; color: var(--primary-color); text-decoration: none; display: flex; align-items: center; gap: 0.5rem; }
         .logo i { font-size: 1.5rem; }
         .logo span { color: var(--dark-color); font-weight: 600; }
@@ -205,36 +204,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </style>
 </head>
 <body>
-    <header>
-        <div class="container">
-            <nav class="navbar">
-                <a href="index.php" class="logo">
-                    <i class="fas fa-chalkboard-teacher"></i>
-                    Wave<span>Pass</span>
-                </a>
-                <ul class="nav-links">
-                    <li><a href="index.php#features">Features</a></li>
-                    <li><a href="index.php#how-it-works">How It Works</a></li>
-                    <li><a href="index.php#about-us">About Us</a></li>
-                    <li><a href="index.php#contact">Contact</a></li>
-                    <li><a href="index.php#faq">FAQ</a></li>
-                    <li class="nav-item-login"><a href="login.php" class="btn active-link"><span class="material-symbols-outlined">account_circle</span> Login</a></li>
-                </ul>
-                <div class="hamburger" id="hamburger"><span></span><span></span><span></span></div>
-            </nav>
-        </div>
-        <div class="mobile-menu" id="mobileMenu">
-            <span class="close-btn" id="closeMenu"><i class="fas fa-times"></i></span>
-            <ul class="mobile-links">
-                <li><a href="index.php#features">Features</a></li>
-                <li><a href="index.php#how-it-works">How It Works</a></li>
-                <li><a href="index.php#about-us">About Us</a></li>
-                <li><a href="index.php#contact">Contact</a></li>
-                <li><a href="index.php#faq">FAQ</a></li>
-            </ul>
-            <a href="login.php" class="btn active-link"><span class="material-symbols-outlined">person</span> Login</a>
-        </div>
-    </header>
+    <!-- Header -->
+    <?php require_once "components/header-main.php" ?>
 
     <main>
         <section class="login-section">
@@ -256,7 +227,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <label for="password">Password</label>
                         <input type="password" id="password" name="password" placeholder="Enter your password" required>
                     </div>
-                    <button type="submit" class="btn"><i class="fas fa-sign-in-alt"></i> Login</button>
+                    <button type="submit" class="btn"><i class="fas fa-sign-in-alt"></i></i> Login</button>
                 </form>
                 <div class="login-options">
                     <a href="forgot-password.php">Forgot Password?</a>
@@ -271,39 +242,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <?php  require_once "components/footer.php"; ?>
 
     <script>
-        const hamburger = document.getElementById('hamburger');
-        const mobileMenu = document.getElementById('mobileMenu');
-        const closeMenu = document.getElementById('closeMenu');
-        const body = document.body;
-        if (hamburger && mobileMenu && closeMenu) {
-            hamburger.addEventListener('click', () => {
-                hamburger.classList.toggle('active');
-                mobileMenu.classList.toggle('active');
-                body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
-            });
-            closeMenu.addEventListener('click', () => {
-                hamburger.classList.remove('active');
-                mobileMenu.classList.remove('active');
-                body.style.overflow = '';
-            });
-            const mobileLinks = document.querySelectorAll('.mobile-menu a');
-            mobileLinks.forEach(link => {
-                link.addEventListener('click', () => {
-                    const href = link.getAttribute('href');
-                    let close = false;
-                    if (href) {
-                        if (href.startsWith('#') || href.startsWith('index.php#')) close = true;
-                        else if (href.includes('.php') && !href.startsWith('http')) close = true;
-                    }
-                    if (link.classList.contains('btn')) close = true;
-                    if (close) {
-                        hamburger.classList.remove('active');
-                        mobileMenu.classList.remove('active');
-                        body.style.overflow = '';
-                    }
-                });
-            });
-        }
         document.querySelectorAll('a[href^="#"], a[href^="index.php#"]').forEach(anchor => {
             anchor.addEventListener('click', function(e) {
                 const href = this.getAttribute('href');

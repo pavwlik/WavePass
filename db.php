@@ -28,11 +28,4 @@ try {
 
 
 
-<?php
-/*
-$host = 'localhost';
-$db   = 'team01';
-$user = 'uzivatel';
-$pass = 'team01';
-$charset = 'utf8mb4';
-*/
+

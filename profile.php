@@ -11,11 +11,14 @@ if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
     exit;
 }
 
+// Předpokládáme, že db.php je ve stejném adresáři jako tento soubor,
+// nebo je v PHP include path. Pokud je jinde, upravte cestu.
 require_once 'db.php'; 
 
 $sessionFirstName = isset($_SESSION["first_name"]) ? htmlspecialchars($_SESSION["first_name"]) : 'User';
 $sessionUserId = isset($_SESSION["user_id"]) ? (int)$_SESSION["user_id"] : null;
-$sessionRole = isset($_SESSION["role_name"]) ? htmlspecialchars($_SESSION["role_name"]) : (isset($_SESSION["role"]) ? htmlspecialchars($_SESSION["role"]) : 'employee'); // Použije role_name pokud existuje
+// Konzistentní použití role_name pokud existuje
+$sessionRole = isset($_SESSION["role_name"]) ? htmlspecialchars($_SESSION["role_name"]) : (isset($_SESSION["role"]) ? htmlspecialchars($_SESSION["role"]) : 'employee'); 
 $currentPage = basename($_SERVER['PHP_SELF']); 
 
 $activeSection = isset($_GET['section']) ? $_GET['section'] : 'profile';
@@ -35,38 +38,68 @@ $dbErrorMessage = null;
 $updateMessage = null; 
 
 // --- PATH & CONFIGURATION CONSTANTS ---
-// Logika pro $projectBasePath, WEB_ROOT_PATH, $fileSystemProfileUploadDir, $webProfileUploadDir zůstává stejná
+// Logika pro cesty zkopírovaná z admin-profile.php
 $projectBasePath = ''; 
 $docRoot = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
-$scriptName = $_SERVER['SCRIPT_NAME']; // např. /profile.php nebo /admin/profile.php
-$scriptDir = dirname($scriptName); // např. / nebo /admin
+$scriptName = $_SERVER['SCRIPT_NAME']; 
+$scriptDir = dirname($scriptName); 
 
-// Pokud je skript v rootu, $projectBasePath je '', jinak je to $scriptDir
-// Toto předpokládá, že projekt je přímo v document rootu nebo v podadresáři
-// a že profile.php je buď v rootu projektu nebo v přímém podadresáři projektu.
 if ($scriptDir === '/' || $scriptDir === '\\') {
     $projectBasePath = '';
 } else {
     $projectBasePath = rtrim(str_replace('\\', '/', $scriptDir), '/');
+    // Pokud je tento soubor (profile.php) v podadresáři (např. /user/profile.php)
+    // a $projectBasePath by měl být jen /user (nebo název projektu, pokud je projekt v podadresáři web rootu),
+    // možná budete potřebovat další úpravu zde, aby $projectBasePath správně reflektoval kořen projektu.
+    // Příklad: pokud je struktura /var/www/html/projektX/profile.php, pak $scriptDir je /projektX.
+    // Pokud je struktura /var/www/html/profile.php, pak $scriptDir je /.
+    // Pro tento soubor, pokud není v 'admin' složce, $projectBasePath bude pravděpodobně prázdný
+    // nebo bude obsahovat název hlavního adresáře projektu, pokud je projekt v podadresáři document rootu.
+    // Pokud profile.php je v rootu projektu: $projectBasePath by mělo být ''
+    // Pokud je v /projekt/profile.php: $projectBasePath by mělo být '/projekt'
+    // Aktuální logika bere $scriptDir jako základ. Pokud je profile.php v rootu projektu,
+    // a projekt je v rootu serveru, $projectBasePath bude ''.
+    // Pokud je projekt v /mujprojekt/ a profile.php je v /mujprojekt/profile.php, $projectBasePath bude /mujprojekt.
+    // Ověřte, zda toto odpovídá vaší struktuře.
 }
-
+// Pokud je `profile.php` v rootu projektu, $projectBasePath by měl být prázdný.
+// Pokud je `profile.php` v podadresáři projektu (např. `user/profile.php`),
+// a složka `profile_photos` je v rootu projektu, pak `PROFILE_UPLOAD_DIR_FROM_PROJECT_ROOT`
+// by mělo být `../profile_photos/` nebo by `fileSystemProfileUploadDir` mělo jít o úroveň výše.
+// Pro jednoduchost budu předpokládat, že `profile_photos` je relativní k umístění `profile.php`
+// nebo že `$projectBasePath` je správně nastaven na kořen projektu.
+// Následující logika je převzata z admin-profile.php a měla by fungovat, pokud jsou cesty správně interpretovány.
 
 if (!defined('WEB_ROOT_PATH')) {
     $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
     $host = $_SERVER['HTTP_HOST'];
-    // $projectBasePath je již relativní k web rootu
+    // WEB_ROOT_PATH by mělo být absolutní URL ke kořeni projektu.
+    // Pokud $projectBasePath je '/názevprojektu', pak se to připojí.
+    // Pokud je $projectBasePath '', pak je to jen $protocol . $host.
     define('WEB_ROOT_PATH', rtrim($protocol . $host . $projectBasePath, '/') . '/');
 }
 
-if (!defined('PROFILE_UPLOAD_DIR_FROM_PROJECT_ROOT')) define('PROFILE_UPLOAD_DIR_FROM_PROJECT_ROOT', 'profile_photos/');
+
+if (!defined('PROFILE_UPLOAD_DIR_FROM_PROJECT_ROOT')) {
+    // Pokud `profile_photos` je ve stejném adresáři jako `profile.php`, bude to 'profile_photos/'
+    // Pokud je `profile_photos` o úroveň výše, bude to '../profile_photos/'
+    // Pro konzistenci s admin-profile, předpokládejme, že je to podadresář
+    define('PROFILE_UPLOAD_DIR_FROM_PROJECT_ROOT', 'profile_photos/');
+}
+
+// Webová cesta k upload adresáři (pro <img> src)
 $webProfileUploadDir = WEB_ROOT_PATH . ltrim(PROFILE_UPLOAD_DIR_FROM_PROJECT_ROOT, '/');
-// Systémová cesta: $docRoot (např. /var/www/html) + $projectBasePath (např. /bures.pa.2022/wavepass) + /profile_photos/
+
+// Systémová (souborová) cesta k upload adresáři (pro move_uploaded_file)
+// $docRoot = /var/www/html
+// $projectBasePath = '' (pokud profile.php je v rootu projektu a projekt je v rootu serveru)
+//                   nebo '/nazevprojektu' (pokud profile.php je v /nazevprojektu/ a projekt je v rootu serveru)
+// PROFILE_UPLOAD_DIR_FROM_PROJECT_ROOT = 'profile_photos/'
+// Výsledná cesta by měla být absolutní systémová cesta k adresáři profile_photos
 $fileSystemProfileUploadDir = $docRoot . $projectBasePath . '/' . ltrim(PROFILE_UPLOAD_DIR_FROM_PROJECT_ROOT, '/');
 $fileSystemProfileUploadDir = rtrim($fileSystemProfileUploadDir, '/') . '/';
 
 
-// ... (zbytek PHP logiky pro kontrolu adresáře, nahrávání, načítání dat - zůstává stejný jako v předchozí verzi) ...
-// Ensure upload directory exists and is writable - KONTROLA ZŮSTÁVÁ DŮLEŽITÁ
 $uploadDirIsOk = false;
 if (!is_dir($fileSystemProfileUploadDir)) {
     if (!@mkdir($fileSystemProfileUploadDir, 0775, true)) { 
@@ -83,9 +116,10 @@ if (!is_dir($fileSystemProfileUploadDir)) {
     }
 } elseif (!is_writable($fileSystemProfileUploadDir)) {
     error_log("WARNING: Profile photo directory exists but is not writable: " . $fileSystemProfileUploadDir);
-    if($activeSection === 'profile' && !$dbErrorMessage) { 
-        // $dbErrorMessage = "Profile photo directory is not writable. Please contact support."; 
-    }
+    // Můžete odkomentovat, pokud chcete zobrazit chybu uživateli
+    // if($activeSection === 'profile' && !$dbErrorMessage) { 
+    //     $dbErrorMessage = "Profile photo directory is not writable. Please contact support."; 
+    // }
 } else {
     $uploadDirIsOk = true; 
 }
@@ -95,9 +129,8 @@ if (!defined('MAX_PHOTO_SIZE')) define('MAX_PHOTO_SIZE', 2 * 1024 * 1024);
 if (!defined('ALLOWED_PHOTO_TYPES')) define('ALLOWED_PHOTO_TYPES', ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif']);
 if (!defined('DEFAULT_AVATAR_FILENAME')) define('DEFAULT_AVATAR_FILENAME', 'default_avatar.jpg');
 
-// --- Form Submission Handling ---
+// --- Form Submission Handling (identické s admin-profile.php) ---
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($pdo) && $sessionUserId) {
-    // ... (kompletní logika zpracování formuláře z předchozí odpovědi) ...
     $stmtCurrentUserData = $pdo->prepare("SELECT email, profile_photo FROM users WHERE userID = :userid");
     $stmtCurrentUserData->execute([':userid' => $sessionUserId]);
     $currentUserDataForUpdate = $stmtCurrentUserData->fetch();
@@ -247,7 +280,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($pdo) && $sessionUserId) {
 }
 
 
-// Load/Re-load user data for display
+// Load/Re-load user data for display (identické s admin-profile.php)
 if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
     try {
         $stmtUserDisplay = $pdo->prepare(
@@ -260,18 +293,22 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
         $userData = $stmtUserDisplay->fetch();
 
         if ($userData) {
+            // Načtení roleID z DB a nastavení $sessionRole pro zobrazení
+            // $_SESSION['role_name'] by mělo být nastaveno při loginu nebo zde
             if (isset($userData['roleID'])) { 
+                 // Předpokládáme, že roleID je textový název role, např. 'admin', 'employee'
+                 // Pokud je to číselný ID, budete potřebovat další dotaz na tabulku rolí
                 $_SESSION["role_name"] = $userData['roleID']; 
                 $sessionRole = htmlspecialchars($userData['roleID']); 
             }
             if (empty($userData['profile_photo'])) {
                 $userData['profile_photo'] = DEFAULT_AVATAR_FILENAME; 
             }
+            // Aktualizace session s fotkou, pokud se změnila
             if (isset($userData['profile_photo']) && (!isset($_SESSION['profile_photo']) || $_SESSION['profile_photo'] !== $userData['profile_photo'])) { 
                 $_SESSION["profile_photo"] = $userData['profile_photo'];
             }
             
-            // RFID Cards loading (only if section is 'rfid')
             if ($activeSection === 'rfid') {
                 $sqlRfid = "SELECT RFID, name, card_type, is_active, rfid_url 
                             FROM rfids 
@@ -316,28 +353,42 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
     $dbErrorMessage = "Database connection is not available.";
 }
 
-// Cesta k výchozímu avataru pro zobrazení - default avatar je nyní v adresáři profile_photos
+
 $defaultAvatarWebPath = $webProfileUploadDir . DEFAULT_AVATAR_FILENAME; 
 $defaultAvatarFileSystemPath = $fileSystemProfileUploadDir . DEFAULT_AVATAR_FILENAME;
 
 
-// Path prefix for including components
+// Path prefix pro komponenty (header, footer)
+// Pokud je profile.php v rootu, $pathPrefix je ''.
+// Pokud je ve složce 'user', $pathPrefix je '../'.
 $pathPrefix = ""; 
-if (strpos($_SERVER['SCRIPT_FILENAME'], DIRECTORY_SEPARATOR . 'admin' . DIRECTORY_SEPARATOR) !== false) {
-    $pathPrefix = "../"; 
+$currentScriptPath = str_replace('\\', '/', __DIR__); // Absolutní cesta k adresáři tohoto skriptu
+$projectRootPath = str_replace('\\', '/', $docRoot . $projectBasePath); // Absolutní cesta ke kořeni projektu
+
+if (rtrim($currentScriptPath, '/') !== rtrim($projectRootPath, '/')) {
+    // Skript není v kořeni projektu, zjistíme relativní cestu
+    $relativePath = str_replace(rtrim($projectRootPath, '/') . '/', '', rtrim($currentScriptPath, '/'));
+    $depth = substr_count($relativePath, '/');
+    if ($relativePath !== '') $depth +=1; // Pokud je v podadresáři, přičteme 1
+    $pathPrefix = str_repeat('../', $depth);
 }
+// Tento $pathPrefix by měl být použit pro include/require komponent
+// a také pro cesty k obrázkům v HTML, které jsou relativní ke kořeni projektu.
+// Nicméně, pro `src` atributy obrázků je lepší používat absolutní webové cesty (začínající /)
+// nebo plné URL, které již máte definované ve `$webProfileUploadDir` a `$webRootPath`.
+// `$pathPrefix` zde tedy použijeme hlavně pro PHP include.
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="<?php echo htmlspecialchars($pathPrefix); ?>imgs/logo.png" type="image/x-icon">
+    <link rel="icon" href="<?php echo htmlspecialchars(WEB_ROOT_PATH); ?>imgs/logo.png" type="image/x-icon"> <!-- Použití WEB_ROOT_PATH -->
     <title>My Account - <?php echo $sessionFirstName; ?> - WavePass</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        /* ... (Vaše CSS styly, včetně .profile-picture atd.) ... */
+        /* ... (Vaše CSS styly, stejné jako v admin-profile.php) ... */
         :root {
             --primary-color: #4361ee; --primary-dark: #3a56d4;
             --primary-color-rgb: 67, 97, 238; /* For rgba */
@@ -361,7 +412,7 @@ if (strpos($_SERVER['SCRIPT_FILENAME'], DIRECTORY_SEPARATOR . 'admin' . DIRECTOR
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; line-height: 1.65; color: var(--dark-color); background-color: #f4f7fc; display: flex; flex-direction: column; min-height: 100vh; }
-        main { flex-grow: 1; padding-top: 80px;; }
+        main { flex-grow: 1; padding-top: 80px;; } /* Předpokládá fixní header 80px */
         .container { max-width: 1440px; margin: 0 auto; padding: 0 25px; }
         
         .page-header { padding: 2rem 0; margin-bottom: 2rem; background-color:var(--white); box-shadow: 0 2px 4px rgba(0,0,0,0.04); }
@@ -466,8 +517,22 @@ if (strpos($_SERVER['SCRIPT_FILENAME'], DIRECTORY_SEPARATOR . 'admin' . DIRECTOR
     </style>
 </head>
 <body>
-        <!-- header !-->
-        <?php require "components/header-admin.php"; ?>
+        <!-- Header -->
+        <?php 
+        // Dynamické načítání hlavičky
+        $headerComponent = $pathPrefix . "components/header-user.php"; // Předpokládáme, že běžný uživatel má header-user.php
+        if (strtolower($sessionRole) === 'admin') { // Pokud je role admin, může mít jinou hlavičku
+            $headerComponent = $pathPrefix . "components/header-admin.php";
+        }
+        if (file_exists($headerComponent)) {
+            require_once $headerComponent;
+        } else {
+            // Fallback nebo chybová zpráva, pokud hlavička není nalezena
+            error_log("Header component not found: " . $headerComponent);
+            echo "<!-- Header component " . htmlspecialchars(basename($headerComponent)) . " not found -->";
+            // Můžete zde vložit základní HTML pro hlavičku jako fallback
+        }
+        ?>
 
     <main>
         <div class="page-header">
@@ -496,12 +561,9 @@ if (strpos($_SERVER['SCRIPT_FILENAME'], DIRECTORY_SEPARATOR . 'admin' . DIRECTOR
                         <li><a href="?section=profile" class="<?php if ($activeSection === 'profile') echo 'active'; ?>"><span class="material-symbols-outlined">manage_accounts</span> Profile Information</a></li>
                         <li><a href="?section=password" class="<?php if ($activeSection === 'password') echo 'active'; ?>"><span class="material-symbols-outlined">lock_reset</span> Change Password</a></li>
                         <li><a href="?section=rfid" class="<?php if ($activeSection === 'rfid') echo 'active'; ?>"><span class="material-symbols-outlined">credit_card</span> My RFID Cards</a></li>
-                        <?php 
-                        // Použijeme $sessionRole, která je nastavena na začátku skriptu z $_SESSION['role_name'] nebo $_SESSION['roleID']
-                        if (strtolower($sessionRole) === 'admin'): 
-                        ?>
+                        <?php if (strtolower($sessionRole) === 'admin'): ?>
                             <li style="margin-top: 1.5rem; border-top:1px solid var(--light-gray); padding-top:1rem;">
-                                <a href="<?php echo htmlspecialchars($pathPrefix); ?>admin-panel.php" style="color: var(--secondary-color); font-weight:bold;">
+                                <a href="<?php echo htmlspecialchars(WEB_ROOT_PATH); ?>admin/admin-panel.php" style="color: var(--secondary-color); font-weight:bold;"> <!-- Použití WEB_ROOT_PATH -->
                                     <span class="material-symbols-outlined">admin_panel_settings</span> Admin Panel
                                 </a>
                             </li>
@@ -544,7 +606,7 @@ if (strpos($_SERVER['SCRIPT_FILENAME'], DIRECTORY_SEPARATOR . 'admin' . DIRECTOR
                                 <div class="form-group"><label for="firstName" class="form-label">First Name</label><input type="text" id="firstName" name="firstName" class="form-control" value="<?php echo htmlspecialchars($userData['firstName']); ?>" required></div>
                                 <div class="form-group"><label for="lastName" class="form-label">Last Name</label><input type="text" id="lastName" name="lastName" class="form-control" value="<?php echo htmlspecialchars($userData['lastName']); ?>" required></div>
                             </div>
-                            <div class="form-group"><label class="form-label">Role</label><input type="text" class="form-control" value="<?php echo ucfirst(htmlspecialchars($userData['roleID'] ?? $sessionRole)); // roleID z users tabulky ?>" readonly ></div>
+                            <div class="form-group"><label class="form-label">Role</label><input type="text" class="form-control" value="<?php echo ucfirst(htmlspecialchars($userData['roleID'] ?? $sessionRole)); ?>" readonly ></div>
                             <div class="form-row">
                                 <div class="form-group"><label for="email" class="form-label">Email</label><input type="email" id="email" name="email" class="form-control" value="<?php echo htmlspecialchars($userData['email']); ?>" required></div>
                                 <div class="form-group"><label for="phone" class="form-label">Phone</label><input type="tel" id="phone" name="phone" class="form-control" value="<?php echo htmlspecialchars($userData['phone'] ?: ''); ?>" placeholder="Optional"></div>
@@ -584,7 +646,7 @@ if (strpos($_SERVER['SCRIPT_FILENAME'], DIRECTORY_SEPARATOR . 'admin' . DIRECTOR
                             <div class="rfid-cards-grid">
                                 <?php foreach($userRFIDCards as $card): ?>
                                 <div class="rfid-card-item">
-                                    <img src="<?php echo htmlspecialchars($pathPrefix); ?>imgs/wavepass_card.png" alt="WavePass RFID Card" class="rfid-card-image">
+                                    <img src="<?php echo htmlspecialchars(WEB_ROOT_PATH); ?>imgs/wavepass_card.png" alt="WavePass RFID Card" class="rfid-card-image"> <!-- Použití WEB_ROOT_PATH -->
                                     <div class="rfid-card-info">
                                     <h4>Card UID: <?php echo $card['rfid_identifier']; ?></h4>
                                     <?php if ($card['name'] !== 'N/A'): ?>
@@ -617,7 +679,7 @@ if (strpos($_SERVER['SCRIPT_FILENAME'], DIRECTORY_SEPARATOR . 'admin' . DIRECTOR
             </div>
             <?php elseif (!$userData && $dbErrorMessage ): ?>
                 <div class="db-error-message" role="alert"><i class="fas fa-exclamation-triangle"></i> <?php echo htmlspecialchars($dbErrorMessage); ?></div>
-                <p><a href="<?php echo htmlspecialchars($pathPrefix); ?>dashboard.php" class="btn btn-primary" style="margin-top:1rem;">Back to Dashboard</a></p>
+                <p><a href="<?php echo htmlspecialchars(WEB_ROOT_PATH); ?>dashboard.php" class="btn btn-primary" style="margin-top:1rem;">Back to Dashboard</a></p> <!-- Použití WEB_ROOT_PATH -->
             <?php elseif (!$userData && !$dbErrorMessage): ?>
                  <p class="db-error-message" role="alert"><i class="fas fa-exclamation-triangle"></i> Error: Unable to load user data. Session might be invalid or user not found.</p>
             <?php endif; ?>
@@ -625,24 +687,28 @@ if (strpos($_SERVER['SCRIPT_FILENAME'], DIRECTORY_SEPARATOR . 'admin' . DIRECTOR
     </main>
 
     <?php 
-        $footerComponent = $pathPrefix . "components/footer-user.php"; // Předpokládá se footer pro uživatele
+        // Dynamické načítání patičky
+        $footerComponent = $pathPrefix . "components/footer-user.php";
+        if (strtolower($sessionRole) === 'admin') {
+            // $footerComponent = $pathPrefix . "components/footer-admin.php"; // Admin může mít jiný footer
+        }
         if (file_exists($footerComponent)) {
             require_once $footerComponent;
         } else {
-            echo "<!-- Footer component not found at: " . htmlspecialchars($footerComponent) . " -->";
-            echo "<footer>FOOTER MISSING</footer>"; 
+            error_log("Footer component not found: " . $footerComponent);
+            echo "<!-- Footer component " . htmlspecialchars(basename($footerComponent)) . " not found -->";
+            echo "<footer><div class='container'><p>© " . date("Y") . " WavePass. All rights reserved.</p></div></footer>"; // Základní fallback footer
         }
     ?>
 
     <script>
-        // ... (Váš existující JavaScript pro menu, náhled fotky, filtrování RFID) ...
         document.addEventListener('DOMContentLoaded', function() {
             const hamburger = document.getElementById('hamburger');
             const mobileMenu = document.getElementById('mobileMenu');
             const body = document.body;
 
             if (hamburger && mobileMenu) {
-                const closeMenuBtnInMobile = mobileMenu.querySelector('.close-btn');
+                const closeMenuBtnInMobile = mobileMenu.querySelector('.close-btn'); // Předpokládáme, že .close-btn existuje v mobilním menu
 
                 hamburger.addEventListener('click', () => {
                     hamburger.classList.toggle('active');
@@ -658,9 +724,12 @@ if (strpos($_SERVER['SCRIPT_FILENAME'], DIRECTORY_SEPARATOR . 'admin' . DIRECTOR
                     });
                 }
                 
-                mobileMenu.querySelectorAll('ul.mobile-links a').forEach(link => {
+                // Zavření menu po kliknutí na odkaz v mobilním menu
+                mobileMenu.querySelectorAll('ul.mobile-links a').forEach(link => { // Upravte selektor podle vaší struktury mobilního menu
                     link.addEventListener('click', (e) => {
-                        if (link.getAttribute('href') === '#' && e) { e.preventDefault(); }
+                        // Pokud odkaz nevede na jinou stránku (např. #), zabráníme výchozí akci
+                        if (link.getAttribute('href') === '#' && e) { e.preventDefault(); } 
+                        // Vždy zavřeme menu
                          if (mobileMenu.classList.contains('active')) {
                             hamburger.classList.remove('active');
                             mobileMenu.classList.remove('active');
@@ -670,6 +739,7 @@ if (strpos($_SERVER['SCRIPT_FILENAME'], DIRECTORY_SEPARATOR . 'admin' . DIRECTOR
                 });
             }
 
+            // Náhled nahrávané fotky
             const profilePhotoInput = document.getElementById('profile_photo_input');
             const imagePreview = document.getElementById('profileImagePreview');
             
@@ -687,11 +757,12 @@ if (strpos($_SERVER['SCRIPT_FILENAME'], DIRECTORY_SEPARATOR . 'admin' . DIRECTOR
             }
         });
             
+        // Funkce pro filtrování RFID karet
         function filterRfidCards(status) {
             const currentUrl = new URL(window.location.href);
-            currentUrl.searchParams.set('section', 'rfid'); 
+            currentUrl.searchParams.set('section', 'rfid'); // Vždy chceme zůstat v RFID sekci
             if (status === 'all') { 
-                currentUrl.searchParams.delete('rfid_status');
+                currentUrl.searchParams.delete('rfid_status'); // Odebereme filtr pokud je 'all'
             } else {
                 currentUrl.searchParams.set('rfid_status', status);
             }

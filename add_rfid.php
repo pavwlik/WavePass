@@ -51,7 +51,7 @@ try {
 // rfid_url: UID karty
 // userID: může být NULL pro novou, nepřirazenou kartu
 
-$default_name = "Nová karta " . substr($rfid_uid, 0, 8); // Příklad jména
+$default_name = "Nová karta: " . substr($rfid_uid, 0, 8); // Příklad jména
 $card_type = 'Primary Access Card'; // Nebo nech na DB default
 $is_active = 0; // Dle požadavku neaktivní
 

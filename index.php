@@ -13,7 +13,6 @@ require_once "db.php";
     <meta name="description" content="Streamline school employee attendance with WavePass. Our intuitive, cloud-based system saves time, improves accuracy, and offers real-time tracking & reports.">
     
     <!-- Specify the canonical (preferred) URL for this page -->
-    <link rel="canonical" href="https://www.your-wavepass-domain.com/index.php"> <!-- !! REPLACE with your actual URL !! -->
 
     <!-- Favicon -->
     <link rel="icon" href="assets/favicon.ico" type="image/x-icon"> <!-- !! REPLACE with path to your .ico favicon !! -->
@@ -127,21 +126,21 @@ require_once "db.php";
             list-style: none;
             align-items: center;
             gap: 0.5rem; 
-            transition: var(--transition);
+            /* transition: var(--transition); This transition is on individual links if needed */
         }
 
         .nav-links a:not(.btn) {
             color: var(--dark-color);
             text-decoration: none;
             font-weight: 500; 
-            transition: color var(--transition), background-color var(--transition);
             padding: 0.7rem 1rem; 
             font-size: 0.95rem;
             border-radius: 8px; 
             position: relative; 
-            transition: var(--transition);
+            transition: color 0.3s ease, background-color 0.3s ease; /* Specific transitions */
         }
-        .nav-links a:not(.btn):hover {
+        .nav-links a:not(.btn):hover,
+        .nav-links a.active:not(.btn) { /* Apply active state style same as hover */
             color: var(--primary-color);
             background-color: rgba(67, 97, 238, 0.07); 
         }
@@ -169,9 +168,7 @@ require_once "db.php";
             color: var(--white);
             box-shadow: 0 4px 14px rgba(67, 97, 238, 0.2);
         }
-        .nav-links .btn .material-symbols-outlined { 
-
-        }
+        /* .nav-links .btn .material-symbols-outlined {} (Empty rule, can be removed or used) */
         .nav-links .btn:hover{
             background-color: var(--primary-dark);
             box-shadow: 0 6px 20px rgba(67, 97, 238, 0.3);
@@ -208,37 +205,22 @@ require_once "db.php";
             box-shadow: 0 4px 14px rgba(67, 97, 238, 0.3);
             font-size: 0.95rem;
         }
-        .faq-answer-content {
-    padding: 0 1.5rem; /* Default horizontal padding, vertical padding added when active */
-    color: var(--gray-color);
-    line-height: 1.6;
-    font-size: 0.95rem;
-}
-.faq-item.active .faq-answer-content {
-    padding: 1.5rem; /* Add full padding when active */
-}
-.faq-answer {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.35s ease-out; /* Removed padding transition here */
-    background-color: rgba(67, 97, 238, 0.03);
-    /* Padding will be on .faq-answer-content */
-}
+
         .btn:hover {
             background-color: var(--primary-dark);
             box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
             transform: translateY(-2px);
         }
         .btn-outline {
-            background-color: transparent;
-            border: 2px solid var(--primary-color);
-            color: var(--primary-color);
-            box-shadow: none;
+            background-color: transparent!important; 
+            border: 2px solid var(--primary-color)!important;
+            color: var(--primary-color)!important;
+            box-shadow: none!important;
         }
         .btn-outline:hover { 
-            background-color: var(--primary-color); 
-            color: var(--white); 
-            transform: translateY(-2px);
+            background-color: var(--primary-color)!important; 
+            color: var(--white)!important; 
+            transform: translateY(-2px)!important;
         }
 
         /* Hamburger Menu Icon */
@@ -268,7 +250,11 @@ require_once "db.php";
             font-size: 1.2rem; display: inline-block; padding: 0.5rem 1rem;
             transition: var(--transition); border-radius: 8px;
         }
-        .mobile-links a:hover { color: var(--primary-color); background-color: rgba(67, 97, 238, 0.1); }
+        .mobile-links a:hover,
+        .mobile-links a.active { /* Apply active state style same as hover */
+            color: var(--primary-color); 
+            background-color: rgba(67, 97, 238, 0.1); 
+        }
         .mobile-menu .btn { margin-top: 2rem; width: 100%; max-width: 200px; }
         .close-btn {
             position: absolute; top: 30px; right: 30px; font-size: 1.8rem;
@@ -331,24 +317,20 @@ require_once "db.php";
         .step-card h3 { margin-bottom: 1rem; color: var(--dark-color); font-size: 1.3rem; }
         .step-card p { color: var(--gray-color); font-size: 0.95rem; line-height: 1.6; }
 
-/* About Us Section Specifics */
-.team-rows-container {
-            /* This container is mainly for semantic grouping of rows.
-               You can add top/bottom margin here if needed. */
-            margin-top: 2rem; /* Space below section title */
+        /* About Us Section Specifics */
+        .team-rows-container {
+            margin-top: 2rem; 
         }
-
         .team-row {
             display: flex;
-            flex-wrap: wrap; /* Allows cards to wrap on smaller screens */
-            justify-content: center; /* Centers the cards in the row */
-            gap: 2rem; /* Spacing between cards */
-            margin-bottom: 2rem; /* Spacing between rows */
+            flex-wrap: wrap; 
+            justify-content: center; 
+            gap: 2rem; 
+            margin-bottom: 2rem; 
         }
         .team-row:last-child {
-            margin-bottom: 0; /* No bottom margin for the last row */
+            margin-bottom: 0; 
         }
-
         .team-member-card {
             background-color: var(--white);
             padding: 2rem;
@@ -357,14 +339,10 @@ require_once "db.php";
             text-align: center;
             transition: var(--transition);
             border: 1px solid rgba(0,0,0,0.03);
-            /* Updated flex properties to make cards wider and utilize space */
-            flex-grow: 1;      /* Allow card to grow if space is available */
-            flex-shrink: 1;    /* Allow card to shrink if needed */
-            flex-basis: 360px; /* Ideal starting width before growing/shrinking */
-            max-width: 410px;  /* Maximum width a card can take */
-            /* Ensure a minimum width for very small containers before wrapping,
-               though flex-basis often handles this. This is optional. */
-            /* min-width: 280px; */
+            flex-grow: 1;      
+            flex-shrink: 1;    
+            flex-basis: 360px; 
+            max-width: 410px;  
         }
         .team-member-card:hover {
             transform: translateY(-8px);
@@ -375,34 +353,27 @@ require_once "db.php";
             width: 120px;
             height: 120px;
             border-radius: 50%;
-            background-color: var(--light-gray); /* Fallback background */
+            background-color: var(--light-gray); 
             margin: 0 auto 1.5rem;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: var(--gray-color); /* For icon color if no image */
-            font-size: 3rem; /* For icon size if no image */
+            color: var(--gray-color); 
+            font-size: 3rem; 
             border: 3px solid var(--primary-color);
-            overflow: hidden; /* This is key to clip the image to a circle */
-            position: relative; /* For potential absolute positioning of overlays if needed in future */
+            overflow: hidden; 
+            position: relative; 
         }
-
-        /* Styles for an actual image inside the placeholder */
         .member-image-placeholder img {
             width: 100%;
             height: 100%;
-            object-fit: cover;   /* Scales the image to maintain aspect ratio while filling the element's entire content box. */
-            object-position: center; /* Ensures the image is centered if it's cropped. */
-            /* border-radius: 50%; Is not strictly necessary here due to parent's overflow:hidden and border-radius, 
-                                   but doesn't hurt if you want the image itself to be circular. */
+            object-fit: cover;   
+            object-position: center; 
         }
-
-        /* Styles for the placeholder icon (if no image is present or for other users) */
         .member-image-placeholder i { 
-            font-size: 3.5rem; /* Adjust if needed */
+            font-size: 3.5rem; 
             color: var(--primary-color);
             opacity: 0.5;
-            /* The icon will be centered by the flex properties of .member-image-placeholder */
         }
         .member-name {
             font-size: 1.4rem;
@@ -413,33 +384,29 @@ require_once "db.php";
             font-size: 0.95rem;
             color: var(--primary-color);
             font-weight: 500;
-            margin-bottom: 0.75rem; /* Adjusted margin to make space for social links */
+            margin-bottom: 0.75rem; 
         }
-
         .member-social-links {
-            margin-top: 1rem; /* Space above the social icons */
+            margin-top: 1rem; 
             display: flex;
             justify-content: center;
-            gap: 1rem; /* Space between icons */
+            gap: 1rem; 
         }
-
         .member-social-links a {
-            color: var(--gray-color); /* Initial color of icons */
-            font-size: 1.3rem; /* Size of the icons */
+            color: var(--gray-color); 
+            font-size: 1.3rem; 
             transition: color var(--transition), transform var(--transition);
-            display: inline-block; /* Helps with transform */
+            display: inline-block; 
         }
-
         .member-social-links a:hover {
-            color: var(--primary-color); /* Color on hover */
-            transform: scale(1.15); /* Slightly enlarge icon on hover */
+            color: var(--primary-color); 
+            transform: scale(1.15); 
         }
         .member-description { 
             font-size: 0.9rem;
             color: var(--gray-color);
             line-height: 1.5;
         }
-
         
         /* Contact Section Specifics */
         .contact-section { background-color: #f0f4ff; }
@@ -489,13 +456,26 @@ require_once "db.php";
         }
         .faq-question:hover { color: var(--primary-color); background-color: rgba(67, 97, 238, 0.03); }
         .faq-question i { transition: var(--transition); }
-        .faq-answer { 
-            max-height: 0; overflow: hidden; transition: max-height 0.35s ease-out; 
-            padding: 0 1.5rem; background-color: rgba(67, 97, 238, 0.03); 
+        
+        .faq-answer-content {
+            padding: 0 1.5rem; 
+            color: var(--gray-color);
+            line-height: 1.6;
+            font-size: 0.95rem;
         }
-        .faq-answer-content { padding: 1.5rem 0; color: var(--gray-color); line-height: 1.6; font-size: 0.95rem; }
+        .faq-item.active .faq-answer-content {
+            padding: 1.5rem; 
+        }
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s ease-out; 
+            background-color: rgba(67, 97, 238, 0.03);
+        }
+
         .faq-item.active .faq-question i { transform: rotate(180deg); }
         .faq-item.active .faq-question { color: var(--primary-color); }
+
 
         /* Footer */
         footer { background-color: var(--dark-color); color: var(--white); padding: 5rem 0 2rem; }
@@ -527,7 +507,7 @@ require_once "db.php";
             .contact-info .contact-details { justify-content: center; }
             .contact-details { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.5rem; }
             .contact-detail { flex-direction: column; align-items: center; text-align: center; max-width: 200px; }
-            .team-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); } /* Adjust for tablets */
+            /* .team-grid was removed, .team-row handles responsiveness */
         }
 
         @media (max-width: 768px) {
@@ -539,16 +519,16 @@ require_once "db.php";
             .hero-buttons { flex-direction: column; align-items: center; }
             .btn, .nav-links .btn, .mobile-menu .btn, .contact-form .btn  { width: 100%; max-width: 300px; }
             .btn-outline, .nav-links .btn-outline, .mobile-menu .btn-outline { width: 100%; max-width: 300px;}
-            .nav-links .btn, .nav-links .btn-outline { max-width: 180px; width: auto; }
+            .nav-links .btn, .nav-links .btn-outline { max-width: 180px; width: auto; } 
             .section { padding: 4rem 0; }
             .section-title h2 { font-size: 1.8rem; }
             .section-title p { font-size: 1rem; }
             .steps-grid { grid-template-columns: 1fr; gap: 1.5rem; }
-            .team-grid { grid-template-columns: 1fr; } /* Stack team members on smaller screens */
+            /* .team-grid was removed */
             .footer-content { grid-template-columns: 1fr 1fr; }
         }
 
-            @media (max-width: 576px) {
+        @media (max-width: 576px) {
             .hero h1 { font-size: 2rem; }
             .section-title h2 { font-size: 1.6rem; }
             .feature-card { padding: 2rem 1.5rem; }
@@ -560,17 +540,15 @@ require_once "db.php";
             .btn, .btn-outline, 
             .nav-links .btn, .nav-links .btn-outline, 
             .mobile-menu .btn, .mobile-menu .btn-outline, 
-            .hero-buttons .btn, .hero-buttons .btn-outline,
-            .contact-form .btn { max-width: 100%; }
+            .hero-buttons .btn, .hero-buttons .btn-outline, 
+            .contact-form .btn { max-width: 100%; } 
 
-            /* === ADD THIS RULE FOR THE HERO GRADIENT FIX === */
             .hero::before {
                 width: 150%;
                 height: 150%;
                 top: -25%;   
                 right: -75%; 
             }
-            /* === END OF HERO GRADIENT FIX === */
         }
 
         /* Scroll to Top Button */
@@ -680,18 +658,17 @@ require_once "db.php";
             </div>
         </section>
 
-<!-- About Us Section -->
-<section class="section" id="about-us">
+        <!-- About Us Section -->
+        <section class="section" id="about-us">
             <div class="container">
                 <div class="section-title">
                     <h2>Meet Our Team</h2>
                     <p>The passionate individuals behind WavePass</p>
                 </div>
                 <div class="team-rows-container">
-                    <div class="team-row"> <!-- First row: 3 members -->
+                    <div class="team-row"> 
                     <div class="team-member-card">
                             <div class="member-image-placeholder">
-                                <!-- Actual image for Pavel Bureš -->
                                 <img src="imgs/IMG_0671.JPEG" alt="Pavel Bureš"> 
                             </div>
                             <h3 class="member-name">Pavel Bureš</h3>
@@ -704,7 +681,6 @@ require_once "db.php";
                         </div>
                         <div class="team-member-card">
                         <div class="member-image-placeholder">
-                                <!-- Actual image for Kryštof Topinka -->
                                 <img src="imgs/krystof1.jpg" alt="Kryštof Topinka"> 
                             </div>
                             <h3 class="member-name">Kryštof Topinka</h3>
@@ -717,7 +693,6 @@ require_once "db.php";
                         </div>
                         <div class="team-member-card">
                         <div class="member-image-placeholder">
-                                <!-- Actual image for Filip Elznic -->
                                 <img src="imgs/IMG_2321.png" alt="Filip Elznic"> 
                             </div>
                             <h3 class="member-name">Filip Elznic</h3>
@@ -732,7 +707,6 @@ require_once "db.php";
                     <div class="team-row"> 
                         <div class="team-member-card">
                         <div class="member-image-placeholder">
-                                <!-- Actual image for Tomas Koci -->
                                 <img src="imgs/tomas.jpg    " alt="Tomas Koci"> 
                             </div>
                             <h3 class="member-name">Tomáš Kočí</h3>
@@ -745,7 +719,6 @@ require_once "db.php";
                         </div>
                         <div class="team-member-card">
                         <div class="member-image-placeholder">
-                                <!-- Actual image for Zdenek Cepelak -->
                                 <img src="imgs/zdenek.jpg" alt="Zdenek Cepelak"> 
                             </div>
                             <h3 class="member-name">Zdeněk Čepelák</h3>
@@ -879,8 +852,8 @@ require_once "db.php";
                 body.style.overflow = '';
             });
             
-            const mobileNavLinks = document.querySelectorAll('.mobile-menu a');
-            mobileNavLinks.forEach(link => {
+            const mobileNavLinksList = document.querySelectorAll('.mobile-menu a'); // Changed variable name
+            mobileNavLinksList.forEach(link => {
                 link.addEventListener('click', () => {
                     if (link.getAttribute('href').startsWith('#') || link.classList.contains('btn')) {
                         hamburger.classList.remove('active');
@@ -891,6 +864,10 @@ require_once "db.php";
             });
         }
         
+        // Shared header element and height for scroll calculations
+        const pageHeader = document.querySelector('header');
+        const headerHeight = pageHeader ? pageHeader.offsetHeight : 0;
+
         // Smooth scrolling for anchor links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function(e) {
@@ -900,7 +877,7 @@ require_once "db.php";
                 if (targetId.startsWith('#') && document.querySelector(targetId)) {
                     e.preventDefault();
                     const targetElement = document.querySelector(targetId);
-                    const headerHeight = document.querySelector('header') ? document.querySelector('header').offsetHeight : 0;
+                    // Use the globally defined headerHeight
                     const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset - headerHeight;
                     
                     window.scrollTo({
@@ -912,13 +889,12 @@ require_once "db.php";
         });
         
         // Add shadow to header on scroll
-        const header = document.querySelector('header');
-        if (header) {
+        if (pageHeader) { // Use the globally defined pageHeader
             window.addEventListener('scroll', () => {
                 if (window.scrollY > 10) {
-                    header.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.05)'; 
+                    pageHeader.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.05)'; 
                 } else {
-                    header.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.05)'; 
+                    pageHeader.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.05)'; 
                 }
             });
         }
@@ -928,22 +904,17 @@ require_once "db.php";
         faqItems.forEach(item => {
             const question = item.querySelector('.faq-question');
             const answer = item.querySelector('.faq-answer');
+            const answerContent = item.querySelector('.faq-answer-content'); 
 
-            if(question && answer) { 
+            if(question && answer && answerContent) { 
                 question.addEventListener('click', () => {
                     const isActive = item.classList.contains('active');
-                    // faqItems.forEach(otherItem => { // Optional: Close others
-                    //     if (otherItem !== item && otherItem.classList.contains('active')) {
-                    //         otherItem.classList.remove('active');
-                    //         otherItem.querySelector('.faq-answer').style.maxHeight = null;
-                    //     }
-                    // });
                     if (isActive) {
                         item.classList.remove('active');
                         answer.style.maxHeight = null;
                     } else {
                         item.classList.add('active');
-                        answer.style.maxHeight = answer.scrollHeight + 'px';
+                        answer.style.maxHeight = answerContent.scrollHeight + "px"; 
                     }
                 });
             }
@@ -954,8 +925,6 @@ require_once "db.php";
         if (contactForm) {
             contactForm.addEventListener('submit', function(e) {
                 e.preventDefault();
-                // const formData = new FormData(contactForm);
-                // For demo purposes
                 alert('Thank you for your message! (This is a demo, data not actually sent)');
                 contactForm.reset(); 
             });
@@ -975,28 +944,58 @@ require_once "db.php";
                 window.scrollTo({ top: 0, behavior: "smooth" });
             });
         }
-        // FAQ Accordion Functionality
-const faqItems = document.querySelectorAll('.faq-item');
-faqItems.forEach(item => {
-    const question = item.querySelector('.faq-question');
-    const answer = item.querySelector('.faq-answer');
-    const answerContent = item.querySelector('.faq-answer-content'); // Target the content div
 
-    if(question && answer && answerContent) { // Check if answerContent also exists
-        question.addEventListener('click', () => {
-            const isActive = item.classList.contains('active');
+        // Active Nav Link Highlighting on Scroll
+        const allNavLinksForHighlight = document.querySelectorAll('.nav-links a[href^="#"]:not(.btn), .mobile-menu .mobile-links a[href^="#"]:not(.btn)');
+        const pageSections = [];
 
-            if (isActive) {
-                item.classList.remove('active');
-                answer.style.maxHeight = null;
-            } else {
-                item.classList.add('active');
-                // Set max-height to the scrollHeight of the *content* div
-                answer.style.maxHeight = answerContent.scrollHeight + "px";
+        allNavLinksForHighlight.forEach(link => {
+            const sectionId = link.getAttribute('href');
+            if (sectionId && sectionId.length > 1 && sectionId !== '#') {
+                try {
+                    const section = document.querySelector(sectionId);
+                    if (section && !pageSections.some(s => s.id === section.id)) { // Ensure unique sections
+                        pageSections.push(section);
+                    }
+                } catch (e) {
+                    console.warn(`Invalid selector for nav link: ${sectionId}`, e);
+                }
             }
         });
-    }
-});
+        // Sort sections by their top offset to process them in order
+        pageSections.sort((a, b) => a.offsetTop - b.offsetTop);
+
+        function highlightActiveNavLink() {
+            let currentActiveSectionId = null;
+            const scrollPosition = window.pageYOffset;
+            // Use the globally defined headerHeight
+
+            for (let i = pageSections.length - 1; i >= 0; i--) {
+                const section = pageSections[i];
+                // Section becomes active if its top is above a point slightly below the header bottom (plus a buffer)
+                const sectionTriggerPoint = section.offsetTop - headerHeight - 60; // 60px buffer 
+
+                if (scrollPosition >= sectionTriggerPoint) {
+                    currentActiveSectionId = section.getAttribute('id');
+                    break; 
+                }
+            }
+            
+            // If scrolled to the very bottom of the page, ensure the last section's link is active
+            if (window.innerHeight + scrollPosition >= document.body.offsetHeight - 10 && pageSections.length > 0) {
+                currentActiveSectionId = pageSections[pageSections.length - 1].getAttribute('id');
+            }
+
+            allNavLinksForHighlight.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === `#${currentActiveSectionId}`) {
+                    link.classList.add('active');
+                }
+            });
+        }
+
+        window.addEventListener('scroll', highlightActiveNavLink);
+        window.addEventListener('load', highlightActiveNavLink); // Highlight on page load/refresh
     </script>
 </body>
 </html>

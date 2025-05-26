@@ -221,21 +221,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         }
         .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
 
-        .page-header { 
-            padding: 1.5rem 0; 
-            background-color:var(--white); 
-            box-shadow: 0 1px 3px rgba(0,0,0,0.03); 
-            position: fixed;
-            top: 80px; 
-            left: 0;
-            width: 100%;
-            z-index: 999; 
-        }
-        .page-header .container {
-             padding: 0 20px;
-        }
-        .page-header h1 { font-size: 1.5rem; color: var(--dark-color); margin: 0; }
-        .page-header .sub-heading { font-size: 0.85rem; color: var(--gray-color); }
+        .page-header { padding: 1.8rem 0; margin-bottom: 1.5rem; background-color:var(--white); box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+        .page-header h1 { font-size: 1.7rem; margin: 0; }
+        .page-header .sub-heading { font-size: 0.9rem; color: var(--gray-color); }
         
         .main-content-area {
             margin-top: 90px; /* Adjust this value based on actual height of .page-header */
@@ -325,7 +313,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                 <th>Current Status</th>
                                 <th>Last Action</th>
                                 <th>Time</th>
-                                <th>Planned Departure</th> <!-- ZDE JE NOVÝ SLOUPEC -->
+                                <th>Planned Exit</th> <!-- ZDE JE NOVÝ SLOUPEC -->
                                 <th>Primary Card Name</th>
                                 <th>Primary Card UID</th>
                             </tr>

@@ -150,10 +150,26 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             --primary-color-rgb: 67, 97, 238; 
             --dark-color: #1a1a2e; --light-color: #f8f9fa; --gray-color: #6c757d;
             --light-gray: #e9ecef; --white: #ffffff;
-            --success-color: #4CAF50; --warning-color: #FF9800; --danger-color: #F44336;
-            --info-color: #2196F3; 
+            
+            /* Barvy pro statusy a logy */
+            --success-color: #4CAF50; 
+            --success-color-rgb: 76, 175, 80;
+            --danger-color: #F44336;  
+            --danger-color-rgb: 244, 67, 54;
+            --warning-color: #FF9800; 
+            --info-color: #2196F3;    
+            
+            /* === NOVÉ BARVY PRO ENTRY A EXIT PODLE OBRÁZKU === */
+            --entry-bg-color: #e0f2f7;   /* Světlá tyrkysová/modrozelená pro pozadí */
+            --entry-text-color: #00796b; /* Tmavší tyrkysová/modrozelená pro text */
+            
+            --exit-bg-color: #ffebee;     /* Světlá červená/růžová pro pozadí */
+            --exit-text-color: #c62828;    /* Tmavší červená pro text */
+            /* === KONEC NOVÝCH BAREV === */
+
             --shadow: 0 4px 20px rgba(0, 0, 0, 0.08); --transition: all 0.3s ease;
         }
+        /* ... (zbytek vašich :root proměnných a globálních stylů jako *, body, main, .container atd.) ... */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; line-height: 1.6; color: var(--dark-color); background-color: #f4f6f9; display: flex; flex-direction: column; min-height: 100vh; padding-top:80px; }
         main { flex-grow: 1; }
@@ -163,24 +179,23 @@ $currentPage = basename($_SERVER['PHP_SELF']);
          .container-attendance-log { 
             display: flex; 
             gap: 1.8rem; 
-            margin-top: 1.5rem; /* Odsazení od .page-header */
+            margin-top: 1.5rem; 
             align-items: flex-start; 
         }
         
-        header { /* Předpokládáme existující header */
+        header { 
             background-color: var(--white); box-shadow: 0 2px 10px rgba(0,0,0,0.05);
             position: fixed; width: 100%; top: 0; z-index: 1000; height: 80px;
         }
-        /* Styly pro .navbar, .logo, .nav-links, .hamburger, .mobile-menu atd. by měly být v components/header-user.php */
         
         .page-header { padding: 1.8rem 0; margin-bottom: 0; background-color:var(--white); box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
         .page-header h1 { font-size: 1.7rem; margin: 0; } .page-header .sub-heading { font-size: 0.9rem; color: var(--gray-color); }
         
-        .db-error-message, .success-message { /* Styly pro zprávy */
+        .db-error-message, .success-message { 
             padding: 1rem; border-left-width: 4px; border-left-style: solid; margin-bottom: 1.5rem; border-radius: 4px; font-size:0.9rem;
         }
-        .db-error-message { background-color: rgba(244,67,54,0.1); color: var(--danger-color); border-left-color: var(--danger-color); }
-        .success-message { background-color: rgba(76,175,80,0.1); color: var(--success-color); border-left-color: var(--success-color); }
+        .db-error-message { background-color: rgba(var(--danger-color-rgb),0.1); color: var(--danger-color); border-left-color: var(--danger-color); }
+        .success-message { background-color: rgba(var(--success-color-rgb),0.1); color: var(--success-color); border-left-color: var(--success-color); }
 
         .attendance-sidebar { 
             flex: 0 0 300px; background-color: var(--white); 
@@ -212,7 +227,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .btn-export:hover { opacity:0.9; }
         .btn-export .material-symbols-outlined { font-size:1.3em; }
 
-
         .attendance-content { flex-grow: 1; }
         .attendance-log-panel { 
             background-color: var(--white); padding: 1.8rem 2rem; 
@@ -233,9 +247,42 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             color: var(--dark-color); white-space: nowrap;
         }
         .attendance-table tbody tr:hover { background-color: #f0f4ff; }
-        .log-type-badge { padding: 0.25rem 0.6rem; border-radius: 12px; font-size: 0.8rem; font-weight: 500; color: var(--white); text-transform: capitalize; }
-        .log-type-entry { background-color: var(--present-color); } /* Použijeme --present-color z dashboardu */
-        .log-type-exit { background-color: #6c757d; } /* Šedá pro odchod */
+        
+        /* === UPRAVENÉ STYLY PRO LOG-TYPE-BADGE === */
+        .log-type-badge { 
+            padding: 0.35rem 0.8rem; 
+            border-radius: 16px;    
+            font-size: 0.85rem;     
+            font-weight: 500; 
+            /* color: var(--white); Barva textu bude specifická pro typ */
+            text-transform: capitalize; 
+            display: inline-flex; 
+            align-items: center;
+            gap: 0.5rem; 
+            line-height: 1.3;
+        }
+        .log-type-badge .material-symbols-outlined {
+            font-size: 1.1em; 
+            /* Barva ikony bude stejná jako barva textu badge */
+        }
+
+        .log-type-entry { 
+            background-color: var(--entry-bg-color); 
+            color: var(--entry-text-color);
+        }
+        .log-type-entry .material-symbols-outlined {
+            color: var(--entry-text-color);
+        }
+
+        .log-type-exit { 
+            background-color: var(--exit-bg-color); 
+            color: var(--exit-text-color);
+        }
+        .log-type-exit .material-symbols-outlined {
+            color: var(--exit-text-color);
+        }
+        /* === KONEC UPRAVENÝCH STYLŮ PRO LOG-TYPE-BADGE === */
+
         .log-result-granted { color: var(--success-color); font-weight: 500; }
         .log-result-denied { color: var(--danger-color); font-weight: 500; }
 
@@ -246,19 +293,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             .container-attendance-log { flex-direction: column; } 
             .attendance-sidebar { flex: 0 0 auto; width: 100%; margin-bottom: 1.5rem; }
         }
-
-        footer { /* Styly pro footer by měly být v components/footer-user.php */
-            background-color: var(--dark-color); color: var(--white); padding: 3rem 0 2rem; margin-top:auto;
-        }
-        .footer-content { max-width: 1200px; margin:0 auto; padding:0 20px; text-align:center; }
-        .footer-bottom { padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; color: rgba(255,255,255,0.6); }
-        .footer-bottom a { color: rgba(255,255,255,0.8); text-decoration:none; }
-        .footer-bottom a:hover { color:var(--white); }
-
     </style>
 </head>
 <body>
-    <?php require "components/header-admin.php"; ?>
+    <?php require "components/header-admin.php"; // Nebo header-user.php, podle kontextu stránky ?>
 
     <main>
         <div class="page-header">
@@ -270,6 +308,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
         <div class="container container-attendance-log"> 
             <aside class="attendance-sidebar">
+                <!-- ... (obsah sidebar s filtry a exportem) ... -->
                 <h3>Filter Log</h3>
                 <form action="my_attendance_log.php" method="GET" id="filterForm">
                     <div class="filter-group">
@@ -308,8 +347,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <a href="my_attendance_log.php?<?php echo http_build_query(array_merge($_GET, ['export' => 'pdf'])); ?>" class="btn-export" style="background-color: var(--danger-color); margin-top: 0.5rem;" onclick="alert('PDF export is not yet implemented.'); return false;">
                     <span class="material-symbols-outlined">picture_as_pdf</span> Export as PDF
                 </a>
-
-
             </aside>
 
             <div class="attendance-content">
@@ -320,9 +357,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <section class="attendance-log-panel">
                     <div class="panel-header">
                         <h2 class="panel-title">Attendance Records</h2>
-                        <div class="export-buttons">
-                           <!-- Tlačítka pro export jsou nyní v sidebar, ale zde by mohla být alternativně -->
-                        </div>
                     </div>
                     <div class="attendance-table-wrapper">
                         <table class="attendance-table">
@@ -331,7 +365,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                     <th>Date & Time</th>
                                     <th>Log Type</th>
                                     <th>Result</th>
-                                    <!-- Można dodać więcej kolumn, np. RFID karta, jeśli relevantne -->
                                 </tr>
                             </thead>
                             <tbody>
@@ -341,6 +374,13 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                             <td><?php echo date("M d, Y - H:i:s", strtotime($log['logTime'])); ?></td>
                                             <td>
                                                 <span class="log-type-badge log-type-<?php echo htmlspecialchars(strtolower($log['logType'])); ?>">
+                                                    <?php if (strtolower($log['logType']) == 'entry'): ?>
+                                                        <span class="material-symbols-outlined">login</span>
+                                                    <?php elseif (strtolower($log['logType']) == 'exit'): ?>
+                                                        <span class="material-symbols-outlined">logout</span>
+                                                    <?php else: ?>
+                                                        <span class="material-symbols-outlined">help_outline</span>
+                                                    <?php endif; ?>
                                                     <?php echo htmlspecialchars(ucfirst($log['logType'])); ?>
                                                 </span>
                                             </td>
@@ -350,7 +390,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                         </tr>
                                     <?php endforeach; ?>
                                 <?php else: ?>
-                                    <?php if (!$dbErrorMessage): // Zobrazit jen pokud není jiná chyba ?>
+                                    <?php if (!$dbErrorMessage): ?>
                                     <tr>
                                         <td colspan="3" class="no-logs-message">
                                             <span class="material-symbols-outlined">manage_search</span>
@@ -367,73 +407,35 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         </div>
     </main>
 
-    <?php 
-        if (file_exists("components/footer-user.php")) {
-            require_once "components/footer-user.php";
-        } else {
-            echo "<!-- Footer component not found -->";
-        }
-    ?>
+    <?php require "components/footer-admin.php"; // Nebo footer-user.php ?>
 
     <script>
-        // Hamburger menu - předpokládáme, že je v components/header-user.php
-        // Pokud je JS pro hamburger v externím souboru a je správně linkován, bude fungovat.
-        // Následující kód je příklad, pokud byste ho chtěli mít zde:
-        /*
-        document.addEventListener('DOMContentLoaded', function() {
-            const hamburger = document.getElementById('hamburger'); // Ujistěte se, že toto ID existuje v headeru
-            const mobileMenu = document.getElementById('mobileMenu'); // Ujistěte se, že toto ID existuje v headeru
-            const closeMenuBtn = document.getElementById('closeMenu'); // Ujistěte se, že toto ID existuje v headeru
-            const body = document.body;
-
-            if (hamburger && mobileMenu) {
-                hamburger.addEventListener('click', () => {
-                    hamburger.classList.toggle('active');
-                    mobileMenu.classList.toggle('active');
-                    body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
-                });
-                if (closeMenuBtn) {
-                    closeMenuBtn.addEventListener('click', () => {
-                        mobileMenu.classList.remove('active');
-                        hamburger.classList.remove('active');
-                        body.style.overflow = '';
-                    });
-                }
-            }
-        });
-        */
-
-        // Skript pro date pickery - nastavení maximálního data na dnešek
+        // ... (váš JavaScript pro date pickery a případně hamburger menu) ...
         document.addEventListener('DOMContentLoaded', function() {
             const today = new Date().toISOString().split('T')[0];
             const dateFromInput = document.getElementById('date_from');
             const dateToInput = document.getElementById('date_to');
 
-            if (dateFromInput) {
-                // dateFromInput.max = today; // Umožníme vybrat budoucí "from", ale "to" nemůže být před "from"
-            }
             if (dateToInput) {
-                dateToInput.max = today; // "To" datum nemůže být v budoucnosti
+                dateToInput.max = today; 
             }
 
-            // Zajistit, aby "to" datum nebylo před "from" datum
             if (dateFromInput && dateToInput) {
                 dateFromInput.addEventListener('change', function() {
                     if (dateToInput.value && dateToInput.value < this.value) {
                         dateToInput.value = this.value;
                     }
-                    dateToInput.min = this.value; // "To" nemůže být dříve než "From"
+                    dateToInput.min = this.value; 
                 });
                  dateToInput.addEventListener('change', function() {
                     if (dateFromInput.value && this.value < dateFromInput.value) {
-                        dateFromInput.value = this.value;
+                        // Optionally set dateFromInput.value = this.value if "to" can't be before "from"
+                        // For now, just ensure "from" doesn't restrict "to" incorrectly if "to" is changed first.
                     }
                 });
-                // Initial check in case dates are pre-filled by GET
                 if (dateFromInput.value) {
                      dateToInput.min = dateFromInput.value;
                 }
-
             }
         });
     </script>

@@ -196,24 +196,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         }
         .container-absences { display: flex; gap: 1.8rem; margin-top: 1.5rem; align-items: flex-start; } 
         
-        header {
-            background-color: var(--white); box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            position: fixed; width: 100%; top: 0; z-index: 1000; height: 80px;
-        }
-        header .container { display: flex; justify-content: space-between; align-items: center; height: 100%; }
-        .navbar { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-        .logo { font-size: 1.8rem; font-weight: 800; color: var(--primary-color); text-decoration: none; display: flex; align-items: center;}
-        .logo img.logo-img { height: 45px; margin-right: 0.6rem; } .logo span { color: var(--dark-color); }
-        .nav-links { display: none; list-style: none; align-items: center; gap: 1rem; } 
-        @media (min-width: 993px) { .nav-links { display: flex; } .hamburger { display: none; } }
-        /* ... (zbytek stylů pro header, které již máte) ... */
-        .nav-links a:not(.btn-outline) { color: var(--dark-color); text-decoration: none; font-weight: 500; padding: 0.6rem 0.9rem; font-size: 0.9rem; border-radius: 6px; transition: var(--transition); display: inline-flex; align-items: center; }
-        .nav-links a:not(.btn-outline):hover, .nav-links a:not(.btn-outline).active-nav-link { color: var(--primary-color); background-color: rgba(var(--primary-color-rgb), 0.07); }
-        .nav-links .btn-outline { display: inline-flex; gap: 8px; align-items: center; justify-content: center; padding: 0.6rem 1.2rem; border-radius: 6px; text-decoration: none; font-weight: 600; transition: var(--transition); cursor: pointer; font-size: 0.85rem; background-color: transparent; border: 2px solid var(--primary-color); color: var(--primary-color); }
-        .nav-links .btn-outline:hover { background-color: var(--primary-color); color: var(--white); transform: translateY(-2px); }
-        .nav-user-photo { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; margin-right: 8px; vertical-align: middle; border: 1.5px solid var(--light-gray); }
-        .nav-links a .material-symbols-outlined { font-size: 1.4em; vertical-align: middle; margin-right: 6px; line-height: 1; }
-        .hamburger { display: block; cursor: pointer; }
 
 
         @media (max-width: 992px) { 

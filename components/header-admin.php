@@ -86,7 +86,7 @@ if ($is_in_admin_folder) {
     $user_dashboard_link = $user_dashboard_path_target;
 }
 
-// For links to admin pages (assuming admin pages are in /admin/ folder)
+// For links to admin pages (assumivng admin pages are in /admin/ folder)
 if (!$is_in_admin_folder && $userRole === 'admin') {
     // If user is admin and on a root page, link to admin pages needs 'admin/' prefix
     // BUT your admin files (admin-panel.php) are at the root according to the image.
@@ -101,8 +101,7 @@ if (!$is_in_admin_folder && $userRole === 'admin') {
 <header>
     <div class="container">
         <nav class="navbar">
-            <a href="/imgs/logo.png" class="logo">
-                <i class="fas fa-chalkboard-teacher"></i>
+            <a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>index.php" class="logo">
                 Wave<span>Pass</span>
                 <?php if ($userRole === 'admin'): ?>
                     <span class="admin-badge">Admin</span>
@@ -119,7 +118,7 @@ if (!$is_in_admin_folder && $userRole === 'admin') {
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-messages.php?context=admin" class="<?php if ($currentPage === 'messages.php' && isset($_GET['context']) && $_GET['context'] === 'admin') echo 'active-link'; ?>">Messages</a></li>
                     <?php else: ?>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-link'; ?>">My Dashboard</a></li>
-                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>attendance-logs.php" class="<?php if ($currentPage === 'attendance-logs.php') echo 'active-link'; ?>">Attendance Log</a></li>
+                        <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>my_attendance_log.php" class="<?php if ($currentPage === 'my_attendance_log.php') echo 'active-link'; ?>">Attendance Log</a></li>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>absences.php" class="<?php if ($currentPage === 'absences.php') echo 'active-link'; ?>">Absence</a></li>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>messages.php" class="<?php if ($currentPage === 'messages.php' && (!isset($_GET['context']) || $_GET['context'] !== 'admin') ) echo 'active-link'; ?>">Messages</a></li>
                     <?php endif; ?>
@@ -154,7 +153,7 @@ if (!$is_in_admin_folder && $userRole === 'admin') {
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-messages.php?context=admin" class="<?php if ($currentPage === 'messages.php' && isset($_GET['context']) && $_GET['context'] === 'admin') echo 'active-link'; ?>">Messages</a></li>
                 <?php else: ?>
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-link'; ?>">My Dashboard</a></li>
-                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>attendance-logs.php" class="<?php if ($currentPage === 'attendance-logs.php') echo 'active-link'; ?>">Attendance Log</a></li>
+                    <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>my_attendance_log.php" class="<?php if ($currentPage === 'my_attendance_log.php') echo 'active-link'; ?>">Attendance Log</a></li>
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>absences.php" class="<?php if ($currentPage === 'absences.php') echo 'active-link'; ?>">Absence</a></li>
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>messages.php" class="<?php if ($currentPage === 'messages.php' && (!isset($_GET['context']) || $_GET['context'] !== 'admin') ) echo 'active-link'; ?>">Messages</a></li>
                 <?php endif; ?>
