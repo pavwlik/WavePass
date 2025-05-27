@@ -19,12 +19,12 @@ if (!isset($input['rfid_uid']) || empty(trim($input['rfid_uid']))) {
 
 $rfid_uid = trim($input['rfid_uid']);
 
-// Zkontrolujeme, zda karta s tímto rfid_url již neexistuje
+// Zkontrolujeme, zda karta s tímto rfid_uid již neexistuje
 // Pokud bys chtěl povolit duplicity, tento krok přeskoč.
 // Pro jednoduchost přidáme kontrolu existence.
 try {
-    $stmt_check = $pdo->prepare("SELECT RFID FROM rfids WHERE rfid_url = :rfid_url");
-    $stmt_check->execute(['rfid_url' => $rfid_uid]);
+    $stmt_check = $pdo->prepare("SELECT RFID FROM rfids WHERE rfid_uid = :rfid_uid");
+    $stmt_check->execute(['rfid_uid' => $rfid_uid]);
     if ($stmt_check->fetch()) {
         http_response_code(200); // OK, ale karta již existuje
         echo json_encode([
@@ -48,7 +48,7 @@ try {
 // card_type: má výchozí 'Primary Access Card', můžeme nechat na DB nebo explicitně nastavit
 // created_at: má výchozí current_timestamp()
 // is_active: nastavíme na 0 (neaktivní)
-// rfid_url: UID karty
+// rfid_uid: UID karty
 // userID: může být NULL pro novou, nepřirazenou kartu
 
 $default_name = "Nová karta: " . substr($rfid_uid, 0, 8); // Příklad jména
@@ -56,14 +56,14 @@ $card_type = 'Primary Access Card'; // Nebo nech na DB default
 $is_active = 0; // Dle požadavku neaktivní
 
 try {
-    $sql = "INSERT INTO rfids (name, card_type, rfid_url, is_active, userID) 
-            VALUES (:name, :card_type, :rfid_url, :is_active, NULL)";
+    $sql = "INSERT INTO rfids (name, card_type, rfid_uid, is_active, userID) 
+            VALUES (:name, :card_type, :rfid_uid, :is_active, NULL)";
     $stmt = $pdo->prepare($sql);
     
     $params = [
         ':name' => $default_name,
         ':card_type' => $card_type,
-        ':rfid_url' => $rfid_uid,
+        ':rfid_uid' => $rfid_uid,
         ':is_active' => $is_active
     ];
     
@@ -83,11 +83,11 @@ try {
 } catch (PDOException $e) {
     error_log("Database Insert Error: " . $e->getMessage());
     http_response_code(500);
-    // Zkontroluj, zda chyba není kvůli duplicitnímu rfid_url, pokud máš UNIQUE constraint
+    // Zkontroluj, zda chyba není kvůli duplicitnímu rfid_uid, pokud máš UNIQUE constraint
     if ($e->getCode() == 23000) { // Integrity constraint violation
          echo json_encode([
             'status' => 'error', 
-            'message' => 'Chyba: RFID karta s tímto UID již pravděpodobně existuje (pokud je rfid_url unikátní).',
+            'message' => 'Chyba: RFID karta s tímto UID již pravděpodobně existuje (pokud je rfid_uid unikátní).',
             'detail' => $e->getMessage()
         ]);
     } else {

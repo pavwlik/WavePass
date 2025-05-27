@@ -148,7 +148,7 @@ if (isset($pdo) && $pdo instanceof PDO) {
     try {
         // Fetch all users with their assigned RFID card UID (if any)
         $stmtAllUsers = $pdo->query(
-            "SELECT u.userID, u.username, u.email, u.firstName, u.lastName, u.phone, u.roleID, u.dateOfCreation, r.rfid_url, r.RFID as rfid_pk_id
+            "SELECT u.userID, u.username, u.email, u.firstName, u.lastName, u.phone, u.roleID, u.dateOfCreation, r.rfid_uid, r.RFID as rfid_pk_id
              FROM users u
              LEFT JOIN rfids r ON u.userID = r.userID 
              ORDER BY u.lastName, u.firstName"
@@ -156,8 +156,8 @@ if (isset($pdo) && $pdo instanceof PDO) {
         $users = $stmtAllUsers->fetchAll(PDO::FETCH_ASSOC);
 
         // Fetch unassigned RFID cards for the dropdown in add/edit forms
-        // (Assuming rfid_url is the human-readable ID you want to show)
-        $stmtUnassignedRfids = $pdo->query("SELECT RFID, rfid_url, name FROM rfids WHERE userID IS NULL AND is_active = 1 ORDER BY rfid_url");
+        // (Assuming rfid_uid is the human-readable ID you want to show)
+        $stmtUnassignedRfids = $pdo->query("SELECT RFID, rfid_uid, name FROM rfids WHERE userID IS NULL AND is_active = 1 ORDER BY rfid_uid");
         $unassignedRfids = $stmtUnassignedRfids->fetchAll(PDO::FETCH_ASSOC);
 
     } catch (PDOException $e) {
@@ -358,8 +358,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                         </td>
                                         <td>
                                             <?php 
-                                            if ($user['rfid_url']) {
-                                                echo htmlspecialchars($user['rfid_url']);
+                                            if ($user['rfid_uid']) {
+                                                echo htmlspecialchars($user['rfid_uid']);
                                                 // You might want to fetch the RFID card's 'name' here too if 'rfids' table has it and you store rfid_pk_id
                                             } else {
                                                 echo 'N/A';

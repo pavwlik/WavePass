@@ -25,28 +25,28 @@ $allUsers = []; // For assigning cards in "Add New" form
 
 // HANDLE ADD NEW RFID CARD
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['action'] == 'add_rfid') {
-    $rfid_url_new = trim(filter_input(INPUT_POST, 'rfid_url', FILTER_SANITIZE_SPECIAL_CHARS));
+    $rfid_uid_new = trim(filter_input(INPUT_POST, 'rfid_uid', FILTER_SANITIZE_SPECIAL_CHARS));
     $rfid_name_new = trim(filter_input(INPUT_POST, 'rfid_name', FILTER_SANITIZE_SPECIAL_CHARS));
     $rfid_card_type_new = filter_input(INPUT_POST, 'rfid_card_type', FILTER_SANITIZE_SPECIAL_CHARS, FILTER_NULL_ON_FAILURE);
     $rfid_assign_user_new = filter_input(INPUT_POST, 'assign_userID', FILTER_VALIDATE_INT, FILTER_NULL_ON_FAILURE);
     $rfid_is_active_new = isset($_POST['is_active']) ? 1 : 0;
 
-    if (empty($rfid_url_new)) { 
+    if (empty($rfid_uid_new)) { 
         $dbErrorMessage = "RFID URL/UID is required.";
     } else {
         try {
-            $stmtCheck = $pdo->prepare("SELECT RFID FROM rfids WHERE rfid_url = :rfid_url");
-            $stmtCheck->bindParam(':rfid_url', $rfid_url_new, PDO::PARAM_STR);
+            $stmtCheck = $pdo->prepare("SELECT RFID FROM rfids WHERE rfid_uid = :rfid_uid");
+            $stmtCheck->bindParam(':rfid_uid', $rfid_uid_new, PDO::PARAM_STR);
             $stmtCheck->execute();
             if ($stmtCheck->fetch()) {
-                $dbErrorMessage = "This RFID URL/UID ('" . htmlspecialchars($rfid_url_new) . "') already exists.";
+                $dbErrorMessage = "This RFID URL/UID ('" . htmlspecialchars($rfid_uid_new) . "') already exists.";
             } else {
-                $sqlInsert = "INSERT INTO rfids (rfid_url, name, card_type, userID, is_active) 
-                              VALUES (:rfid_url, :name, :card_type, :userID, :is_active)";
+                $sqlInsert = "INSERT INTO rfids (rfid_uid, name, card_type, userID, is_active) 
+                              VALUES (:rfid_uid, :name, :card_type, :userID, :is_active)";
                 $stmtInsert = $pdo->prepare($sqlInsert); // Příprava statementu ZDE
 
                 // Vázání parametrů AŽ PO PŘÍPRAVĚ statementu
-                $stmtInsert->bindParam(':rfid_url', $rfid_url_new);
+                $stmtInsert->bindParam(':rfid_uid', $rfid_uid_new);
                 $stmtInsert->bindParam(':name', $rfid_name_new);
                 $stmtInsert->bindParam(':card_type', $rfid_card_type_new); 
                 $stmtInsert->bindParam(':userID', $rfid_assign_user_new, $rfid_assign_user_new ? PDO::PARAM_INT : PDO::PARAM_NULL);
@@ -95,7 +95,7 @@ if (isset($pdo) && $pdo instanceof PDO) {
     try {
         // Fetch all RFID cards and join with users table to get assigned user's name
         $stmtAllRfids = $pdo->query(
-            "SELECT r.RFID, r.rfid_url, r.name as rfid_name, r.card_type, r.is_active, r.userID,
+            "SELECT r.RFID, r.rfid_uid, r.name as rfid_name, r.card_type, r.is_active, r.userID,
                     u.firstName, u.lastName, u.username
              FROM rfids r
              LEFT JOIN users u ON r.userID = u.userID
@@ -284,8 +284,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     <input type="hidden" name="action" value="add_rfid">
                     <div class="form-grid">
                         <div class="form-group">
-                            <label for="rfid_url">RFID URL/UID <span style="color:red;">*</span></label>
-                            <input type="text" id="rfid_url" name="rfid_url" placeholder="Scan or enter card UID" required>
+                            <label for="rfid_uid">RFID URL/UID <span style="color:red;">*</span></label>
+                            <input type="text" id="rfid_uid" name="rfid_uid" placeholder="Scan or enter card UID" required>
                         </div>
                         <div class="form-group">
                             <label for="rfid_name">Card Name/Label (Optional)</label>
@@ -344,7 +344,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                 <?php foreach ($allRfids as $rfid): ?>
                                     <tr>
                                         <td><?php echo $rfid['RFID']; ?></td>
-                                        <td><img src="../imgs/wavepass_card.png" alt="Card Icon" style="width:20px; height:auto; margin-right:8px; vertical-align:middle;"><?php echo htmlspecialchars($rfid['rfid_url']); ?></td>
+                                        <td><img src="../imgs/wavepass_card.png" alt="Card Icon" style="width:20px; height:auto; margin-right:8px; vertical-align:middle;"><?php echo htmlspecialchars($rfid['rfid_uid']); ?></td>
                                         <td><?php echo htmlspecialchars($rfid['rfid_name'] ?: 'N/A'); ?></td>
                                         <td><?php echo htmlspecialchars($rfid['card_type']); ?></td>
                                         <td>

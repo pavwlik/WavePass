@@ -56,36 +56,36 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
     $rfid_pk_to_update = filter_input(INPUT_POST, 'rfid_pk_id', FILTER_VALIDATE_INT);
 
     if ($rfid_pk_to_update && $rfid_pk_to_update == $rfidIDToEdit) {
-        $edit_rfid_url = trim(filter_input(INPUT_POST, 'rfid_url', FILTER_SANITIZE_SPECIAL_CHARS));
+        $edit_rfid_uid = trim(filter_input(INPUT_POST, 'rfid_uid', FILTER_SANITIZE_SPECIAL_CHARS));
         $edit_rfid_name = trim(filter_input(INPUT_POST, 'rfid_name', FILTER_SANITIZE_SPECIAL_CHARS));
         $edit_card_type = filter_input(INPUT_POST, 'card_type', FILTER_SANITIZE_SPECIAL_CHARS);
         $edit_assign_userID = filter_input(INPUT_POST, 'assign_userID', FILTER_SANITIZE_SPECIAL_CHARS); // Will be 'none' or user ID
         $edit_is_active = isset($_POST['is_active']) ? 1 : 0;
 
-        if (empty($edit_rfid_url) || empty($edit_card_type)) {
+        if (empty($edit_rfid_uid) || empty($edit_card_type)) {
             $dbErrorMessage = "RFID URL/UID and Card Type are required.";
         } else {
             try {
-                // Check if the new rfid_url (if changed) conflicts with another card
-                $stmtCheckUrl = $pdo->prepare("SELECT RFID FROM rfids WHERE rfid_url = :rfid_url AND RFID != :current_rfid_id");
-                $stmtCheckUrl->bindParam(':rfid_url', $edit_rfid_url);
+                // Check if the new rfid_uid (if changed) conflicts with another card
+                $stmtCheckUrl = $pdo->prepare("SELECT RFID FROM rfids WHERE rfid_uid = :rfid_uid AND RFID != :current_rfid_id");
+                $stmtCheckUrl->bindParam(':rfid_uid', $edit_rfid_uid);
                 $stmtCheckUrl->bindParam(':current_rfid_id', $rfid_pk_to_update, PDO::PARAM_INT);
                 $stmtCheckUrl->execute();
 
                 if ($stmtCheckUrl->fetch()) {
-                    $dbErrorMessage = "The RFID URL/UID '" . htmlspecialchars($edit_rfid_url) . "' is already in use by another card.";
+                    $dbErrorMessage = "The RFID URL/UID '" . htmlspecialchars($edit_rfid_uid) . "' is already in use by another card.";
                 } else {
                     $assignedUserIDForSQL = ($edit_assign_userID === 'none' || empty($edit_assign_userID)) ? null : (int)$edit_assign_userID;
 
                     $sqlUpdate = "UPDATE rfids SET 
-                                    rfid_url = :rfid_url, 
+                                    rfid_uid = :rfid_uid, 
                                     name = :name, 
                                     card_type = :card_type, 
                                     userID = :userID, 
                                     is_active = :is_active 
                                   WHERE RFID = :rfid_pk_id";
                     $stmtUpdate = $pdo->prepare($sqlUpdate);
-                    $stmtUpdate->bindParam(':rfid_url', $edit_rfid_url);
+                    $stmtUpdate->bindParam(':rfid_uid', $edit_rfid_uid);
                     $stmtUpdate->bindParam(':name', $edit_rfid_name);
                     $stmtUpdate->bindParam(':card_type', $edit_card_type);
                     $stmtUpdate->bindParam(':userID', $assignedUserIDForSQL, $assignedUserIDForSQL ? PDO::PARAM_INT : PDO::PARAM_NULL);
@@ -112,7 +112,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
 if (isset($pdo) && $pdo instanceof PDO && $rfidIDToEdit) {
     try {
         $stmtRfid = $pdo->prepare(
-            "SELECT RFID, rfid_url, name, card_type, is_active, userID 
+            "SELECT RFID, rfid_uid, name, card_type, is_active, userID 
              FROM rfids 
              WHERE RFID = :rfidID_param"
         );
@@ -143,7 +143,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="../imgs/logo.png" type="image/x-icon"> 
-    <title>Edit RFID Card - <?php echo $rfidToEdit ? htmlspecialchars($rfidToEdit['rfid_url']) : 'Card Not Found'; ?> - Admin</title>
+    <title>Edit RFID Card - <?php echo $rfidToEdit ? htmlspecialchars($rfidToEdit['rfid_uid']) : 'Card Not Found'; ?> - Admin</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -228,7 +228,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             <div class="container">
                 <h1>Edit RFID Card</h1>
                 <p class="sub-heading">
-                    <?php echo $rfidToEdit ? 'Card UID: ' . htmlspecialchars($rfidToEdit['rfid_url']) : 'RFID Card Management'; ?>
+                    <?php echo $rfidToEdit ? 'Card UID: ' . htmlspecialchars($rfidToEdit['rfid_uid']) : 'RFID Card Management'; ?>
                 </p>
             </div>
         </div>
@@ -252,8 +252,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     </div>
                     <div class="form-grid">
                         <div class="form-group">
-                            <label for="rfid_url">RFID URL/UID <span style="color:red;">*</span></label>
-                            <input type="text" id="rfid_url" name="rfid_url" value="<?php echo htmlspecialchars($rfidToEdit['rfid_url']); ?>" required>
+                            <label for="rfid_uid">RFID URL/UID <span style="color:red;">*</span></label>
+                            <input type="text" id="rfid_uid" name="rfid_uid" value="<?php echo htmlspecialchars($rfidToEdit['rfid_uid']); ?>" required>
                         </div>
                         <div class="form-group">
                             <label for="rfid_name">Card Name/Label (Optional)</label>
@@ -308,7 +308,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     <div class="modal-content">
                         <h3>Confirm Deletion</h3>
                         <p>Are you sure you want to permanently delete this RFID card?</p>
-                        <p><strong>Card UID:</strong> <?php echo htmlspecialchars($rfidToEdit['rfid_url']); ?></p>
+                        <p><strong>Card UID:</strong> <?php echo htmlspecialchars($rfidToEdit['rfid_uid']); ?></p>
                         <p>This action cannot be undone.</p>
                         
                         <div class="modal-actions">

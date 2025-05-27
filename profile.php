@@ -310,7 +310,7 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
             }
             
             if ($activeSection === 'rfid') {
-                $sqlRfid = "SELECT RFID, name, card_type, is_active, rfid_url 
+                $sqlRfid = "SELECT RFID, name, card_type, is_active, rfid_uid 
                             FROM rfids 
                             WHERE userID = :current_session_userID";
                 $paramsRfid = [':current_session_userID' => $sessionUserId];
@@ -329,7 +329,7 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                 foreach ($rfidDataFromDb as $cardData) {
                     $userRFIDCards[] = [
                         'id_pk'           => htmlspecialchars($cardData['RFID']),
-                        'rfid_identifier' => htmlspecialchars($cardData['rfid_url'] ?? $cardData['RFID']),
+                        'rfid_identifier' => htmlspecialchars($cardData['rfid_uid'] ?? $cardData['RFID']),
                         'name'            => isset($cardData['name']) && !empty($cardData['name']) ? htmlspecialchars($cardData['name']) : 'N/A', 
                         'type'            => htmlspecialchars($cardData['card_type'] ?? 'Standard'),
                         'status_bool'     => (bool)$cardData['is_active'],

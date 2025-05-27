@@ -28,7 +28,7 @@ if (isset($pdo) && $pdo instanceof PDO) {
         $users = $stmtUsers->fetchAll(PDO::FETCH_ASSOC);
 
         // 2. Fetch all primary, active RFIDs
-        $stmtRfids = $pdo->query("SELECT userID, name, rfid_url FROM rfids WHERE card_type = 'Primary Access Card' AND is_active = 1");
+        $stmtRfids = $pdo->query("SELECT userID, name, rfid_uid FROM rfids WHERE card_type = 'Primary Access Card' AND is_active = 1");
         $primaryRfids = [];
         foreach ($stmtRfids->fetchAll(PDO::FETCH_ASSOC) as $rfid) {
             $primaryRfids[$rfid['userID']] = $rfid;
@@ -84,7 +84,7 @@ if (isset($pdo) && $pdo instanceof PDO) {
             $userData = $user;
 
             $userData['rfid_name'] = $primaryRfids[$user['userID']]['name'] ?? 'N/A';
-            $userData['rfid_uid'] = $primaryRfids[$user['userID']]['rfid_url'] ?? 'N/A';
+            $userData['rfid_uid'] = $primaryRfids[$user['userID']]['rfid_uid'] ?? 'N/A';
 
             $status = "Absent (Not Checked In)";
             $statusClass = "neutral";
