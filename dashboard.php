@@ -1,5 +1,5 @@
 <?php
-ini_set('display_errors', 1);
+ini_set('display_errors', 1); // Pre ladenie, na produkcii vypnúť/logovať do súboru
 error_reporting(E_ALL);
 
 if (session_status() == PHP_SESSION_NONE) {
@@ -7,17 +7,18 @@ if (session_status() == PHP_SESSION_NONE) {
 }
 
 // --- AJAX REQUEST HANDLING FOR LATE DEPARTURE ---
+// ... (AJAX kód zostáva ako v predchádzajúcej odpovedi alebo vašom origináli) ...
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) && 
     ($_POST['action'] === 'submit_late_departure' || $_POST['action'] === 'cancel_late_departure')) {
     
     header('Content-Type: application/json');
     if (!file_exists('db.php')) { 
-        echo json_encode(['success' => false, 'message' => 'Database configuration file not found.']);
+        echo json_encode(['success' => false, 'message' => 'Database configuration file (db.php) not found.']);
         exit;
     }
     require_once 'db.php'; 
 
-    $response = ['success' => false, 'message' => 'An unknown error occurred.'];
+    $response = ['success' => false, 'message' => 'An unknown error occurred with the AJAX request.'];
 
     if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true || !isset($_SESSION["user_id"])) {
         http_response_code(401); 
@@ -27,6 +28,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) &&
     }
     $userID = (int)$_SESSION["user_id"];
     $todayDateForAction = date('Y-m-d'); 
+
+    if (!isset($pdo) || !($pdo instanceof PDO)) { 
+        http_response_code(503);
+        $response['message'] = 'Database connection not available for AJAX processing.';
+        echo json_encode($response);
+        exit;
+    }
 
     if ($_POST['action'] === 'submit_late_departure') {
         $planned_departure_time_str = trim($_POST['planned_departure_time'] ?? '');
@@ -46,73 +54,64 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) &&
         }
         $planned_departure_time_db = date("H:i:s", strtotime($planned_departure_time_str));
 
-        if (isset($pdo) && $pdo instanceof PDO) {
-            try {
-                $pdo->beginTransaction();
-                $stmtCheck = $pdo->prepare("SELECT notificationID FROM late_departure_notifications WHERE userID = :userID AND notification_date = :notification_date");
-                $stmtCheck->execute([':userID' => $userID, ':notification_date' => $todayDateForAction]);
-                $existingNotification = $stmtCheck->fetch(PDO::FETCH_ASSOC);
-                $stmtCheck->closeCursor();
+        try {
+            $pdo->beginTransaction();
+            $stmtCheck = $pdo->prepare("SELECT notificationID FROM late_departure_notifications WHERE userID = :userID AND notification_date = :notification_date");
+            $stmtCheck->execute([':userID' => $userID, ':notification_date' => $todayDateForAction]);
+            $existingNotification = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+            $stmtCheck->closeCursor();
 
-                if ($existingNotification) {
-                    $stmt = $pdo->prepare(
-                        "UPDATE late_departure_notifications 
-                         SET planned_departure_time = :planned_departure_time, notes = :notes, viewed_by_admin = 0, created_at = CURRENT_TIMESTAMP
-                         WHERE notificationID = :notificationID"
-                    );
-                    $stmt->execute([
-                        ':planned_departure_time' => $planned_departure_time_db,
-                        ':notes' => !empty($notes) ? $notes : null,
-                        ':notificationID' => $existingNotification['notificationID']
-                    ]);
-                    $response['message'] = 'Late departure notification updated successfully!';
-                } else {
-                    $stmt = $pdo->prepare(
-                        "INSERT INTO late_departure_notifications (userID, notification_date, planned_departure_time, notes)
-                         VALUES (:userID, :notification_date, :planned_departure_time, :notes)"
-                    );
-                    $stmt->execute([
-                        ':userID' => $userID,
-                        ':notification_date' => $todayDateForAction,
-                        ':planned_departure_time' => $planned_departure_time_db,
-                        ':notes' => !empty($notes) ? $notes : null
-                    ]);
-                    $response['message'] = 'Late departure notification submitted successfully!';
-                }
-                $pdo->commit();
-                $response['success'] = true;
-            } catch (PDOException $e) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
-                error_log("AJAX Late Departure DB Error (User: {$userID}): " . $e->getMessage());
-                http_response_code(500);
-                $response['message'] = 'A database error occurred.';
-            }
-        } else {
-            http_response_code(503);
-            $response['message'] = 'Database connection not available for AJAX.';
-        }
-    } elseif ($_POST['action'] === 'cancel_late_departure') {
-        if (isset($pdo) && $pdo instanceof PDO) {
-            try {
-                $stmtDelete = $pdo->prepare(
-                    "DELETE FROM late_departure_notifications 
-                     WHERE userID = :userID AND notification_date = :notification_date"
+            if ($existingNotification) {
+                $stmt = $pdo->prepare(
+                    "UPDATE late_departure_notifications 
+                     SET planned_departure_time = :planned_departure_time, notes = :notes, viewed_by_admin = 0, created_at = CURRENT_TIMESTAMP
+                     WHERE notificationID = :notificationID"
                 );
-                if ($stmtDelete->execute([':userID' => $userID, ':notification_date' => $todayDateForAction])) {
-                    $response['success'] = true;
-                    $response['message'] = $stmtDelete->rowCount() > 0 ? 'Late departure notification cancelled.' : 'No notification to cancel.';
-                } else {
-                    http_response_code(500);
-                    $response['message'] = 'Failed to cancel notification.';
-                }
-            } catch (PDOException $e) {
-                error_log("AJAX Cancel Late Departure DB Error (User: {$userID}): " . $e->getMessage());
-                http_response_code(500);
-                $response['message'] = 'A database error occurred during cancellation.';
+                $stmt->execute([
+                    ':planned_departure_time' => $planned_departure_time_db,
+                    ':notes' => !empty($notes) ? $notes : null,
+                    ':notificationID' => $existingNotification['notificationID']
+                ]);
+                $response['message'] = 'Late departure notification updated successfully!';
+            } else {
+                $stmt = $pdo->prepare(
+                    "INSERT INTO late_departure_notifications (userID, notification_date, planned_departure_time, notes)
+                     VALUES (:userID, :notification_date, :planned_departure_time, :notes)"
+                );
+                $stmt->execute([
+                    ':userID' => $userID,
+                    ':notification_date' => $todayDateForAction,
+                    ':planned_departure_time' => $planned_departure_time_db,
+                    ':notes' => !empty($notes) ? $notes : null
+                ]);
+                $response['message'] = 'Late departure notification submitted successfully!';
             }
-        } else {
-            http_response_code(503);
-            $response['message'] = 'Database connection not available for AJAX.';
+            $pdo->commit();
+            $response['success'] = true;
+        } catch (PDOException $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            error_log("AJAX Late Departure DB Error (User: {$userID}): " . $e->getMessage());
+            http_response_code(500);
+            $response['message'] = 'A database error occurred while submitting the notification.';
+        }
+        
+    } elseif ($_POST['action'] === 'cancel_late_departure') {
+        try {
+            $stmtDelete = $pdo->prepare(
+                "DELETE FROM late_departure_notifications 
+                 WHERE userID = :userID AND notification_date = :notification_date"
+            );
+            if ($stmtDelete->execute([':userID' => $userID, ':notification_date' => $todayDateForAction])) {
+                $response['success'] = true;
+                $response['message'] = $stmtDelete->rowCount() > 0 ? 'Late departure notification cancelled.' : 'No notification to cancel for today.';
+            } else {
+                http_response_code(500);
+                $response['message'] = 'Failed to execute cancellation.';
+            }
+        } catch (PDOException $e) {
+            error_log("AJAX Cancel Late Departure DB Error (User: {$userID}): " . $e->getMessage());
+            http_response_code(500);
+            $response['message'] = 'A database error occurred during cancellation.';
         }
     }
     echo json_encode($response);
@@ -122,19 +121,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) &&
 
 
 // --- REGULAR PAGE LOAD LOGIC ---
+if (!file_exists('db.php')) {
+    $dbErrorMessage = "Critical error: Database configuration file (db.php) not found. Please contact support.";
+    // V produkcii by tu mal byť krajší spôsob ošetrenia chyby
+    die($dbErrorMessage); 
+}
 require_once 'db.php'; 
 
-// --- SESSION VARIABLES ---
 $sessionFirstName = isset($_SESSION["first_name"]) ? htmlspecialchars($_SESSION["first_name"]) : 'Employee';
 $sessionUserId = isset($_SESSION["user_id"]) ? (int)$_SESSION["user_id"] : null;
 $sessionRole = isset($_SESSION["role"]) ? strtolower($_SESSION["role"]) : 'employee'; 
 
-// --- DATE HANDLING ---
 $selectedDate = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $selectedDate) || strtotime($selectedDate) === false) {
+    $selectedDate = date('Y-m-d');
+}
 $todayDate = date('Y-m-d');
 $todayDateTime = date('Y-m-d H:i:s');
 
-// --- DEFAULT VALUES FOR DISPLAY ---
 $rfidStatus = "Status Unknown"; 
 $rfidStatusClass = "neutral";
 $absencesThisMonthCountDisplay = "0 Days Approved";
@@ -145,254 +149,144 @@ $dbErrorMessage = null;
 $currentUserData = null; 
 $existingLateDeparture = null; 
 
-if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
+if (!isset($pdo) || !($pdo instanceof PDO)) {
+    $dbErrorMessage = "Database connection is not available. Please check server configuration.";
+} elseif (!$sessionUserId) {
+     $dbErrorMessage = "User session is invalid or user ID not found. Please log in again.";
+} else {
     try {
         // 1. Fetch user's dateOfCreation
         $stmtUserMeta = $pdo->prepare("SELECT dateOfCreation FROM users WHERE userID = :userid");
-        if ($stmtUserMeta) {
-            $stmtUserMeta->execute([':userid' => $sessionUserId]);
-            $currentUserData = $stmtUserMeta->fetch();
-            $stmtUserMeta->closeCursor();
+        $stmtUserMeta->execute([':userid' => $sessionUserId]);
+        $currentUserData = $stmtUserMeta->fetch(PDO::FETCH_ASSOC);
+        $stmtUserMeta->closeCursor();
+
+        // 2. DETERMINE CURRENT PRESENCE STATUS (Logika zostáva rovnaká)
+        $stmtLatestEvent = $pdo->prepare("SELECT logType, logResult FROM attendance_logs WHERE userID = :userid AND DATE(logTime) = :today_date ORDER BY logTime DESC LIMIT 1");
+        $stmtLatestEvent->execute([':userid' => $sessionUserId, ':today_date' => $todayDate]);
+        $latestEvent = $stmtLatestEvent->fetch(PDO::FETCH_ASSOC);
+        $stmtLatestEvent->closeCursor();
+        if ($latestEvent) {
+            if ($latestEvent['logType'] == 'entry' && $latestEvent['logResult'] == 'granted') { $rfidStatus = "Present"; $rfidStatusClass = "present"; }
+            elseif ($latestEvent['logType'] == 'exit' && $latestEvent['logResult'] == 'granted') { $rfidStatus = "Checked Out"; $rfidStatusClass = "absent"; }
+            elseif ($latestEvent['logResult'] == 'denied') { $rfidStatus = ($latestEvent['logType'] == 'entry' ? "entry Denied" : "Exit Denied"); $rfidStatusClass = "danger"; }
+            else { $rfidStatus = "Status Unknown"; $rfidStatusClass = "neutral"; }
+        } else {
+            $stmtScheduledAbsenceToday = $pdo->prepare("SELECT absence_type FROM absence WHERE userID = :userid AND :today_date_time BETWEEN absence_start_datetime AND absence_end_datetime AND status = 'approved' LIMIT 1");
+            $stmtScheduledAbsenceToday->execute([':userid' => $sessionUserId, ':today_date_time' => $todayDateTime]);
+            $scheduledAbsence = $stmtScheduledAbsenceToday->fetch(PDO::FETCH_ASSOC);
+            $stmtScheduledAbsenceToday->closeCursor();
+            if ($scheduledAbsence) { $absenceTypeDisplay = ucfirst(str_replace('_', ' ', $scheduledAbsence['absence_type'])); $rfidStatus = "Scheduled " . htmlspecialchars($absenceTypeDisplay); $rfidStatusClass = "absent"; }
+            else { $rfidStatus = "Not Checked In"; $rfidStatusClass = "neutral"; }
         }
 
-        // 2. DETERMINE CURRENT PRESENCE STATUS
-        $stmtLatestEvent = $pdo->prepare(
-            "SELECT logType, logResult 
-            FROM attendance_logs
-            WHERE userID = :userid AND DATE(logTime) = :today_date
-            ORDER BY logTime DESC
-            LIMIT 1"
-        );
-        if ($stmtLatestEvent) {
-            $stmtLatestEvent->execute([
-                ':userid' => $sessionUserId,
-                ':today_date' => $todayDate
-            ]);
-            $latestEvent = $stmtLatestEvent->fetch();
-            $stmtLatestEvent->closeCursor();
+        // 3. APPROVED ABSENCES THIS MONTH (Logika zostáva rovnaká)
+        $currentMonthStart = date('Y-m-01 00:00:00'); $currentMonthEnd = date('Y-m-t 23:59:59');
+        $stmtAbsenceCount = $pdo->prepare("SELECT COUNT(DISTINCT DATE(absence_start_datetime)) FROM absence WHERE userID = :userid AND status = 'approved' AND (absence_start_datetime <= :month_end AND absence_end_datetime >= :month_start)");
+        $stmtAbsenceCount->execute([':userid' => $sessionUserId, ':month_start' => $currentMonthStart, ':month_end' => $currentMonthEnd]);
+        $absencesThisMonthCountValue = $stmtAbsenceCount->fetchColumn();
+        $absencesThisMonthCountDisplay = $absencesThisMonthCountValue ? $absencesThisMonthCountValue . ($absencesThisMonthCountValue == 1 ? " Day" : " Days") . " Approved" : "0 Days Approved";
+        $stmtAbsenceCount->closeCursor();
 
-            if ($latestEvent) {
-                if ($latestEvent['logType'] == 'entry' && $latestEvent['logResult'] == 'granted') {
-                    $rfidStatus = "Present";
-                    $rfidStatusClass = "present";
-                } elseif ($latestEvent['logType'] == 'exit' && $latestEvent['logResult'] == 'granted') {
-                    $rfidStatus = "Checked Out";
-                    $rfidStatusClass = "absent"; 
-                } elseif ($latestEvent['logResult'] == 'denied') {
-                    $rfidStatus = ($latestEvent['logType'] == 'entry' ? "entry Denied" : "Exit Denied");
-                    $rfidStatusClass = "danger"; 
-                } else {
-                    $rfidStatus = "Status Unknown"; 
-                    $rfidStatusClass = "neutral";
-                }
-            } else {
-                $stmtScheduledAbsenceToday = $pdo->prepare(
-                    "SELECT absence_type FROM absence
-                    WHERE userID = :userid 
-                    AND :today_date_time BETWEEN absence_start_datetime AND absence_end_datetime
-                    AND status = 'approved' 
-                    LIMIT 1"
-                );
-                if ($stmtScheduledAbsenceToday) {
-                    $stmtScheduledAbsenceToday->execute([
-                        ':userid' => $sessionUserId,
-                        ':today_date_time' => $todayDateTime
-                    ]);
-                    $scheduledAbsence = $stmtScheduledAbsenceToday->fetch();
-                    $stmtScheduledAbsenceToday->closeCursor();
+        // 4. UNREAD MESSAGES COUNT (Logika zostáva rovnaká)
+        $stmtUnread = $pdo->prepare("SELECT COUNT(DISTINCT m.messageID) FROM messages m LEFT JOIN user_message_read_status umrs ON m.messageID = umrs.messageID AND umrs.userID = :current_user_id_for_read_status WHERE m.is_active = TRUE AND (m.expires_at IS NULL OR m.expires_at > NOW()) AND (m.recipientID = :current_user_id_recipient OR m.recipientRole = :current_user_role OR m.recipientRole = 'everyone') AND (umrs.is_read IS NULL OR umrs.is_read = 0)");
+        $stmtUnread->execute([':current_user_id_for_read_status' => $sessionUserId, ':current_user_id_recipient' => $sessionUserId, ':current_user_role' => $sessionRole]);
+        $unreadMessagesCount = (int)$stmtUnread->fetchColumn();
+        $stmtUnread->closeCursor();
 
-                    if ($scheduledAbsence) {
-                        $absenceTypeDisplay = ucfirst(str_replace('_', ' ', $scheduledAbsence['absence_type']));
-                        $rfidStatus = "Scheduled " . htmlspecialchars($absenceTypeDisplay);
-                        $rfidStatusClass = "absent"; 
-                    } else {
-                        $rfidStatus = "Not Checked In";
-                        $rfidStatusClass = "neutral"; 
-                    }
-                }
-            }
-        }
+        // 5. UPCOMING LEAVE (Logika zostáva rovnaká)
+        $stmtUpcomingLeave = $pdo->prepare("SELECT absence_type, absence_start_datetime FROM absence WHERE userID = :userid AND status = 'approved' AND absence_start_datetime > :now ORDER BY absence_start_datetime ASC LIMIT 1");
+        $stmtUpcomingLeave->execute([':userid' => $sessionUserId, ':now' => $todayDateTime]);
+        $upcoming = $stmtUpcomingLeave->fetch(PDO::FETCH_ASSOC);
+        if ($upcoming) { $leaveType = ucfirst(str_replace('_', ' ', $upcoming['absence_type'])); $leaveDate = date("M d, Y", strtotime($upcoming['absence_start_datetime'])); $upcomingLeaveDisplay = htmlspecialchars($leaveType) . " on " . $leaveDate; }
+        $stmtUpcomingLeave->closeCursor();
 
-        // 3. APPROVED ABSENCES THIS MONTH
-        $currentMonthStart = date('Y-m-01 00:00:00');
-        $currentMonthEnd = date('Y-m-t 23:59:59'); 
-        $stmtAbsenceCount = $pdo->prepare(
-            "SELECT COUNT(DISTINCT DATE(absence_start_datetime)) 
-            FROM absence 
-            WHERE userID = :userid 
-            AND status = 'approved' 
-            AND (
-                (absence_start_datetime <= :month_end AND absence_end_datetime >= :month_start)
-            )"
-        );
-        if ($stmtAbsenceCount) {
-            $stmtAbsenceCount->execute([
-                ':userid' => $sessionUserId,
-                ':month_start' => $currentMonthStart,
-                ':month_end' => $currentMonthEnd
-            ]);
-            $absencesThisMonthCountValue = $stmtAbsenceCount->fetchColumn();
-            $absencesThisMonthCountDisplay = $absencesThisMonthCountValue ? $absencesThisMonthCountValue . ($absencesThisMonthCountValue == 1 ? " Day" : " Days") . " Approved" : "0 Days Approved";
-            $stmtAbsenceCount->closeCursor();
-        }
-
-        // 4. UNREAD MESSAGES COUNT
-        $stmtUnread = $pdo->prepare("
-            SELECT COUNT(DISTINCT m.messageID) 
-            FROM messages m
-            LEFT JOIN user_message_read_status umrs ON m.messageID = umrs.messageID AND umrs.userID = :current_user_id_for_read_status
-            WHERE 
-                m.is_active = TRUE AND 
-                (m.expires_at IS NULL OR m.expires_at > NOW()) AND
-                (
-                    m.recipientID = :current_user_id_recipient OR 
-                    m.recipientRole = :current_user_role OR
-                    m.recipientRole = 'everyone'
-                ) AND
-                (umrs.is_read IS NULL OR umrs.is_read = 0)
-        ");
-        if ($stmtUnread) {
-            $stmtUnread->execute([
-                ':current_user_id_for_read_status' => $sessionUserId,
-                ':current_user_id_recipient' => $sessionUserId,
-                ':current_user_role' => $sessionRole
-            ]);
-            $unreadMessagesCount = (int)$stmtUnread->fetchColumn();
-            $stmtUnread->closeCursor();
-        }
-
-        // 5. UPCOMING LEAVE
-        $stmtUpcomingLeave = $pdo->prepare(
-            "SELECT absence_type, absence_start_datetime
-            FROM absence
-            WHERE userID = :userid
-            AND status = 'approved'
-            AND absence_start_datetime > :now
-            ORDER BY absence_start_datetime ASC
-            LIMIT 1"
-        );
-        if ($stmtUpcomingLeave) {
-            $stmtUpcomingLeave->execute([
-                ':userid' => $sessionUserId,
-                ':now' => $todayDateTime
-            ]);
-            $upcoming = $stmtUpcomingLeave->fetch();
-            if ($upcoming) {
-                $leaveType = ucfirst(str_replace('_', ' ', $upcoming['absence_type']));
-                $leaveDate = date("M d, Y", strtotime($upcoming['absence_start_datetime']));
-                $upcomingLeaveDisplay = htmlspecialchars($leaveType) . " on " . $leaveDate;
-            }
-            $stmtUpcomingLeave->closeCursor();
-        }
-
-        // ** Fetch existing late departure notification for today **
-        $stmtExistingLate = $pdo->prepare(
-            "SELECT planned_departure_time, notes 
-             FROM late_departure_notifications
-             WHERE userID = :userid AND notification_date = :today_date
-             LIMIT 1"
-        );
-        if ($stmtExistingLate) {
-            $stmtExistingLate->execute([':userid' => $sessionUserId, ':today_date' => $todayDate]);
-            $existingLateDeparture = $stmtExistingLate->fetch(PDO::FETCH_ASSOC);
-            $stmtExistingLate->closeCursor();
-        }
+        // Fetch existing late departure notification (Logika zostáva rovnaká)
+        $stmtExistingLate = $pdo->prepare("SELECT planned_departure_time, notes FROM late_departure_notifications WHERE userID = :userid AND notification_date = :today_date LIMIT 1");
+        $stmtExistingLate->execute([':userid' => $sessionUserId, ':today_date' => $todayDate]);
+        $existingLateDeparture = $stmtExistingLate->fetch(PDO::FETCH_ASSOC);
+        $stmtExistingLate->closeCursor();
 
         // 6. ACTIVITY SNAPSHOT FOR SELECTED DATE
-        if ($currentUserData && $selectedDate == date("Y-m-d", strtotime($currentUserData['dateOfCreation']))) {
+        if ($currentUserData && isset($currentUserData['dateOfCreation']) && $selectedDate == date("Y-m-d", strtotime($currentUserData['dateOfCreation']))) {
             $activityForSelectedDate[] = [
                 'time' => date("H:i", strtotime($currentUserData['dateOfCreation'])),
                 'log_type' => 'System', 'log_result' => 'Info', 
-                'details' => 'Your WavePass account was created.', 'rfid_card' => 'N/A', 'status_class' => 'info'
+                'details' => 'Your WavePass account was created.', 
+                'rfid_card_uid' => 'N/A',
+                'status_class' => 'info'
             ];
         }
+        
+        // ========== ÚPRAVA SQL DOTAZU PRE ACTIVITY LOG ==========
         $stmtActivityLog = $pdo->prepare(
-            "SELECT logTime, logType, logResult FROM attendance_logs
-            WHERE userID = :userid AND DATE(logTime) = :selected_date ORDER BY logTime ASC"
+            "SELECT al.logTime, al.logType, al.logResult, al.rfid_uid_used 
+            FROM attendance_logs al
+            WHERE al.userID = :userid AND DATE(al.logTime) = :selected_date 
+            ORDER BY al.logTime ASC"
         );
-        if ($stmtActivityLog) {
-            $stmtActivityLog->execute([':userid' => $sessionUserId, ':selected_date' => $selectedDate]);
-            while ($log = $stmtActivityLog->fetch(PDO::FETCH_ASSOC)) {
-                $logTypeDisplay = 'Unknown'; $statusClass = 'neutral';
-                if ($log['logType'] == 'entry') {
-                    $logTypeDisplay = 'entry'; $statusClass = ($log['logResult'] == 'granted') ? 'present' : 'danger';
-                } elseif ($log['logType'] == 'exit') {
-                    $logTypeDisplay = 'exit'; $statusClass = ($log['logResult'] == 'granted') ? 'absent' : 'danger';
-                }
-                $activityForSelectedDate[] = [
-                    'time' => date("H:i", strtotime($log['logTime'])),
-                    'log_type' => htmlspecialchars($logTypeDisplay), 
-                    'log_result' => htmlspecialchars(ucfirst($log['logResult'] ?? 'N/A')), 
-                    'details' => 'Attempted access.', 'rfid_card' => 'System Log', 'status_class' => $statusClass
-                ];
-            }
-            $stmtActivityLog->closeCursor();
+        // ======================================================
+        $stmtActivityLog->execute([':userid' => $sessionUserId, ':selected_date' => $selectedDate]);
+        while ($log = $stmtActivityLog->fetch(PDO::FETCH_ASSOC)) {
+            $logTypeDisplay = 'Unknown'; $statusClass = 'neutral';
+            if ($log['logType'] == 'entry') { $logTypeDisplay = 'entry'; $statusClass = ($log['logResult'] == 'granted') ? 'present' : 'danger'; }
+            elseif ($log['logType'] == 'exit') { $logTypeDisplay = 'exit'; $statusClass = ($log['logResult'] == 'granted') ? 'absent' : 'danger'; }
+            
+            $activityForSelectedDate[] = [
+                'time' => date("H:i", strtotime($log['logTime'])),
+                'log_type' => htmlspecialchars($logTypeDisplay), 
+                'log_result' => htmlspecialchars(ucfirst($log['logResult'] ?? 'N/A')), 
+                'details' => 'Attempted access.', 
+                'rfid_card_uid' => !empty($log['rfid_uid_used']) ? htmlspecialchars($log['rfid_uid_used']) : 'N/A', // Použitie rfid_uid_used
+                'status_class' => $statusClass
+            ];
         }
+        $stmtActivityLog->closeCursor();
+        
         $hasCheckInOutActivity = false;
         foreach($activityForSelectedDate as $act) {
-            if (isset($act['log_type']) && (strpos($act['log_type'], 'entry') !== false || strpos($act['log_type'], 'exit') !== false)) {
-                $hasCheckInOutActivity = true;
-                break;
+            if (isset($act['log_type']) && (stripos($act['log_type'], 'entry') !== false || stripos($act['log_type'], 'exit') !== false)) {
+                $hasCheckInOutActivity = true; break;
             }
         }
+
         if ($selectedDate == $todayDate && !$hasCheckInOutActivity && $rfidStatus !== "Status Unknown" && $rfidStatus !== "Not Checked In") {
             if ($rfidStatusClass !== 'neutral' || strpos(strtolower($rfidStatus), 'scheduled') !== false) {
-                $activityForSelectedDate[] = [
-                    'time' => date("H:i"), 'log_type' => 'Current Status', 
-                    'log_result' => htmlspecialchars($rfidStatus),
-                    'details' => 'Based on latest system information.', 'rfid_card' => 'N/A', 'status_class' => $rfidStatusClass
-                ];
+                $activityForSelectedDate[] = ['time' => date("H:i"), 'log_type' => 'Current Status', 'log_result' => htmlspecialchars($rfidStatus), 'details' => 'Based on latest system information.', 'rfid_card_uid' => 'N/A', 'status_class' => $rfidStatusClass];
             }
         }
+        
         if (empty($activityForSelectedDate) && $selectedDate <= $todayDate){
-            $stmtSelectedDayAbsence = $pdo->prepare(
-                "SELECT absence_type, reason FROM absence WHERE userID = :userid 
-                AND :selected_date_for_absence BETWEEN DATE(absence_start_datetime) AND DATE(absence_end_datetime)
-                AND status = 'approved' LIMIT 1"
-            );
-            if ($stmtSelectedDayAbsence) {
-                $stmtSelectedDayAbsence->execute([':userid' => $sessionUserId, ':selected_date_for_absence' => $selectedDate]);
-                $selectedDayAbsenceInfo = $stmtSelectedDayAbsence->fetch();
-                $stmtSelectedDayAbsence->closeCursor();
-                if($selectedDayAbsenceInfo){
-                    $absenceTypeDetailForMsg = htmlspecialchars(ucfirst(str_replace('_',' ',$selectedDayAbsenceInfo['absence_type'])));
-                    $activityForSelectedDate[] = [
-                        'time' => '--:--', 'log_type' => 'Scheduled Absence', 
-                        'log_result' => htmlspecialchars($absenceTypeDetailForMsg),
-                        'details' => ($selectedDayAbsenceInfo['reason'] ? 'Reason: '.htmlspecialchars($selectedDayAbsenceInfo['reason']) : 'Approved absence'), 
-                        'rfid_card' => 'N/A', 'status_class' => 'absent'
-                    ];
-                } else {
-                    $activityForSelectedDate[] = [
-                        'time' => '--:--', 'log_type' => 'No Record', 'log_result' => 'N/A',
-                        'details' => 'No attendance events or approved absences logged for this day.', 
-                        'rfid_card' => 'N/A', 'status_class' => 'neutral'
-                    ];
+            $stmtSelectedDayAbsence = $pdo->prepare("SELECT absence_type, reason FROM absence WHERE userID = :userid AND :selected_date_for_absence BETWEEN DATE(absence_start_datetime) AND DATE(absence_end_datetime) AND status = 'approved' LIMIT 1");
+            $stmtSelectedDayAbsence->execute([':userid' => $sessionUserId, ':selected_date_for_absence' => $selectedDate]);
+            $selectedDayAbsenceInfo = $stmtSelectedDayAbsence->fetch(PDO::FETCH_ASSOC);
+            $stmtSelectedDayAbsence->closeCursor();
+            if($selectedDayAbsenceInfo){
+                $absenceTypeDetailForMsg = htmlspecialchars(ucfirst(str_replace('_',' ',$selectedDayAbsenceInfo['absence_type'])));
+                $activityForSelectedDate[] = ['time' => '--:--', 'log_type' => 'Scheduled Absence', 'log_result' => htmlspecialchars($absenceTypeDetailForMsg), 'details' => (!empty($selectedDayAbsenceInfo['reason']) ? 'Reason: '.htmlspecialchars($selectedDayAbsenceInfo['reason']) : 'Approved absence'), 'rfid_card_uid' => 'N/A', 'status_class' => 'absent'];
+            } else {
+                if(empty($activityForSelectedDate)) {
+                    $activityForSelectedDate[] = ['time' => '--:--', 'log_type' => 'No Record', 'log_result' => 'N/A', 'details' => 'No attendance events or approved absences logged for this day.', 'rfid_card_uid' => 'N/A', 'status_class' => 'neutral'];
                 }
             }
         }
+        
         if (!empty($activityForSelectedDate)) {
             usort($activityForSelectedDate, function($a, $b) {
-                // Speciální záznamy (--:--) vždy nahoře
                 if ($a['time'] === '--:--' && $b['time'] !== '--:--') return -1;
                 if ($a['time'] !== '--:--' && $b['time'] === '--:--') return 1;
-                if ($a['time'] === '--:--' && $b['time'] === '--:--') return 0; // Pokud jsou oba '--:--', pořadí je jedno
-
-                // Ostatní záznamy řadit sestupně podle času
-                return strtotime($b['time']) - strtotime($a['time']); // ZMĚNA: $b - $a pro sestupné řazení
+                if ($a['time'] === '--:--' && $b['time'] === '--:--') return 0;
+                return strtotime($b['time']) - strtotime($a['time']);
             });
         }
 
     } catch (PDOException $e) {
         error_log("Dashboard Page DB Error (User: {$sessionUserId}, Date: {$selectedDate}): " . $e->getMessage());
-        $dbErrorMessage = "A database error occurred. Please try again later.";
+        $dbErrorMessage = "A database error occurred while fetching data. Please try again later or contact support.";
     } catch (Exception $e) {
-        error_log("Dashboard Page App Error (User: {$sessionUserId}, Date: {$selectedDate}): " . $e->getMessage());
-        $dbErrorMessage = "An application error occurred. Please try again later.";
+        error_log("Dashboard Page General Error (User: {$sessionUserId}, Date: {$selectedDate}): " . $e->getMessage());
+        $dbErrorMessage = "An application error occurred. Please try again later or contact support.";
     }
-} else {
-    if (!isset($pdo) || !($pdo instanceof PDO)) $dbErrorMessage = ($dbErrorMessage ? $dbErrorMessage . "<br>" : "") . "Database connection not available.";
-    if (!$sessionUserId) $dbErrorMessage = ($dbErrorMessage ? $dbErrorMessage . "<br>" : "") . "User session is invalid (or user ID not found).";
 }
 $currentPage = basename($_SERVER['PHP_SELF']);
 ?>
@@ -703,31 +597,23 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                     <tr>
                                         <td><?php echo htmlspecialchars($activity['time']); ?></td>
                                         <td>
-                                            <span class="activity-status <?php echo htmlspecialchars($activity['status_class']); ?>">
+                                            <span class="activity-status <?php echo htmlspecialchars($activity['status_class'] ?? 'neutral'); ?>">
                                                 <?php 
-                                                // Přidání ikon na základě 'log_type' nebo upraveného 'log_type' v $activity
-                                                $logTypeClean = strtolower(str_replace(' ', '', $activity['log_type'])); // Např. 'entry', 'exit', 'scheduledabsence'
-                                                if ($logTypeClean === 'entry'): ?>
-                                                    <span class="material-symbols-outlined">login</span>
-                                                <?php elseif ($logTypeClean === 'exit'): ?>
-                                                    <span class="material-symbols-outlined">logout</span>
-                                                <?php elseif ($logTypeClean === 'scheduledabsence' || $logTypeClean === 'currentstatus' && strpos(strtolower($activity['log_result']), 'leave') !== false): // Pro "On Leave" nebo "Scheduled Holiday" ?>
-                                                    <span class="material-symbols-outlined">event_busy</span>
-                                                <?php elseif ($logTypeClean === 'system' || ($logTypeClean === 'currentstatus' && strpos(strtolower($activity['log_result']), 'present') !== false)): ?>
-                                                    <span class="material-symbols-outlined">verified_user</span>
-                                                <?php elseif ($logTypeClean === 'currentstatus' && strpos(strtolower($activity['log_result']), 'checked out') !== false): ?>
-                                                     <span class="material-symbols-outlined">person_off</span>
-                                                <?php elseif ($logTypeClean === 'norecord'): ?>
-                                                     <span class="material-symbols-outlined">manage_search</span>
-                                                <?php else: // Fallback pro neznámé typy nebo pokud není ikona explicitně definována ?>
-                                                    <span class="material-symbols-outlined">help_outline</span>
+                                                $logTypeClean = isset($activity['log_type']) ? strtolower(str_replace(' ', '', $activity['log_type'])) : '';
+                                                if ($logTypeClean === 'entry'): ?><span class="material-symbols-outlined">login</span>
+                                                <?php elseif ($logTypeClean === 'exit'): ?><span class="material-symbols-outlined">logout</span>
+                                                <?php elseif ($logTypeClean === 'scheduledabsence' || ($logTypeClean === 'currentstatus' && isset($activity['log_result']) && strpos(strtolower($activity['log_result']), 'leave') !== false)): ?><span class="material-symbols-outlined">event_busy</span>
+                                                <?php elseif ($logTypeClean === 'system' || ($logTypeClean === 'currentstatus' && isset($activity['log_result']) && strpos(strtolower($activity['log_result']), 'present') !== false)): ?><span class="material-symbols-outlined">verified_user</span>
+                                                <?php elseif ($logTypeClean === 'currentstatus' && isset($activity['log_result']) && strpos(strtolower($activity['log_result']), 'checked out') !== false): ?><span class="material-symbols-outlined">person_off</span>
+                                                <?php elseif ($logTypeClean === 'norecord'): ?><span class="material-symbols-outlined">manage_search</span>
+                                                <?php else: ?><span class="material-symbols-outlined">help_outline</span>
                                                 <?php endif; ?>
-                                                <?php echo htmlspecialchars($activity['log_type']); // Původní text logu ?>
+                                                <?php echo htmlspecialchars($activity['log_type'] ?? 'N/A'); ?>
                                             </span>
                                         </td>
-                                        <td><?php echo htmlspecialchars($activity['log_result']); ?></td>
-                                        <td><?php echo htmlspecialchars($activity['details']); ?></td>
-                                        <td class="rfid-cell"><?php echo htmlspecialchars($activity['rfid_card']); ?></td> 
+                                        <td><?php echo htmlspecialchars($activity['log_result'] ?? 'N/A'); ?></td>
+                                        <td><?php echo htmlspecialchars($activity['details'] ?? 'N/A'); ?></td>
+                                        <td class="rfid-cell"><?php echo htmlspecialchars($activity['rfid_card_uid'] ?? 'N/A'); // ZMENENÉ ?></td> 
                                     </tr>
                                 <?php endforeach; ?>
                             <?php else: ?>
