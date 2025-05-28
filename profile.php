@@ -518,20 +518,7 @@ if (rtrim($currentScriptPath, '/') !== rtrim($projectRootPath, '/')) {
 </head>
 <body>
         <!-- Header -->
-        <?php 
-        // Dynamické načítání hlavičky
-        $headerComponent = $pathPrefix . "components/header-user.php"; // Předpokládáme, že běžný uživatel má header-user.php
-        if (strtolower($sessionRole) === 'admin') { // Pokud je role admin, může mít jinou hlavičku
-            $headerComponent = $pathPrefix . "components/header-admin.php";
-        }
-        if (file_exists($headerComponent)) {
-            require_once $headerComponent;
-        } else {
-            // Fallback nebo chybová zpráva, pokud hlavička není nalezena
-            error_log("Header component not found: " . $headerComponent);
-            echo "<!-- Header component " . htmlspecialchars(basename($headerComponent)) . " not found -->";
-            // Můžete zde vložit základní HTML pro hlavičku jako fallback
-        }
+        <?php require "components/header-admin.php";
         ?>
 
     <main>

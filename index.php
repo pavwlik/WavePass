@@ -12,18 +12,9 @@ require_once "db.php";
     <title>WavePass - Teacher Attendance System</title>
     <meta name="description" content="Streamline school employee attendance with WavePass. Our intuitive, cloud-based system saves time, improves accuracy, and offers real-time tracking & reports.">
     
-    <!-- Specify the canonical (preferred) URL for this page -->
-
-    <!-- Favicon -->
-    <link rel="icon" href="assets/favicon.ico" type="image/x-icon"> <!-- !! REPLACE with path to your .ico favicon !! -->
-    <link rel="icon" href="assets/favicon.png" type="image/png"> <!-- !! REPLACE with path to your .png favicon !! -->
-    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png"> <!-- !! REPLACE with path to your apple-touch-icon !! (e.g., 180x180px) -->
-
     <!-- ========= Open Graph / Facebook Meta Tags ========= -->
     <meta property="og:title" content="WavePass - Teacher Attendance System">
     <meta property="og:description" content="Streamline school employee attendance with WavePass. Our intuitive, cloud-based system saves time, improves accuracy, and offers real-time tracking & reports.">
-    <meta property="og:image" content="https://www.your-wavepass-domain.com/assets/og-image.png"> <!-- !! REPLACE with URL to an attractive image (e.g., 1200x630px) !! -->
-    <meta property="og:url" content="https://www.your-wavepass-domain.com/index.php"> <!-- !! REPLACE with your actual URL !! -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="WavePass">
 
@@ -34,8 +25,8 @@ require_once "db.php";
     <meta name="twitter:image" content="https://www.your-wavepass-domain.com/assets/twitter-image.png"> <!-- !! REPLACE with URL to an image !! -->
 
     <!-- ========= Other Meta Tags ========= -->
-    <meta name="author" content="WavePass Team"> 
-    <meta name="keywords" content="school attendance, teacher attendance, employee tracking, attendance system, education technology, school management, cloud attendance, WavePass">
+    <meta name="author" content="Pavel Bures, Krystof Topinka, Filip Elznic"> 
+    <meta name="keywords" content="school attendance, teacher attendance, employee tracking, attendance system, education technology, school management, cloud attendance, WavePass, RFID,">
 
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -89,102 +80,6 @@ require_once "db.php";
             padding: 0 20px;
         }
 
-        /* Header & Navigation */
-        header {
-            background-color: var(--white);
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-            position: fixed;
-            width: 100%;
-            top: 0;
-            z-index: 1000;
-            transition: var(--transition);
-        }
-
-        .navbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 0;
-            height: 80px;
-        }
-
-        .logo {
-            font-size: 1.8rem;
-            font-weight: 800;
-            color: var(--primary-color);
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .logo i { font-size: 1.5rem; }
-        .logo span { color: var(--dark-color); font-weight: 600; }
-
-        .nav-links {
-            display: flex;
-            list-style: none;
-            align-items: center;
-            gap: 0.5rem; 
-            /* transition: var(--transition); This transition is on individual links if needed */
-        }
-
-        .nav-links a:not(.btn) {
-            color: var(--dark-color);
-            text-decoration: none;
-            font-weight: 500; 
-            padding: 0.7rem 1rem; 
-            font-size: 0.95rem;
-            border-radius: 8px; 
-            position: relative; 
-            transition: color 0.3s ease, background-color 0.3s ease; /* Specific transitions */
-        }
-        .nav-links a:not(.btn):hover,
-        .nav-links a.active:not(.btn) { /* Apply active state style same as hover */
-            color: var(--primary-color);
-            background-color: rgba(67, 97, 238, 0.07); 
-        }
-        .nav-links a:not(.btn)::after { 
-            display: none;
-        }
-        
-        .nav-links .btn,
-        .nav-links .btn-outline {
-            display: inline-flex;
-            gap: 8px;
-            align-items: center;
-            justify-content: center;
-            padding: 0.7rem 1.5rem; 
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            transition: var(--transition);
-            cursor: pointer;
-            text-align: center;
-            font-size: 0.9rem; 
-        }
-        .nav-links .btn {
-            background-color: var(--primary-color);
-            color: var(--white);
-            box-shadow: 0 4px 14px rgba(67, 97, 238, 0.2);
-        }
-        /* .nav-links .btn .material-symbols-outlined {} (Empty rule, can be removed or used) */
-        .nav-links .btn:hover{
-            background-color: var(--primary-dark);
-            box-shadow: 0 6px 20px rgba(67, 97, 238, 0.3);
-            transform: translateY(-2px);
-        }
-        .nav-links .btn-outline {
-            background-color: transparent;
-            border: 2px solid var(--primary-color);
-            color: var(--primary-color);
-            box-shadow: none;
-        }
-        .nav-links .btn-outline:hover {
-            background-color: var(--primary-color);
-            color: var(--white);
-            transform: translateY(-2px);
-        }
 
         /* General Button Styles */
         .btn {
@@ -684,7 +579,7 @@ require_once "db.php";
                                 <img src="imgs/krystof1.jpg" alt="Kryštof Topinka"> 
                             </div>
                             <h3 class="member-name">Kryštof Topinka</h3>
-                            <p class="member-role">Backend Developer <span class="greySymbol">|</span> Database</p>
+                            <p class="member-role">Backend Developer <span class="greySymbol">|</span> Documentation <span class="greySymbol">|</span>Database</p>
                             <div class="member-social-links">
                                 <a href="#" target="_blank" title="Kryštof Topinka Instagram" aria-label="Kryštof Topinka Instagram"><i class="fab fa-instagram"></i></a>
                                 <a href="#" target="_blank" title="Kryštof Topinka LinkedIn" aria-label="Kryštof Topinka LinkedIn"><i class="fab fa-linkedin-in"></i></a>
@@ -696,7 +591,7 @@ require_once "db.php";
                                 <img src="imgs/IMG_2321.png" alt="Filip Elznic"> 
                             </div>
                             <h3 class="member-name">Filip Elznic</h3>
-                            <p class="member-role">Backend Developer <span class="greySymbol">|</span> Project Manager</p>
+                            <p class="member-role">Operating systems <span class="greySymbol">|</span> Project Manager</p>
                             <div class="member-social-links">
                                 <a href="#" target="_blank" title="Filip Elznic Instagram" aria-label="Filip Elznic Instagram"><i class="fab fa-instagram"></i></a>
                                 <a href="#" target="_blank" title="Filip Elznic LinkedIn" aria-label="Filip Elznic LinkedIn"><i class="fab fa-linkedin-in"></i></a>

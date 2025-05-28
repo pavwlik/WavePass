@@ -87,19 +87,24 @@ $user_dashboard_link = $base_path_for_page_links . "dashboard.php";
 
 // For linking to root dashboard from an admin page
 $user_dashboard_accessible_link = ($is_in_admin_folder ? $asset_prefix : $base_path_for_page_links) . "dashboard.php";
-
+$index_link = htmlspecialchars($asset_prefix . "index.php");
+$logo_path_for_img_tag = htmlspecialchars($asset_prefix . "imgs/logo.png");
 
 ?>
 <header>
     <div class="container">
-        <nav class="navbar">
-            <a href="<?php echo htmlspecialchars($asset_prefix); ?>index.php" class="logo"> 
-                Wave<span>Pass</span>
-                <?php if ($userRole === 'admin'): ?>
-                    <span class="admin-badge">Admin</span>
-                <?php endif; ?>
+    <nav class="navbar">
+            <a href="<?php echo $index_link; ?>" class="logo-block">
+                <img src="<?php echo $logo_path_for_img_tag; ?>" alt="WavePass Logo" class="logo-img">
+                <div class="logo-text-content"> 
+                    Wave<span>Pass</span>
+                    <?php if ($userRole === 'admin' && $sessionIsLoggedIn): ?>
+                        <span class="admin-badge-inline">ADMIN</span> 
+                    <?php endif; ?>
+                </div>
             </a>
-            <ul class="nav-links">
+
+            <ul class="nav-actions-group nav-links">
                 <?php if ($sessionIsLoggedIn): ?>
                     <?php if ($userRole === 'admin'): ?>
                         <?php // Links for Admin - adjust paths if admin files are in a subfolder or root ?>
@@ -109,21 +114,29 @@ $user_dashboard_accessible_link = ($is_in_admin_folder ? $asset_prefix : $base_p
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-users.php" class="<?php if ($currentPage === 'admin-manage-users.php' || $currentPage === 'admin-manage-employees.php') echo 'active-link'; ?>">Employees</a></li>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-absence.php" class="<?php if ($currentPage === 'admin-manage-absence.php') echo 'active-link'; ?>">Absences</a></li>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-messages.php?context=admin" class="<?php if ($currentPage === 'admin-messages.php' && isset($_GET['context']) && $_GET['context'] === 'admin') echo 'active-link'; ?>">Messages</a></li>
+                        <li>
+                        <?php // Profile link: if admin-profile.php is at root, use $asset_prefix to get there from /admin/ folder ?>
+                        <a href="<?php echo htmlspecialchars($asset_prefix); ?>admin/admin-profile.php?section=profile" class="<?php if ($currentPage === 'admin-profile.php') echo 'active-link'; ?>">
+                            <img src="<?php echo $profile_photo_url; ?>?<?php echo time(); ?>" alt="Profile" class="nav-user-photo">
+                            <?php echo $sessionFirstName; ?>
+                        </a>
+                    </li>
 
                     <?php else: // Employee Links ?>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-link'; ?>">My Dashboard</a></li>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>my_attendance_log.php" class="<?php if ($currentPage === 'my_attendance_log.php') echo 'active-link'; ?>">Attendance Log</a></li>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>absences.php" class="<?php if ($currentPage === 'absences.php') echo 'active-link'; ?>">Absence</a></li>
                         <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>messages.php" class="<?php if ($currentPage === 'messages.php' && (!isset($_GET['context']) || $_GET['context'] !== 'admin') ) echo 'active-link'; ?>">Messages</a></li>
+                        <li>
+                            <?php // Profile link: if admin-profile.php is at root, use $asset_prefix to get there from /admin/ folder ?>
+                            <a href="<?php echo htmlspecialchars($asset_prefix); ?>profile.php?section=profile" class="<?php if ($currentPage === 'admin-profile.php') echo 'active-link'; ?>">
+                                <img src="<?php echo $profile_photo_url; ?>?<?php echo time(); ?>" alt="Profile" class="nav-user-photo">
+                                <?php echo $sessionFirstName; ?>
+                            </a>
+                        </li>
                     <?php endif; ?>
                     
-                    <li>
-                        <?php // Profile link: if admin-profile.php is at root, use $asset_prefix to get there from /admin/ folder ?>
-                        <a href="<?php echo htmlspecialchars($asset_prefix); ?>admin-profile.php?section=profile" class="<?php if ($currentPage === 'admin-profile.php') echo 'active-link'; ?>">
-                            <img src="<?php echo $profile_photo_url; ?>?<?php echo time(); ?>" alt="Profile" class="nav-user-photo">
-                            <?php echo $sessionFirstName; ?>
-                        </a>
-                    </li>
+
                     <li><a href="<?php echo htmlspecialchars($logout_path); ?>" class="btn"><span class="material-symbols-outlined">logout</span> Logout</a></li>
                 <?php else: // Guest Links ?>
                     <li><a href="<?php echo htmlspecialchars($asset_prefix); ?>index.php#features" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#features') !== false) echo 'active-link'; ?>">Features</a></li>
@@ -146,19 +159,28 @@ $user_dashboard_accessible_link = ($is_in_admin_folder ? $asset_prefix : $base_p
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-users.php" class="<?php if ($currentPage === 'admin-manage-users.php' || $currentPage === 'admin-manage-employees.php') echo 'active-link'; ?>">Employees</a></li>
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-manage-absence.php" class="<?php if ($currentPage === 'admin-manage-absence.php') echo 'active-link'; ?>">Absences</a></li>
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>admin-messages.php?context=admin" class="<?php if ($currentPage === 'admin-messages.php' && isset($_GET['context']) && $_GET['context'] === 'admin') echo 'active-link'; ?>">Messages</a></li>
+                    <li>
+                    <?php // Profile link: if admin-profile.php is at root, use $asset_prefix to get there from /admin/ folder ?>
+                    <a href="<?php echo htmlspecialchars($asset_prefix); ?>admin/admin-profile.php?section=profile" class="<?php if ($currentPage === 'admin-profile.php') echo 'active-link'; ?>">
+                        <img src="<?php echo $profile_photo_url; ?>?<?php echo time(); ?>" alt="Profile" class="nav-user-photo">
+                        <?php echo $sessionFirstName; ?>
+                    </a>
+                    </li>
 
                 <?php else: // Employee Links ?>
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>dashboard.php" class="<?php if ($currentPage === 'dashboard.php') echo 'active-link'; ?>">My Dashboard</a></li>
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>my_attendance_log.php" class="<?php if ($currentPage === 'my_attendance_log.php') echo 'active-link'; ?>">Attendance Log</a></li>
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>absences.php" class="<?php if ($currentPage === 'absences.php') echo 'active-link'; ?>">Absence</a></li>
                     <li><a href="<?php echo htmlspecialchars($base_path_for_page_links); ?>messages.php" class="<?php if ($currentPage === 'messages.php' && (!isset($_GET['context']) || $_GET['context'] !== 'admin') ) echo 'active-link'; ?>">Messages</a></li>
-                <?php endif; ?>
-                <li class="nav-item-profile">
-                        <a href="<?php echo htmlspecialchars($asset_prefix . 'admin-profile.php?section=profile'); ?>" class="profile-link <?php if ($currentPage === 'admin-profile.php') echo 'active-link'; ?>">
-                            <img src="<?php echo $profile_photo_url; ?>?<?php echo time(); /* Cache buster */ ?>" alt="Profile" class="nav-user-photo">
-                            <span class="nav-user-name"><?php echo $sessionFirstName; ?></span>
+                    <li>
+                        <?php // Profile link: if admin-profile.php is at root, use $asset_prefix to get there from /admin/ folder ?>
+                        <a href="<?php echo htmlspecialchars($asset_prefix); ?>profile.php?section=profile" class="<?php if ($currentPage === 'admin-profile.php') echo 'active-link'; ?>">
+                            <img src="<?php echo $profile_photo_url; ?>?<?php echo time(); ?>" alt="Profile" class="nav-user-photo">
+                            <?php echo $sessionFirstName; ?>
                         </a>
                     </li>
+                <?php endif; ?>
+
                 <li><a href="<?php echo htmlspecialchars($logout_path); ?>" class="btn"><span class="material-symbols-outlined">logout</span> Log out</a></li>
             <?php else: // Guest Links ?>
                 <li><a href="<?php echo htmlspecialchars($asset_prefix); ?>index.php#features" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#features') !== false) echo 'active-link'; ?>">Features</a></li>
@@ -191,76 +213,85 @@ $user_dashboard_accessible_link = ($is_in_admin_folder ? $asset_prefix : $base_p
 header {
     background-color: var(--white);
     box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    position: fixed; /* Důležité pro header, který zůstává nahoře */
+    position: fixed;
     width: 100%;
     top: 0;
-    left: 0; /* Přidáno pro plnou šířku */
+    left: 0;
     z-index: 1000;
-    height: 80px; /* Explicitní výška headeru */
+    height: 80px;
 }
-
 
 .container {
     max-width: 1400px;
     margin: 0 auto;
     padding: 0 20px;
-    height: 100%; /* Aby .navbar mohl být vertikálně centrován */
+    height: 100%;
 }
 
 .navbar {
     display: flex;
-    justify-content: space-between;
+    justify-content: space-between; /* KĽÚČOVÁ ZMENA */
     align-items: center;
-    /* padding: 1rem 0;  Odstraněno, výška se řeší na headeru a containeru */
-    height: 100%; /* Navbar zabere celou výšku headeru */
+    height: 100%;
 }
 
-.logo {
+.logo-block { /* Obal pre obrázok loga, text a admin badge */
+    display: flex;
+    align-items: center;
+    text-decoration: none; /* Odstráni podčiarknutie z odkazu */
+}
+
+.logo-img {
+    height: 35px; 
+    width: auto;
+    margin-right: 0.5rem; /* Menšie odsadenie, ak je admin badge blízko */
+}
+
+.logo-text-content { /* Div pre text "WavePass" a "ADMIN" badge */
+    display: flex;
+    align-items: baseline; /* Zarovná text a badge na účaŕu */
     font-size: 1.8rem;
     font-weight: 800;
     color: var(--primary-color);
-    text-decoration: none;
-    display: flex;
-    align-items: center; /* Vertikální centrování obsahu loga */
-    gap: 0.5rem;
 }
 
-.logo i { /* Pokud používáte FontAwesome pro logo */
-    font-size: 1.5rem; /* Můžete upravit velikost ikony */
-    /* vertical-align: middle; Není potřeba, pokud je rodič flex a align-items: center */
-}
-.logo img.logo-img { /* Pokud používáte obrázek v logu */
-    height: 35px; /* Upravte dle potřeby */
-    width: auto;
-    margin-right: 0.6rem;
-}
-
-
-.logo span {
+.logo-text-content span { /* Pre "Pass" časť */
     color: var(--dark-color);
     font-weight: 600;
 }
 
-.admin-badge {
-    font-size: 0.75rem;
-    font-weight: 600;
+.admin-badge-inline { /* Badge umiestnený priamo pri logu */
+    font-size: 0.65rem; /* Ešte menší pre lepšie zapadnutie */
+    font-weight: 700;
     color: var(--white);
     background-color: var(--primary-color);
-    padding: 3px 7px;
+    padding: 3px 6px;
     border-radius: 4px;
-    margin-left: 0.6rem;
-    vertical-align: middle; /* Pro lepší zarovnání s textem, pokud není flex */
+    margin-left: 0.7rem; 
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    line-height: 1; 
+    align-self: center; /* Pre lepšie vertikálne zarovnanie s väčším textom loga */
+}
+
+.nav-actions-group { /* Obal pre navigačné odkazy a hamburger na pravej strane */
+    display: flex;
+    align-items: center;
+    gap: 1rem; /* Odsadenie medzi ul.nav-links a .hamburger */
 }
 
 .nav-links {
     display: flex;
     list-style: none;
-    align-items: center; /* Vertikální centrování všech položek v nav-links */
-    gap: 0.5rem; /* Odsazení mezi položkami */
-    margin: 0; /* Reset marginu */
-    padding: 0; /* Reset paddingu */
+    align-items: center;
+    gap: 0.5rem; 
+    margin: 0;
+    padding: 0;
+}
+
+.nav-links li {
+    display: flex;
+    align-items: center;
 }
 
 .nav-links li { /* Přidáno pro lepší kontrolu nad položkami seznamu */
