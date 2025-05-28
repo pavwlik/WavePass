@@ -25,7 +25,7 @@ $todayDate = date('Y-m-d');
 // Cesty pre profilové fotky
 $profilePhotoBaseDir_server = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'profile_photos' . DIRECTORY_SEPARATOR;
 $profilePhotoBaseDir_web = $pathPrefix . 'profile_photos/';
-$defaultAvatar_web = $pathPrefix . 'imgs/default_avatar.jpg'; // Uistite sa, že tento obrázok existuje
+$defaultAvatar_web = $pathPrefix . 'imgs/default_avatar.png'; // Uistite sa, že tento obrázok existuje
 
 $totalUsers = 0;
 $usersPresentToday = 0;

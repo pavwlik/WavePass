@@ -25,7 +25,7 @@ $users = [];
 // Cesty pre profilové fotky
 $profilePhotoBaseDir_server = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'profile_photos' . DIRECTORY_SEPARATOR; // Serverová cesta pre file_exists
 $profilePhotoBaseDir_web = $pathPrefix . 'profile_photos/'; // Webová cesta pre src atribut
-$defaultAvatar_web = $pathPrefix . 'imgs/default_avatar.jpg'; // Webová cesta pre default avatar
+$defaultAvatar_web = $pathPrefix . 'imgs/default_avatar.png'; // Webová cesta pre default avatar
 
 
 // --- ACTION HANDLING (ADD, DELETE USER) ---

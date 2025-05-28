@@ -45,7 +45,7 @@
             </div>
             
             <div class="footer-bottom">
-                <p>© <?php echo date("Y"); ?> WavePass All rights reserved. | <a href="privacy.php">Privacy Policy</a> | <a href="terms.php">Terms of Service</a></p>
+                <p>© <?php echo date("Y"); ?> Pavel Bureš All rights reserved. | <a href="privacy.php">Privacy Policy</a> | <a href="terms.php">Terms of Service</a></p>
             </div>
         </div>
     </footer>

@@ -232,7 +232,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <div class="login-options">
                     <a href="forgot-password.php">Forgot Password?</a>
                     <span class="separator">|</span>
-                    <a href="register.php">Don't have an account?</a>
+                    <a href="get-started.php">Don't have an account?</a>
                 </div>
             </div>
         </section>

@@ -161,6 +161,10 @@ if (isset($pdo) && $pdo instanceof PDO) {
 
 $currentPage = basename($_SERVER['PHP_SELF']);
 ?>
+
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -170,7 +174,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <title>Admin Dashboard - WavePass</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
+
+<style>
         :root {
             --primary-color: #4361ee; --primary-dark: #3a56d4; --secondary-color: #3f37c9;
             --primary-color-rgb: 67, 97, 238;
@@ -193,7 +198,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         }
         main { flex-grow: 1; padding-top: 80px; }
         
-
+        
 
         @media (max-width: 992px) { 
             .nav-links { display: none; } 
@@ -290,41 +295,13 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             color: var(--gray-color);
         }
 
-        /* Footer styles */
-        footer { background-color: var(--dark-color); color: var(--white); padding: 3rem 0 2rem; margin-top:auto; }
-        .footer-content { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
-        .footer-column h3 { font-size: 1.2rem; margin-bottom: 1.2rem; position: relative; padding-bottom: 0.6rem; }
-        .footer-column h3::after { content: ''; position: absolute; left: 0; bottom: 0; width: 40px; height: 2px; background-color: var(--primary-color); border-radius: 3px; }
-        .footer-links { list-style: none; padding:0; } .footer-links li { margin-bottom: 0.6rem; }
-        .footer-links a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); font-size: 0.9rem; display: inline-block; padding: 0.1rem 0; }
-        .footer-links a:hover { color: var(--white); transform: translateX(4px); }
-        .footer-links a i { margin-right: 0.4rem; width: 18px; text-align: center; } 
-        .social-links { display: flex; gap: 1rem; margin-top: 1rem; padding:0; }
-        .social-links a { display: inline-flex; align-items: center; justify-content: center; width: 35px; height: 35px; background-color: rgba(255, 255, 255, 0.1); color: var(--white); border-radius: 50%; font-size: 1rem; transition: var(--transition); }
-        .social-links a:hover { background-color: var(--primary-color); transform: translateY(-2px); }
-        .footer-bottom { text-align: center; padding-top: 2rem; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.85rem; color: rgba(255, 255, 255, 0.6); }
-        .footer-bottom a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); }
-        .footer-bottom a:hover { color: var(--primary-color); }
 
     </style>
 </head>
+
 <body>
-    <?php 
-        // Dynamické načítání headeru na základě role
-        $header_to_load = 'components/header-admin.php'; // Výchozí pro admina
-        // Předpoklad: admin-dashboard.php je v rootu nebo ve složce 'admin'
-        // Pokud je ve složce admin, cesta k 'components' je '../components/'
-        if (strpos($_SERVER['PHP_SELF'], '/admin/') !== false) { // Jsme ve složce /admin/
-            $header_to_load = '../components/header-admin.php';
-        }
-        
-        if (file_exists($header_to_load)) {
-            require_once $header_to_load;
-        } else {
-            echo "<!-- Header file not found at: " . htmlspecialchars($header_to_load) . " -->";
-            // Fallback or error handling
-        }
-    ?> 
+    <?php require "../components/header-admin.php" ?>
+
     <main>
         <div class="page-header">
             <div class="container">
@@ -532,3 +509,5 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     </script>
 </body>
 </html>
+
+

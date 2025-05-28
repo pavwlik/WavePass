@@ -52,14 +52,14 @@ if ($is_in_admin_folder) {
 
 // --- Profile Photo URL Construction ---
 $profile_upload_dir_from_root = 'profile_photos/';
-$default_avatar_filename = 'default_avatar.jpg';
+$default_avatar_filename = 'default_avatar.png';
 
 $web_profile_photos_path_resolved = htmlspecialchars($asset_prefix . $profile_upload_dir_from_root);
 $profile_photo_url = $web_profile_photos_path_resolved . $default_avatar_filename;
 
 if ($sessionIsLoggedIn && isset($_SESSION["profile_photo"]) && !empty($_SESSION["profile_photo"])) {
     $current_photo_filename = basename($_SESSION["profile_photo"]);
-    // Ensure we don't try to use default_avatar.jpg if it's already the one in session
+    // Ensure we don't try to use default_avatar.png if it's already the one in session
     // though the logic below handles it, this is just a note.
     $profile_photo_url = $web_profile_photos_path_resolved . htmlspecialchars($current_photo_filename);
 }
@@ -473,7 +473,7 @@ header {
 }
 
 
-@media (max-width: 992px) { /* Změna breakpointu, pokud chcete menu dříve */
+@media (max-width: 1264px) { /* Změna breakpointu, pokud chcete menu dříve */
     .nav-links { display: none; }
     .hamburger { display: flex; /* Zobrazení hamburgeru */ }
 }

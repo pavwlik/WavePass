@@ -7,7 +7,6 @@ if (session_status() == PHP_SESSION_NONE) {
 }
 
 // --- AJAX REQUEST HANDLING FOR LATE DEPARTURE ---
-// ... (AJAX kód zostáva ako v predchádzajúcej odpovedi alebo vašom origináli) ...
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) && 
     ($_POST['action'] === 'submit_late_departure' || $_POST['action'] === 'cancel_late_departure')) {
     
@@ -54,8 +53,29 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) &&
         }
         $planned_departure_time_db = date("H:i:s", strtotime($planned_departure_time_str));
 
+        // Addition: Check if user is present if this is a NEW submission
+        $stmtCheckPresenceForNew = $pdo->prepare("SELECT logType, logResult FROM attendance_logs WHERE userID = :userid AND DATE(logTime) = :today_date ORDER BY logTime DESC LIMIT 1");
+        $stmtCheckPresenceForNew->execute([':userid' => $userID, ':today_date' => $todayDateForAction]);
+        $latestEventForPresence = $stmtCheckPresenceForNew->fetch(PDO::FETCH_ASSOC);
+        $isActuallyPresent = ($latestEventForPresence && $latestEventForPresence['logType'] == 'entry' && $latestEventForPresence['logResult'] == 'granted');
+        $stmtCheckPresenceForNew->closeCursor();
+
+        $stmtCheckExisting = $pdo->prepare("SELECT notificationID FROM late_departure_notifications WHERE userID = :userID AND notification_date = :notification_date");
+        $stmtCheckExisting->execute([':userID' => $userID, ':notification_date' => $todayDateForAction]);
+        $existingNotificationCheck = $stmtCheckExisting->fetch(PDO::FETCH_ASSOC);
+        $stmtCheckExisting->closeCursor();
+
+        if (!$existingNotificationCheck && !$isActuallyPresent) { // If it's a new notification AND user is not present
+            http_response_code(403); // Forbidden
+            $response['message'] = 'You must be currently present to notify a new late exit.';
+            echo json_encode($response);
+            exit;
+        }
+        // End Addition
+
         try {
             $pdo->beginTransaction();
+            // Re-fetch existing notification inside transaction to be safe from race conditions if needed, though less critical here.
             $stmtCheck = $pdo->prepare("SELECT notificationID FROM late_departure_notifications WHERE userID = :userID AND notification_date = :notification_date");
             $stmtCheck->execute([':userID' => $userID, ':notification_date' => $todayDateForAction]);
             $existingNotification = $stmtCheck->fetch(PDO::FETCH_ASSOC);
@@ -74,6 +94,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) &&
                 ]);
                 $response['message'] = 'Late departure notification updated successfully!';
             } else {
+                // This 'else' block for new insertion will now only be reached if user is present (checked above)
                 $stmt = $pdo->prepare(
                     "INSERT INTO late_departure_notifications (userID, notification_date, planned_departure_time, notes)
                      VALUES (:userID, :notification_date, :planned_departure_time, :notes)"
@@ -123,7 +144,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) &&
 // --- REGULAR PAGE LOAD LOGIC ---
 if (!file_exists('db.php')) {
     $dbErrorMessage = "Critical error: Database configuration file (db.php) not found. Please contact support.";
-    // V produkcii by tu mal byť krajší spôsob ošetrenia chyby
     die($dbErrorMessage); 
 }
 require_once 'db.php'; 
@@ -140,14 +160,14 @@ $todayDate = date('Y-m-d');
 $todayDateTime = date('Y-m-d H:i:s');
 
 $rfidStatus = "Status Unknown"; 
-$rfidStatusClass = "neutral";
+$rfidStatusClass = "neutral"; // e.g., 'present', 'absent', 'neutral', 'danger'
 $absencesThisMonthCountDisplay = "0 Days Approved";
 $unreadMessagesCount = 0; 
 $upcomingLeaveDisplay = "None upcoming"; 
 $activityForSelectedDate = [];
 $dbErrorMessage = null;
 $currentUserData = null; 
-$existingLateDeparture = null; 
+$existingLateDeparture = null;
 
 if (!isset($pdo) || !($pdo instanceof PDO)) {
     $dbErrorMessage = "Database connection is not available. Please check server configuration.";
@@ -161,26 +181,60 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
         $currentUserData = $stmtUserMeta->fetch(PDO::FETCH_ASSOC);
         $stmtUserMeta->closeCursor();
 
-        // 2. DETERMINE CURRENT PRESENCE STATUS (Logika zostáva rovnaká)
-        $stmtLatestEvent = $pdo->prepare("SELECT logType, logResult FROM attendance_logs WHERE userID = :userid AND DATE(logTime) = :today_date ORDER BY logTime DESC LIMIT 1");
+        // 2. DETERMINE CURRENT PRESENCE STATUS
+        $stmtLatestEvent = $pdo->prepare("SELECT logTime, logType, logResult FROM attendance_logs WHERE userID = :userid AND DATE(logTime) = :today_date ORDER BY logTime DESC LIMIT 1");
         $stmtLatestEvent->execute([':userid' => $sessionUserId, ':today_date' => $todayDate]);
         $latestEvent = $stmtLatestEvent->fetch(PDO::FETCH_ASSOC);
         $stmtLatestEvent->closeCursor();
+
         if ($latestEvent) {
-            if ($latestEvent['logType'] == 'entry' && $latestEvent['logResult'] == 'granted') { $rfidStatus = "Present"; $rfidStatusClass = "present"; }
-            elseif ($latestEvent['logType'] == 'exit' && $latestEvent['logResult'] == 'granted') { $rfidStatus = "Checked Out"; $rfidStatusClass = "absent"; }
-            elseif ($latestEvent['logResult'] == 'denied') { $rfidStatus = ($latestEvent['logType'] == 'entry' ? "entry Denied" : "Exit Denied"); $rfidStatusClass = "danger"; }
-            else { $rfidStatus = "Status Unknown"; $rfidStatusClass = "neutral"; }
+            if ($latestEvent['logType'] == 'entry' && $latestEvent['logResult'] == 'granted') {
+                $rfidStatus = "Present"; $rfidStatusClass = "present";
+            } elseif ($latestEvent['logType'] == 'exit' && $latestEvent['logResult'] == 'granted') {
+                $rfidStatus = "Checked Out"; $rfidStatusClass = "absent";
+
+                $stmtCheckPlannedLate = $pdo->prepare(
+                    "SELECT planned_departure_time FROM late_departure_notifications 
+                     WHERE userID = :userid AND notification_date = :today_date LIMIT 1"
+                );
+                $stmtCheckPlannedLate->execute([':userid' => $sessionUserId, ':today_date' => $todayDate]);
+                $plannedLateInfo = $stmtCheckPlannedLate->fetch(PDO::FETCH_ASSOC);
+                $stmtCheckPlannedLate->closeCursor();
+
+                if ($plannedLateInfo) {
+                    $actualCheckoutTimeStr = date("H:i:s", strtotime($latestEvent['logTime']));
+                    $actualCheckoutTimeSeconds = strtotime($actualCheckoutTimeStr);
+                    $plannedDepartureTimeSeconds = strtotime($plannedLateInfo['planned_departure_time']);
+
+                    if ($actualCheckoutTimeSeconds < $plannedDepartureTimeSeconds) {
+                        $stmtCancelLateAuto = $pdo->prepare(
+                            "DELETE FROM late_departure_notifications 
+                             WHERE userID = :userid AND notification_date = :today_date"
+                        );
+                        $stmtCancelLateAuto->execute([':userid' => $sessionUserId, ':today_date' => $todayDate]);
+                    }
+                }
+            } elseif ($latestEvent['logResult'] == 'denied') {
+                $rfidStatus = ($latestEvent['logType'] == 'entry' ? "entry Denied" : "Exit Denied");
+                $rfidStatusClass = "danger";
+            } else {
+                $rfidStatus = "Status Unknown"; $rfidStatusClass = "neutral";
+            }
         } else {
             $stmtScheduledAbsenceToday = $pdo->prepare("SELECT absence_type FROM absence WHERE userID = :userid AND :today_date_time BETWEEN absence_start_datetime AND absence_end_datetime AND status = 'approved' LIMIT 1");
             $stmtScheduledAbsenceToday->execute([':userid' => $sessionUserId, ':today_date_time' => $todayDateTime]);
             $scheduledAbsence = $stmtScheduledAbsenceToday->fetch(PDO::FETCH_ASSOC);
             $stmtScheduledAbsenceToday->closeCursor();
-            if ($scheduledAbsence) { $absenceTypeDisplay = ucfirst(str_replace('_', ' ', $scheduledAbsence['absence_type'])); $rfidStatus = "Scheduled " . htmlspecialchars($absenceTypeDisplay); $rfidStatusClass = "absent"; }
-            else { $rfidStatus = "Not Checked In"; $rfidStatusClass = "neutral"; }
+            if ($scheduledAbsence) {
+                $absenceTypeDisplay = ucfirst(str_replace('_', ' ', $scheduledAbsence['absence_type']));
+                $rfidStatus = "Scheduled " . htmlspecialchars($absenceTypeDisplay);
+                $rfidStatusClass = "absent";
+            } else {
+                $rfidStatus = "Not Checked In"; $rfidStatusClass = "neutral";
+            }
         }
 
-        // 3. APPROVED ABSENCES THIS MONTH (Logika zostáva rovnaká)
+        // 3. APPROVED ABSENCES THIS MONTH
         $currentMonthStart = date('Y-m-01 00:00:00'); $currentMonthEnd = date('Y-m-t 23:59:59');
         $stmtAbsenceCount = $pdo->prepare("SELECT COUNT(DISTINCT DATE(absence_start_datetime)) FROM absence WHERE userID = :userid AND status = 'approved' AND (absence_start_datetime <= :month_end AND absence_end_datetime >= :month_start)");
         $stmtAbsenceCount->execute([':userid' => $sessionUserId, ':month_start' => $currentMonthStart, ':month_end' => $currentMonthEnd]);
@@ -188,20 +242,20 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
         $absencesThisMonthCountDisplay = $absencesThisMonthCountValue ? $absencesThisMonthCountValue . ($absencesThisMonthCountValue == 1 ? " Day" : " Days") . " Approved" : "0 Days Approved";
         $stmtAbsenceCount->closeCursor();
 
-        // 4. UNREAD MESSAGES COUNT (Logika zostáva rovnaká)
+        // 4. UNREAD MESSAGES COUNT
         $stmtUnread = $pdo->prepare("SELECT COUNT(DISTINCT m.messageID) FROM messages m LEFT JOIN user_message_read_status umrs ON m.messageID = umrs.messageID AND umrs.userID = :current_user_id_for_read_status WHERE m.is_active = TRUE AND (m.expires_at IS NULL OR m.expires_at > NOW()) AND (m.recipientID = :current_user_id_recipient OR m.recipientRole = :current_user_role OR m.recipientRole = 'everyone') AND (umrs.is_read IS NULL OR umrs.is_read = 0)");
         $stmtUnread->execute([':current_user_id_for_read_status' => $sessionUserId, ':current_user_id_recipient' => $sessionUserId, ':current_user_role' => $sessionRole]);
         $unreadMessagesCount = (int)$stmtUnread->fetchColumn();
         $stmtUnread->closeCursor();
 
-        // 5. UPCOMING LEAVE (Logika zostáva rovnaká)
+        // 5. UPCOMING LEAVE
         $stmtUpcomingLeave = $pdo->prepare("SELECT absence_type, absence_start_datetime FROM absence WHERE userID = :userid AND status = 'approved' AND absence_start_datetime > :now ORDER BY absence_start_datetime ASC LIMIT 1");
         $stmtUpcomingLeave->execute([':userid' => $sessionUserId, ':now' => $todayDateTime]);
         $upcoming = $stmtUpcomingLeave->fetch(PDO::FETCH_ASSOC);
         if ($upcoming) { $leaveType = ucfirst(str_replace('_', ' ', $upcoming['absence_type'])); $leaveDate = date("M d, Y", strtotime($upcoming['absence_start_datetime'])); $upcomingLeaveDisplay = htmlspecialchars($leaveType) . " on " . $leaveDate; }
         $stmtUpcomingLeave->closeCursor();
 
-        // Fetch existing late departure notification (Logika zostáva rovnaká)
+        // Fetch existing late departure notification (reflects auto-cancellation)
         $stmtExistingLate = $pdo->prepare("SELECT planned_departure_time, notes FROM late_departure_notifications WHERE userID = :userid AND notification_date = :today_date LIMIT 1");
         $stmtExistingLate->execute([':userid' => $sessionUserId, ':today_date' => $todayDate]);
         $existingLateDeparture = $stmtExistingLate->fetch(PDO::FETCH_ASSOC);
@@ -218,14 +272,12 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
             ];
         }
         
-        // ========== ÚPRAVA SQL DOTAZU PRE ACTIVITY LOG ==========
         $stmtActivityLog = $pdo->prepare(
             "SELECT al.logTime, al.logType, al.logResult, al.rfid_uid_used 
             FROM attendance_logs al
             WHERE al.userID = :userid AND DATE(al.logTime) = :selected_date 
-            ORDER BY al.logTime ASC"
+            ORDER BY al.logTime ASC" // Changed to ASC for chronological display, will be reversed by usort later if needed for latest first.
         );
-        // ======================================================
         $stmtActivityLog->execute([':userid' => $sessionUserId, ':selected_date' => $selectedDate]);
         while ($log = $stmtActivityLog->fetch(PDO::FETCH_ASSOC)) {
             $logTypeDisplay = 'Unknown'; $statusClass = 'neutral';
@@ -237,7 +289,7 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
                 'log_type' => htmlspecialchars($logTypeDisplay), 
                 'log_result' => htmlspecialchars(ucfirst($log['logResult'] ?? 'N/A')), 
                 'details' => 'Attempted access.', 
-                'rfid_card_uid' => !empty($log['rfid_uid_used']) ? htmlspecialchars($log['rfid_uid_used']) : 'N/A', // Použitie rfid_uid_used
+                'rfid_card_uid' => !empty($log['rfid_uid_used']) ? htmlspecialchars($log['rfid_uid_used']) : 'N/A',
                 'status_class' => $statusClass
             ];
         }
@@ -265,7 +317,7 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
                 $absenceTypeDetailForMsg = htmlspecialchars(ucfirst(str_replace('_',' ',$selectedDayAbsenceInfo['absence_type'])));
                 $activityForSelectedDate[] = ['time' => '--:--', 'log_type' => 'Scheduled Absence', 'log_result' => htmlspecialchars($absenceTypeDetailForMsg), 'details' => (!empty($selectedDayAbsenceInfo['reason']) ? 'Reason: '.htmlspecialchars($selectedDayAbsenceInfo['reason']) : 'Approved absence'), 'rfid_card_uid' => 'N/A', 'status_class' => 'absent'];
             } else {
-                if(empty($activityForSelectedDate)) {
+                if(empty($activityForSelectedDate)) { // Ensure this check is within the 'else' of $selectedDayAbsenceInfo
                     $activityForSelectedDate[] = ['time' => '--:--', 'log_type' => 'No Record', 'log_result' => 'N/A', 'details' => 'No attendance events or approved absences logged for this day.', 'rfid_card_uid' => 'N/A', 'status_class' => 'neutral'];
                 }
             }
@@ -273,9 +325,12 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
         
         if (!empty($activityForSelectedDate)) {
             usort($activityForSelectedDate, function($a, $b) {
-                if ($a['time'] === '--:--' && $b['time'] !== '--:--') return -1;
-                if ($a['time'] !== '--:--' && $b['time'] === '--:--') return 1;
-                if ($a['time'] === '--:--' && $b['time'] === '--:--') return 0;
+                // Handle '--:--' times to ensure they appear correctly (e.g., at the top or bottom based on preference)
+                if ($a['time'] === '--:--' && $b['time'] !== '--:--') return -1; // '--:--' comes before actual times
+                if ($a['time'] !== '--:--' && $b['time'] === '--:--') return 1;  // Actual times come after '--:--'
+                if ($a['time'] === '--:--' && $b['time'] === '--:--') return 0;  // Both are '--:--'
+                
+                // Sort by actual time, descending (latest first)
                 return strtotime($b['time']) - strtotime($a['time']);
             });
         }
@@ -338,7 +393,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         main { 
             flex-grow: 1; 
             background-color: #f4f6f9; 
-            /* padding-top už je na body, zde není potřeba, pokud main není sám o sobě posunutý */
         }
         .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
         h1, h2, h3, h4 { font-weight: 700; line-height: 1.2; }
@@ -385,8 +439,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             padding: 1.5rem 0; 
             background-color:var(--white); 
             box-shadow: 0 1px 3px rgba(0,0,0,0.03); 
-            /* NENÍ FIXNÍ - bude součástí toku pod hlavním headerem */
-            /* margin-bottom: 1.8rem; Ponecháno, pokud je pod ním další obsah */
         }
         .page-header h1 { font-size: 1.7rem; color: var(--dark-color); margin: 0; }
         .page-header .sub-heading { font-size: 0.9rem; color: var(--gray-color); }
@@ -397,7 +449,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             display: grid; 
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
             gap: 1.2rem; 
-            margin-top: 1.8rem; /* Odsazení od .page-header, pokud není fixní */
+            margin-top: 1.8rem;
             margin-bottom: 2.5rem; 
         }
         .stat-card { background-color: var(--white); padding: 1.2rem 1.4rem; border-radius: 8px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 1.2rem; transition: var(--transition); border: 1px solid var(--light-gray); position:relative; overflow:hidden;}
@@ -427,7 +479,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .stat-card.action-card::before { background-color: var(--primary-color); }
         .stat-card.action-card .icon { background-color: rgba(var(--primary-color-val),0.1); color: var(--primary-color); }
         .btn-action-card { background-color: var(--primary-color); color: var(--white); border: none; padding: 0.7rem 1.3rem; border-radius: 6px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: var(--transition); display: inline-block; text-align: center; margin-bottom: 0.4rem;}
-        .btn-action-card:hover { background-color: var(--primary-dark); transform: translateY(-2px); box-shadow: 0 4px 10px rgba(var(--primary-color-val), 0.2);}
+        .btn-action-card:hover:not(:disabled) { background-color: var(--primary-dark); transform: translateY(-2px); box-shadow: 0 4px 10px rgba(var(--primary-color-val), 0.2);}
+        .btn-action-card:disabled { background-color: var(--gray-color); cursor: not-allowed; opacity: 0.7; }
         .stat-card.action-card .info .label { font-size: 0.8rem; color: var(--gray-color); margin-top: 0.2rem; text-transform: none; letter-spacing: normal;}
         .btn-action-card.btn-edit-late { background-color: var(--warning-color); color: var(--dark-color); font-size: 0.85rem; padding: 0.6rem 1rem;}
         .btn-action-card.btn-edit-late:hover { background-color: #e7860a; }
@@ -460,9 +513,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             white-space: nowrap; 
         }
         .activity-status .material-symbols-outlined {
-            font-size: 1.1em; /* Velikost ikony relativní k textu statusu */
-            /* Není třeba explicitně nastavovat barvu, měla by se zdědit z rodiče .activity-status */
-            /* vertical-align: middle; - pro flexbox není obvykle potřeba */
+            font-size: 1.1em; 
         }
 
         .activity-status.present { background-color: rgba(var(--present-color-val), 0.15); color: var(--present-color); } 
@@ -491,11 +542,13 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .modal-actions {margin-top: 2rem; display: flex; justify-content: flex-end; gap: 0.8rem;}
         .modal-actions .btn-submit, .modal-actions .btn-cancel, .modal-actions .btn-danger {padding: 0.7rem 1.4rem; border-radius: 6px; font-weight: 500; cursor: pointer; transition: var(--transition); border: none; font-size: 0.9rem;}
         .modal-actions .btn-submit {background-color: var(--primary-color); color: var(--white); box-shadow: 0 2px 5px rgba(var(--primary-color-val), 0.2);}
-        .modal-actions .btn-submit:hover {background-color: var(--primary-dark); box-shadow: 0 4px 8px rgba(var(--primary-color-val), 0.3); transform: translateY(-1px);}
+        .modal-actions .btn-submit:hover:not(:disabled) {background-color: var(--primary-dark); box-shadow: 0 4px 8px rgba(var(--primary-color-val), 0.3); transform: translateY(-1px);}
+        .modal-actions .btn-submit:disabled { background-color: var(--gray-color); cursor: not-allowed; }
         .modal-actions .btn-cancel {background-color: var(--light-gray); color: var(--dark-color); border: 1px solid #d3d9df;}
         .modal-actions .btn-cancel:hover {background-color: #d3d9df; }
         .modal-actions .btn-danger.btn-cancel-late { background-color: var(--danger-color); color: var(--white); margin-right: auto; }
-        .modal-actions .btn-danger.btn-cancel-late:hover { background-color: #d4166a; }
+        .modal-actions .btn-danger.btn-cancel-late:hover:not(:disabled) { background-color: #d4166a; }
+        .modal-actions .btn-danger.btn-cancel-late:disabled { background-color: var(--gray-color); cursor: not-allowed; }
         .form-message {margin-top: 1rem; padding: 0.8rem 1rem; border-radius: 5px; font-size: 0.9rem; display: none; border-left-width: 4px; border-left-style: solid;}
         .form-message.success {background-color: rgba(var(--present-color-val), 0.1); color: var(--present-color); border-left-color: var(--present-color); display: block;}
         .form-message.error {background-color: rgba(var(--danger-color-val), 0.1); color: var(--danger-color); border-left-color: var(--danger-color); display: block;}
@@ -506,14 +559,13 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <?php require "components/header-admin.php"; ?>
 
     <main>
-        <div class="page-header"> <!-- This .page-header is NOT fixed by default -->
+        <div class="page-header">
             <div class="container">
                 <h1>Hello, <?php echo $sessionFirstName; ?>!</h1>
                 <p class="sub-heading">Your personal attendance summary and daily activity.</p>
             </div>
         </div>
 
-        <!-- This container holds the stats grid and the activity panel -->
         <div class="container content-wrapper"> 
             <?php if (isset($dbErrorMessage) && $dbErrorMessage): ?>
                 <div class="db-error-message" role="alert" style="grid-column: 1 / -1;"> 
@@ -562,9 +614,15 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                 </small>
                             <?php endif; ?>
                             <button id="editLateDepartureBtn" class="btn-action-card btn-edit-late">Change / Cancel</button>
-                        <?php else: ?>
-                            <button id="notifyLateDepartureBtn" class="btn-action-card">Notify Late Exit</button>
-                            <span class="label">Staying past 15:30? Let us know.</span>
+                        <?php else: // No existing late departure notification ?>
+                            <button id="notifyLateDepartureBtn" class="btn-action-card" <?php if ($rfidStatusClass !== 'present') echo 'disabled title="You must be checked in to notify a new late exit."'; ?>>Notify Late Exit</button>
+                            <span class="label">
+                                <?php if ($rfidStatusClass !== 'present'): ?>
+                                    You must be checked in to notify a new late exit.
+                                <?php else: ?>
+                                    Staying past 15:30? Let us know.
+                                <?php endif; ?>
+                            </span>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -613,7 +671,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                         </td>
                                         <td><?php echo htmlspecialchars($activity['log_result'] ?? 'N/A'); ?></td>
                                         <td><?php echo htmlspecialchars($activity['details'] ?? 'N/A'); ?></td>
-                                        <td class="rfid-cell"><?php echo htmlspecialchars($activity['rfid_card_uid'] ?? 'N/A'); // ZMENENÉ ?></td> 
+                                        <td class="rfid-cell"><?php echo htmlspecialchars($activity['rfid_card_uid'] ?? 'N/A'); ?></td> 
                                     </tr>
                                 <?php endforeach; ?>
                             <?php else: ?>
@@ -661,21 +719,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Proměnná body může být potřeba pro modální okno (zakázání skrolování)
         const body = document.body; 
         
         const headerEl = document.querySelector('header');
-        if (headerEl) {
-            // Stávající logika pro stín headeru při skrolování, pokud byla
-            // const initialHeaderShadow = getComputedStyle(headerEl).boxShadow;
-            // window.addEventListener('scroll', () => {
-            //     if (window.scrollY > 10) { 
-            //         headerEl.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.05)'; 
-            //     } else {
-            //         headerEl.style.boxShadow = initialHeaderShadow; 
-            //     }
-            // });
-        }
+        // if (headerEl) { ... } // Potential scroll logic
 
         const dateSelector = document.getElementById('activity-date-selector');
         const prevDayBtn = document.getElementById('prevDayBtn');
@@ -709,6 +756,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         }
 
         // --- LATE DEPARTURE MODAL SCRIPT ---
+        const isUserCurrentlyPresent = <?php echo json_encode($rfidStatusClass === 'present'); ?>;
         const notifyLateBtn = document.getElementById('notifyLateDepartureBtn'); 
         const editLateBtn = document.getElementById('editLateDepartureBtn');     
 
@@ -725,12 +773,18 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         const existingLatePHP = <?php echo json_encode($existingLateDeparture); ?> || null; 
 
         function openLateModal(isEditing = false) {
+            // If trying to open for a *new* notification AND user is not present
+            if (!isEditing && !isUserCurrentlyPresent) {
+                alert("You must be currently checked in (Present) to notify a new late departure.");
+                return;
+            }
+
             if (!lateModal || !plannedTimeInput || !notesInput || !cancelLateBtnInModal || !modalTitleEl || !modalSubmitButton) {
                 console.error("One or more modal elements are missing from the DOM for late departure.");
                 return;
             }
             lateModal.classList.add('show');
-            if (body) body.style.overflow = 'hidden'; // Použití proměnné body
+            if (body) body.style.overflow = 'hidden'; 
 
             if (modalMsgDiv) {
                 modalMsgDiv.textContent = '';
@@ -757,9 +811,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
                 if (notificationDateHiddenInput && notificationDateHiddenInput.value === todayISO) {
                      if (now.getHours() > 15 || (now.getHours() === 15 && now.getMinutes() > 30)) {
-                        let suggestedTime = new Date(now.getTime() + 30 * 60000);
+                        let suggestedTime = new Date(now.getTime() + 30 * 60000); 
                         defaultHours = suggestedTime.getHours();
-                        defaultMinutes = Math.ceil(suggestedTime.getMinutes() / 15) * 15;
+                        defaultMinutes = Math.ceil(suggestedTime.getMinutes() / 15) * 15; 
                         if (defaultMinutes >= 60) {
                             defaultHours = (defaultHours + 1) % 24;
                             defaultMinutes = 0;
@@ -774,7 +828,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 notesInput.value = '';
                 cancelLateBtnInModal.style.display = 'none';
             }
-            plannedTimeInput.min = "15:30";
+            plannedTimeInput.min = "15:30"; 
         }
 
         if (notifyLateBtn) { 
@@ -788,16 +842,15 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             modalCloseButtons.forEach(btn => {
                 btn.addEventListener('click', () => {
                     lateModal.classList.remove('show');
-                    if (body) body.style.overflow = ''; // Použití proměnné body
+                    if (body) body.style.overflow = '';
                 });
             });
             window.addEventListener('click', (event) => {
                 if (event.target === lateModal) {
                     lateModal.classList.remove('show');
-                    if (body) body.style.overflow = ''; // Použití proměnné body
+                    if (body) body.style.overflow = ''; 
                 }
             });
-             // Zavření modálu klávesou Escape, pokud je otevřený
             document.addEventListener('keydown', function (event) {
                 if (event.key === 'Escape' && lateModal.classList.contains('show')) {
                     lateModal.classList.remove('show');
@@ -816,9 +869,16 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 modalMsgDiv.className = 'form-message';
 
                 if (!plannedTime) { modalMsgDiv.textContent = 'Please enter a planned departure time.'; modalMsgDiv.classList.add('error'); return; }
-                if (plannedTime < "15:30") { modalMsgDiv.textContent = 'Planned departure time must be 15:30 or later.'; modalMsgDiv.classList.add('error'); return; }
+                
+                const [hours, minutes] = plannedTime.split(':').map(Number);
+                if (hours < 15 || (hours === 15 && minutes < 30)) {
+                     modalMsgDiv.textContent = 'Planned departure time must be 15:30 or later.'; modalMsgDiv.classList.add('error'); return;
+                }
                 
                 modalSubmitButton.disabled = true;
+                const originalSubmitButtonText = modalSubmitButton.innerHTML; // Store original text
+                modalSubmitButton.innerHTML = 'Saving... <i class="fas fa-spinner fa-spin"></i>';
+
 
                 fetch('dashboard.php', { method: 'POST', body: formData })
                 .then(response => {
@@ -842,7 +902,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     else modalMsgDiv.textContent = 'A network or server error occurred.';
                     modalMsgDiv.classList.add('error');
                  })
-                .finally(() => { modalSubmitButton.disabled = false; });
+                .finally(() => { 
+                    modalSubmitButton.disabled = false; 
+                    modalSubmitButton.innerHTML = originalSubmitButtonText; // Restore original button text
+                });
             });
         }
 
@@ -860,6 +923,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 formData.append('action', 'cancel_late_departure');
                 
                 this.disabled = true;
+                const originalButtonText = this.innerHTML;
+                this.innerHTML = 'Cancelling... <i class="fas fa-spinner fa-spin"></i>';
+
 
                 fetch('dashboard.php', { method: 'POST', body: formData })
                 .then(response => {
@@ -889,7 +955,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                         modalMsgDiv.classList.add('error');
                     }
                 })
-                .finally(() => { this.disabled = false; });
+                .finally(() => { 
+                    this.disabled = false; 
+                    this.innerHTML = originalButtonText;
+                });
             });
         }
     });

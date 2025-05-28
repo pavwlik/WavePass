@@ -6,6 +6,7 @@ require_once "db.php";
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="icon" href="imgs/logo.png" type="image/x-icon">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <!-- ========= Primary Meta Tags for SEO & Search Result Appearance ========= -->
