@@ -149,7 +149,7 @@ $logo_path_for_img_tag = htmlspecialchars($asset_prefix . "imgs/logo.png");
         </nav>
     </div>
     <div class="mobile-menu" id="mobileMenu">
-        <span class="close-btn" id="closeMenu"><i class="fas fa-times"></i></span> 
+        <span class="close-btn" id="closeMenu"></span> 
         <ul class="mobile-links">
             <?php if ($sessionIsLoggedIn): ?>
                 <?php if ($userRole === 'admin'): ?>
@@ -430,35 +430,28 @@ header {
     transition: var(--transition);
     border-radius: 8px;
 }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0.8rem 2rem; background-color: var(--primary-color); color: var(--white)!important; border: none; border-radius: 8px; text-decoration: none; font-weight: 600; transition: var(--transition); cursor: pointer; box-shadow: 0 4px 14px rgba(67,97,238,0.3); font-size: 0.95rem; }
+        .btn i, .btn .material-symbols-outlined { margin-right: 6px; font-size: 1.1em; }
+        .btn:hover { background-color: var(--primary-dark); box-shadow: 0 6px 20px rgba(67,97,238,0.4); transform: translateY(-2px); }
 
-.mobile-links a:hover, 
-.mobile-links a.active-link {
-    color: var(--primary-color);
-    background-color: rgba(67,97,238,0.1);
-}
-
-.mobile-menu .btn {
-    margin-top: 2rem;
-    width: 100%; /* Aby tlačítko bylo širší */
-    max-width: 250px; /* Omezení maximální šířky */
-    padding: 0.8rem 1.5rem; /* Větší padding pro tlačítko */
-}
-
-.close-btn {
-    position: absolute;
-    top: 25px;  /* Upravená pozice */
-    right: 25px; /* Upravená pozice */
-    font-size: 2rem; /* Zvětšená ikona */
-    color: var(--dark-color);
-    cursor: pointer;
-    transition: var(--transition);
-    line-height: 1; /* Pro lepší zarovnání ikony */
-    z-index: 1002; /* Nad obsahem mobilního menu */
-    padding: 5px; /* Větší klikací plocha */
-}
-.close-btn i.fas.fa-times { /* Specifické pro FontAwesome, pokud používáte */
-    display: block; /* Pro odstranění případného extra prostoru pod ikonou */
-}
+.hamburger { display: none; cursor: pointer; width: 30px; height: 24px; position: relative; z-index: 1001; }
+        .hamburger span { display: block; width: 100%; height: 3px; background-color: var(--dark-color); position: absolute; left: 0; transition: var(--transition); transform-origin: center; }
+        .hamburger span:nth-child(1) { top: 0; }
+        .hamburger span:nth-child(2) { top: 50%; transform: translateY(-50%); }
+        .hamburger span:nth-child(3) { bottom: 0; }
+        .hamburger.active span:nth-child(1) { top: 50%; transform: translateY(-50%) rotate(45deg); }
+        .hamburger.active span:nth-child(2) { opacity: 0; }
+        .hamburger.active span:nth-child(3) { bottom: 50%; transform: translateY(50%) rotate(-45deg); }
+        .mobile-menu { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; background-color: var(--white); z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; transform: translateX(-100%); transition: transform 0.4s cubic-bezier(0.23,1,0.32,1); padding: 2rem; }
+        .mobile-menu.active { transform: translateX(0); }
+        .mobile-links { list-style: none; text-align: center; width: 100%; max-width: 300px; }
+        .mobile-links li { margin-bottom: 1.5rem; }
+        .mobile-links a { display: flex; align-items: center; color: var(--dark-color); text-decoration: none; font-weight: 600; font-size: 1.2rem; display: inline-block; padding: 0.5rem 1rem; transition: var(--transition); border-radius: 8px; }
+        .mobile-links a:hover, .mobile-links a.active-link { color: var(--primary-color); background-color: rgba(67,97,238,0.1); }
+        .mobile-menu .btn .material-symbols-outlined { font-size: 1.2em; vertical-align: middle; margin-right: 4px; }
+        .mobile-menu .btn { margin-top: 2rem; width: 100%; max-width: 200px; }
+        .close-btn { position: absolute; top: 30px; right: 30px; font-size: 1.8rem; color: var(--dark-color); cursor: pointer; transition: var(--transition); line-height: 1; }
+        .close-btn:hover { color: var(--primary-color); transform: rotate(90deg); }
 
 
 .mobile-nav-user-photo { 

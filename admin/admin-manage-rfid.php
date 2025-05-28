@@ -231,7 +231,7 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_cards';
 
         .btn-visual-toggle {
             position: relative; display: inline-flex; align-items: center;
-            width: 10px; height: 30px; border-radius: 15px; border: none; cursor: pointer;
+            width: 130px; height: 30px; border-radius: 15px; border: none; cursor: pointer;
             padding: 0; overflow: hidden; transition: var(--transition);
             background-color: rgba(var(--neutral-color-val), 0.2); font-size: 0.8rem;
         }
@@ -273,11 +273,6 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_cards';
         .form-actions { margin-top: 1.5rem; text-align: right; }
         .hidden-section { display: none; } /* Na skrytie sekcií */
 
-        /* Footer styles */
-        footer { background-color: var(--dark-color); color: var(--white); padding: 2rem 0; margin-top: auto; text-align: center; }
-        footer p { margin: 0; font-size: 0.9rem;}
-        footer a { color: rgba(255,255,255,0.8); text-decoration:none;}
-        footer a:hover { color:var(--white); }
 
     </style>
 </head>
@@ -350,11 +345,12 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_cards';
                 </section>
 
                 <!-- Sekcia Add New RFID Card (Manual Entry) -->
+                <!-- Sekcia Add New RFID Card (Manual Entry) - UPRAVENÁ -->
                 <section id="add-new-section" class="content-panel <?php if ($currentView !== 'add_new') echo 'hidden-section'; ?>">
                     <div class="panel-header">
                         <h2 class="panel-title">Add New RFID Card (Manual Entry)</h2>
                     </div>
-                    <form action="admin-manage-rfid.php?view=add_new" method="POST"> <!-- Pridané ?view=add_new pre zotrvanie na sekcii -->
+                    <form action="admin-manage-rfid.php?view=add_new" method="POST">
                         <input type="hidden" name="action" value="add_rfid">
                         <div class="form-grid">
                             <div class="form-group">
@@ -385,10 +381,19 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_cards';
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                             <div class="form-group" style="align-self: center; display:flex; align-items:center;">
-                                <input type="checkbox" id="is_active_form" name="is_active" value="1" checked style="width:auto;">
-                                <label for="is_active_form" style="display:inline; font-weight:normal; margin-bottom:0; margin-left:0.3rem;">Make Active</label>
+                            <!-- === NOVÝ TOGGLE BUTTON PRE "MAKE ACTIVE" === -->
+                            <div class="form-group form-group-toggle">
+                                <label for="is_active_toggle">Status:</label>
+                                <!-- Skrytý input na odoslanie hodnoty 0 alebo 1 -->
+                                <input type="hidden" name="is_active" id="is_active_hidden_input" value="1">
+                                <button type="button" id="is_active_toggle"
+                                        class="btn-visual-toggle is-active" 
+                                        title="Click to Deactivate">
+                                    <span class="toggle-knob"></span>
+                                    <span class="toggle-text">Active</span>
+                                </button>
                             </div>
+                            <!-- === KONIEC NOVÉHO TOGGLE BUTTONU === -->
                         </div>
                         <div class="form-actions">
                             <button type="submit" class="btn-primary"><span class="material-symbols-outlined">add_card</span> Add RFID Card</button>
@@ -396,11 +401,10 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_cards';
                     </form>
                 </section>
 
-                <!-- Sekcia All RFID Cards -->
+                <!-- Sekcia All RFID Cards - UPRAVENÁ TABUĽKA -->
                 <section id="all-cards-section" class="content-panel <?php if ($currentView !== 'all_cards') echo 'hidden-section'; ?>">
                     <div class="panel-header">
                         <h2 class="panel-title">All RFID Cards (<?php echo count($allRfids); ?>)</h2>
-                        <!-- Tu by mohlo byť tlačidlo na refresh, ak by bolo potrebné AJAX načítavanie -->
                     </div>
                     <div class="rfid-table-wrapper">
                         <table class="rfid-table">
@@ -408,11 +412,11 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_cards';
                                 <tr>
                                     <th>DB ID</th>
                                     <th>RFID UID</th>
-                                    <th>Label</th>
-                                    <th>Type</th>
-                                    <th>Assigned To</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
+                                    <th>LABEL</th> 
+                                    <th>TYPE</th>
+                                    <th>ASSIGNED TO</th>
+                                    <th>STATUS</th>
+                                    <th>ACTIONS</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -420,19 +424,25 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_cards';
                                     <?php foreach ($allRfids as $rfid): ?>
                                         <tr>
                                             <td><?php echo $rfid['RFID']; ?></td>
-                                            <td><?php echo htmlspecialchars($rfid['rfid_name'] ?: 'N/A'); ?></td>
-                                            <td><?php echo htmlspecialchars($rfid['card_type']); ?></td>
+                                            <td>
+                                                <?php echo htmlspecialchars($rfid['rfid_uid']); // SPRÁVNE: RFID UID ?>
+                                            </td>
+                                            <td><?php echo htmlspecialchars($rfid['rfid_name'] ?: 'N/A'); // SPRÁVNE: Label (názov karty) ?></td>
+                                            <td><?php echo htmlspecialchars($rfid['card_type']); // SPRÁVNE: Typ karty ?></td>
                                             <td>
                                                 <?php
-                                                if ($rfid['userID']) {
+                                                if ($rfid['userID'] && isset($rfid['firstName'])) { // Pridaná kontrola isset pre firstName
                                                     echo htmlspecialchars($rfid['firstName'] . ' ' . $rfid['lastName'] . ' (#' . $rfid['userID'] .')');
-                                                } else {
+                                                } elseif ($rfid['userID'] && isset($rfid['username'])) { // Fallback na username ak meno nie je
+                                                     echo htmlspecialchars($rfid['username'] . ' (#' . $rfid['userID'] .')');
+                                                }
+                                                else {
                                                     echo '<span style="color:var(--gray-color);"><em>Unassigned</em></span>';
                                                 }
                                                 ?>
                                             </td>
                                             <td>
-                                                <form action="admin-manage-rfid.php?view=all_cards" method="POST" style="display:inline;"> <!-- Pridané ?view=all_cards -->
+                                                <form action="admin-manage-rfid.php?view=all_cards" method="POST" style="display:inline;">
                                                 <input type="hidden" name="action" value="toggle_rfid_status">
                                                 <input type="hidden" name="rfid_id_toggle" value="<?php echo $rfid['RFID']; ?>">
                                                 <input type="hidden" name="current_status" value="<?php echo $rfid['is_active']; ?>">
@@ -465,15 +475,11 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_cards';
         </div> <!-- .admin-layout-container -->
     </main>
 
-    <footer>
-        <div class="container">
-            <p>© <?php echo date("Y"); ?> WavePass. All rights reserved. | <a href="../privacy.php">Privacy Policy</a> | <a href="../terms.php">Terms of Service</a></p>
-        </div>
-    </footer>
+    <?php require "../components/footer-admin.php"; ?>
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // --- RFID API TOGGLE SCRIPT ---
+        // --- RFID API TOGGLE SCRIPT (zostáva rovnaký) ---
         const rfidApiToggleButton = document.getElementById('rfidApiToggleBtn');
         const rfidApiStatusMsg = document.getElementById('rfidApiStatusMsg');
 
@@ -481,29 +487,15 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_cards';
             rfidApiToggleButton.addEventListener('click', function() {
                 const isActive = this.classList.contains('is-active');
                 const newStateEnable = !isActive;
-
                 rfidApiStatusMsg.textContent = 'Updating...';
-                rfidApiStatusMsg.style.color = 'var(--gray-color)';
-
+                // ... (zvyšok AJAX kódu pre API toggle)
                 const formData = new FormData();
                 formData.append('action', 'toggle_rfid_api_status');
                 formData.append('enable_api', newStateEnable ? 'true' : 'false');
-
-                fetch('admin-manage-rfid.php', {
-                    method: 'POST',
-                    body: formData
-                })
+                fetch('admin-manage-rfid.php', { method: 'POST', body: formData })
                 .then(response => {
-                    if (!response.ok) { // response.ok je true pre statusy 200-299
-                        return response.text().then(text => { // Získame text chyby
-                           throw new Error(`Server error: ${response.status} ${response.statusText}. Response: ${text.substring(0,200)}...`);
-                        });
-                    }
-                    return response.json().catch(parseError => { // Ak parsovanie zlyhá
-                        return response.text().then(text => { // Skúsime získať text aj tu
-                           throw new Error(`Failed to parse JSON. Server responded with: ${text.substring(0,200)}...`);
-                        });
-                    });
+                    if (!response.ok) { return response.text().then(text => { throw new Error(`Server error: ${response.status} ${response.statusText}. Response: ${text.substring(0,200)}...`); }); }
+                    return response.json().catch(parseError => { return response.text().then(text => { throw new Error(`Failed to parse JSON. Server responded with: ${text.substring(0,200)}...`); }); });
                 })
                 .then(data => {
                     if (data.status === 'success') {
@@ -520,7 +512,7 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_cards';
                 })
                 .catch(error => {
                     console.error('Error toggling RFID API status:', error);
-                    rfidApiStatusMsg.textContent = error.message; // Zobrazíme konkrétnejšiu chybu
+                    rfidApiStatusMsg.textContent = error.message;
                     rfidApiStatusMsg.style.color = 'var(--danger-color)';
                 })
                 .finally(() => {
@@ -529,12 +521,28 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_cards';
             });
         }
 
-        // --- SCRIPT PRE ZOBRAZENIE SPRÁVNEJ SEKCIE NA ZÁKLADE URL PARAMETRA ---
-        // Tento skript nie je nutný, ak používame PHP na pridanie triedy 'hidden-section'
-        // Alebo ho môžeme použiť na dynamickejšie prepínanie bez refreshu, ak by sme chceli
-        // Pre jednoduchosť teraz nechávame zobrazenie riadené PHP.
+        // --- NOVÝ JAVASCRIPT PRE "MAKE ACTIVE" TOGGLE BUTTON VO FORMULÁRI ---
+        const isActiveToggleBtn = document.getElementById('is_active_toggle');
+        const isActiveHiddenInput = document.getElementById('is_active_hidden_input');
 
-        // Prípadné ďalšie JS pre mobilné menu z header-admin.php by mali byť includované tam.
+        if (isActiveToggleBtn && isActiveHiddenInput) {
+            // Inicializácia na základe defaultnej hodnoty (ak je to potrebné, napr. pri editácii)
+            // Pre nový záznam je defaultne '1' (Active)
+            // const initialIsActive = isActiveHiddenInput.value === '1';
+            // isActiveToggleBtn.classList.toggle('is-active', initialIsActive);
+            // isActiveToggleBtn.querySelector('.toggle-text').textContent = initialIsActive ? 'Active' : 'Inactive';
+            // isActiveToggleBtn.title = initialIsActive ? 'Click to Deactivate' : 'Click to Activate';
+
+            isActiveToggleBtn.addEventListener('click', function() {
+                const currentIsActive = this.classList.contains('is-active');
+                const newIsActiveState = !currentIsActive;
+
+                this.classList.toggle('is-active', newIsActiveState);
+                this.querySelector('.toggle-text').textContent = newIsActiveState ? 'Active' : 'Inactive';
+                this.title = newIsActiveState ? 'Click to Deactivate' : 'Click to Activate';
+                isActiveHiddenInput.value = newIsActiveState ? '1' : '0';
+            });
+        }
     });
     </script>
 </body>

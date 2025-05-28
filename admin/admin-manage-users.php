@@ -217,10 +217,6 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_users'; // Default vi
         .form-actions { margin-top: 1.5rem; text-align: right; }
         .hidden-section { display: none; }
 
-        footer { background-color: var(--dark-color); color: var(--white); padding: 2rem 0; margin-top: auto; text-align: center; }
-        footer p { margin: 0; font-size: 0.9rem;}
-        footer a { color: rgba(255,255,255,0.8); text-decoration:none;}
-        footer a:hover { color:var(--white); }
     </style>
 </head>
 <body>

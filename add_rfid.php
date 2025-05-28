@@ -89,7 +89,7 @@ try {
 // is_active: nastavíme na 0 (neaktivní) ako bolo požadované
 // userID: NULL pre novú, nepriradenú kartu
 
-$default_name = "Nová karta (API): " . substr($rfid_uid, 0, 12) . "...";
+$default_name = "New RFID " . substr($rfid_uid, 0, 12) . "...";
 $card_type = 'Primary Access Card'; // Môžete zmeniť alebo nechať na DB default
 $is_active = 0; // Podľa požiadavky - pridaná ako neaktívna
 
