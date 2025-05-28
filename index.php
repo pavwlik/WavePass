@@ -719,7 +719,7 @@ require_once "db.php";
     </main>
 
     <!-- Footer -->
-    <?php  require_once "components/footer.php"; ?>
+    <?php  require_once "components/footer-admin.php"; ?>
 
     <!-- Scroll to Top Button -->
     <button id="scrollToTopBtn" title="Go to top">
