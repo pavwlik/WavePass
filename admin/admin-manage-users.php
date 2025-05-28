@@ -16,13 +16,17 @@ require_once '../db.php';
 
 $sessionFirstName = isset($_SESSION["first_name"]) ? htmlspecialchars($_SESSION["first_name"]) : 'Admin';
 $sessionUserId = isset($_SESSION["user_id"]) ? (int)$_SESSION["user_id"] : null;
+$pathPrefix = "../"; // Pre cesty k assetom z /admin/ adresára o úroveň vyššie
 
 $dbErrorMessage = null;
 $successMessage = null;
 $users = [];
-// $unassignedRfids pre formulár na pridanie/editáciu užívateľa sa nenačítava v tomto skripte,
-// to by sa malo riešiť skôr na stránke admin-edit-user.php alebo priamo v modálnom okne, ak by ste ho mali.
-// Pre jednoduchosť formulára na tejto stránke to teraz vynechám. Ak to potrebujete, musíte doplniť načítanie $unassignedRfids.
+
+// Cesty pre profilové fotky
+$profilePhotoBaseDir_server = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'profile_photos' . DIRECTORY_SEPARATOR; // Serverová cesta pre file_exists
+$profilePhotoBaseDir_web = $pathPrefix . 'profile_photos/'; // Webová cesta pre src atribut
+$defaultAvatar_web = $pathPrefix . 'imgs/default_avatar.jpg'; // Webová cesta pre default avatar
+
 
 // --- ACTION HANDLING (ADD, DELETE USER) ---
 
@@ -30,7 +34,7 @@ $users = [];
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['action'] == 'add_user') {
     $new_username = trim(filter_input(INPUT_POST, 'new_username', FILTER_SANITIZE_SPECIAL_CHARS));
     $new_email = trim(filter_input(INPUT_POST, 'new_email', FILTER_VALIDATE_EMAIL));
-    $new_password = $_POST['new_password'];
+    $new_password = $_POST['new_password']; // Password will be hashed
     $new_firstName = trim(filter_input(INPUT_POST, 'new_firstName', FILTER_SANITIZE_SPECIAL_CHARS));
     $new_lastName = trim(filter_input(INPUT_POST, 'new_lastName', FILTER_SANITIZE_SPECIAL_CHARS));
     $new_phone = trim(filter_input(INPUT_POST, 'new_phone', FILTER_SANITIZE_SPECIAL_CHARS));
@@ -63,7 +67,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
 
                 if ($stmtInsertUser->execute()) {
                     $successMessage = "User '$new_username' added successfully!";
-                    // $_POST = []; // Clear POST to prevent re-submission (optional)
                 } else {
                     $dbErrorMessage = "Failed to add user.";
                 }
@@ -80,12 +83,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
     if ($user_id_to_delete && $user_id_to_delete != $sessionUserId) {
         try {
             $pdo->beginTransaction();
-            // Unassign RFID card first (ak je karta priradená tomuto používateľovi)
             $stmtUnassign = $pdo->prepare("UPDATE rfids SET userID = NULL WHERE userID = :userID_param");
             $stmtUnassign->bindParam(':userID_param', $user_id_to_delete, PDO::PARAM_INT);
             $stmtUnassign->execute();
 
-            // Then delete user
             $stmtDelete = $pdo->prepare("DELETE FROM users WHERE userID = :userID_param");
             $stmtDelete->bindParam(':userID_param', $user_id_to_delete, PDO::PARAM_INT);
             if ($stmtDelete->execute()) {
@@ -109,13 +110,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
 // --- DATA FETCHING ---
 if (isset($pdo) && $pdo instanceof PDO) {
     try {
+        // Fetch all users with their assigned RFID card UID and profile photo
         $stmtAllUsers = $pdo->query(
-            "SELECT u.userID, u.username, u.email, u.firstName, u.lastName, u.phone, u.roleID, u.dateOfCreation, r.rfid_uid
+            "SELECT u.userID, u.username, u.email, u.firstName, u.lastName, u.phone, u.roleID, u.dateOfCreation,
+                    u.profile_photo, -- Pridaný stĺpec
+                    r.rfid_uid
              FROM users u
              LEFT JOIN rfids r ON u.userID = r.userID
              ORDER BY u.lastName, u.firstName"
         );
         $users = $stmtAllUsers->fetchAll(PDO::FETCH_ASSOC);
+
     } catch (PDOException $e) {
         $dbErrorMessage = "Database Query Error fetching users: " . $e->getMessage();
     }
@@ -124,38 +129,38 @@ if (isset($pdo) && $pdo instanceof PDO) {
 }
 
 $currentPage = basename($_SERVER['PHP_SELF']);
-$currentView = isset($_GET['view']) ? $_GET['view'] : 'all_users'; // Default view
+$currentView = isset($_GET['view']) ? $_GET['view'] : 'all_users';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="../imgs/logo.png" type="image/x-icon">
+    <link rel="icon" href="<?php echo htmlspecialchars($pathPrefix); ?>imgs/logo.png" type="image/x-icon">
     <title>Manage Users - Admin - WavePass</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        /* === ZÁKLADNÉ ŠTÝLY PRE ADMIN LAYOUT (podobné ako v admin-manage-rfid.php) === */
         :root {
             --primary-color: #4361ee; --primary-dark: #3a56d4; --secondary-color: #3f37c9;
-            --primary-color-rgb: 67, 97, 238;  /* RGB pre rgba() */
-            --secondary-color-rgb: 63, 55, 201; /* RGB pre rgba() pre admin badge */
+            --primary-color-rgb: 67, 97, 238;
+            --secondary-color-rgb: 63, 55, 201; /* Pre admin badge */
             --dark-color: #1a1a2e; --light-color: #f8f9fa; --gray-color: #6c757d;
             --light-gray: #e9ecef; --white: #ffffff;
             --success-color: #4CAF50; --warning-color: #FF9800; --danger-color: #F44336;
             --info-color: #2196F3;
-            --info-color-val: 33, 150, 243; /* RGB pre employee badge */
+            --info-color-val: 33, 150, 243; /* Pre employee badge */
             --shadow: 0 4px 20px rgba(0, 0, 0, 0.08); --transition: all 0.3s ease;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; line-height: 1.6; color: var(--dark-color); background-color: #f4f6f9; display: flex; flex-direction: column; min-height: 100vh; }
-        main { flex-grow: 1; padding-top: 80px; }
-        header { background-color: var(--white); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: fixed; width: 100%; top: 0; z-index: 1000; }
-        /* header .container .navbar ... váš kód pre navbar */
+        main { flex-grow: 1; padding-top: 80px; } /* Predpokladáme fixnú hlavičku 80px */
+        header { background-color: var(--white); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: fixed; width: 100%; top: 0; z-index: 1000; height: 80px; }
+        /* Vložte CSS pre .navbar, .logo atď. z vášho header-admin.php */
+        .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
 
         .page-header { padding: 1.8rem 0; margin-bottom: 1.5rem; background-color:var(--white); box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
-        .page-header .container {max-width: 1400px; margin: 0 auto; padding: 0 20px;}
+        .page-header .container {max-width: 1400px;} /* Zosúladenie s .admin-layout-container */
         .page-header h1 { font-size: 1.7rem; margin: 0; }
         .page-header .sub-heading { font-size: 0.9rem; color: var(--gray-color); }
 
@@ -183,11 +188,9 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_users'; // Default vi
         .panel-title { font-size: 1.3rem; color: var(--dark-color); margin:0; }
         .btn-primary { background-color: var(--primary-color); color: var(--white); border:none; padding: 0.6rem 1.2rem; border-radius: 6px; text-decoration:none; font-weight: 500; cursor:pointer; transition: var(--transition); display: inline-flex; align-items: center; gap: 0.5rem; }
         .btn-primary:hover { background-color: var(--primary-dark); }
-        .btn-danger { background-color: var(--danger-color); color:white; border:none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor:pointer; font-size:0.85rem; }
+        .btn-danger { background-color: var(--danger-color); color:white; border:none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor:pointer; font-size:0.85rem; display: inline-flex; align-items: center; gap: 0.3rem; }
         .btn-edit { background-color: var(--info-color); color:white; border:none; padding: 0.4rem 0.8rem; border-radius: 4px; cursor:pointer; font-size:0.85rem; text-decoration:none; margin-right:0.5rem; display: inline-flex; align-items: center; gap: 0.3rem;}
-        .btn-edit .material-symbols-outlined { font-size: 1em; vertical-align: text-bottom;}
-        .btn-danger .material-symbols-outlined { font-size: 1em; vertical-align: text-bottom;}
-
+        .btn-edit .material-symbols-outlined, .btn-danger .material-symbols-outlined { font-size: 1em; vertical-align: text-bottom;}
 
         .users-table-wrapper { overflow-x: auto; }
         .users-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
@@ -197,9 +200,11 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_users'; // Default vi
         .users-table td .role-badge { padding: 0.2rem 0.6rem; border-radius: 10px; font-size: 0.75rem; font-weight: 500; text-transform: capitalize; }
         .users-table td .role-admin { background-color: rgba(var(--secondary-color-rgb), 0.15); color: var(--secondary-color); }
         .users-table td .role-employee { background-color: rgba(var(--info-color-val), 0.15); color: var(--info-color); }
-        .users-table .actions-cell form { display: inline-block; margin: 0; } /* Odstránený margin-left */
+        .users-table .actions-cell form { display: inline-block; margin: 0; }
         .users-table .actions-cell a, .users-table .actions-cell button { margin-right: 0.3rem;}
         .users-table .actions-cell a:last-child, .users-table .actions-cell button:last-child { margin-right: 0;}
+        .users-table .profile-photo-small { width: 30px; height: 30px; border-radius: 50%; margin-right: 10px; object-fit: cover; vertical-align: middle; border: 1px solid var(--light-gray); }
+        .users-table td.full-name-cell { display: flex; align-items: center; }
 
 
         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem 1.5rem; }
@@ -244,7 +249,6 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_users'; // Default vi
                             <span class="material-symbols-outlined">person_add</span> Add New User
                         </a>
                     </li>
-                    <!-- Prípadne ďalšie odkazy/filtre pre používateľov -->
                 </ul>
             </aside>
 
@@ -256,7 +260,6 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_users'; // Default vi
                     <div class="success-message" role="alert"><i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($successMessage); ?></div>
                 <?php endif; ?>
 
-                <!-- Add New User Form Section -->
                 <section id="add-user-section" class="content-panel <?php if ($currentView !== 'add_user') echo 'hidden-section'; ?>">
                     <div class="panel-header">
                         <h2 class="panel-title">Add New Employee/Admin</h2>
@@ -265,50 +268,36 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_users'; // Default vi
                         <input type="hidden" name="action" value="add_user">
                         <div class="form-grid">
                             <div class="form-group">
-                                <label for="new_username">Username <span style="color:red;">*</span></label>
-                                <input type="text" id="new_username" name="new_username" required>
+                                <label for="new_username_form">Username <span style="color:red;">*</span></label>
+                                <input type="text" id="new_username_form" name="new_username" required>
                             </div>
                             <div class="form-group">
-                                <label for="new_email">Email <span style="color:red;">*</span></label>
-                                <input type="email" id="new_email" name="new_email" required>
+                                <label for="new_email_form">Email <span style="color:red;">*</span></label>
+                                <input type="email" id="new_email_form" name="new_email" required>
                             </div>
                             <div class="form-group">
-                                <label for="new_password">Password <span style="color:red;">*</span></label>
-                                <input type="password" id="new_password" name="new_password" required>
+                                <label for="new_password_form">Password <span style="color:red;">*</span></label>
+                                <input type="password" id="new_password_form" name="new_password" required>
                             </div>
                             <div class="form-group">
-                                <label for="new_firstName">First Name <span style="color:red;">*</span></label>
-                                <input type="text" id="new_firstName" name="new_firstName" required>
+                                <label for="new_firstName_form">First Name <span style="color:red;">*</span></label>
+                                <input type="text" id="new_firstName_form" name="new_firstName" required>
                             </div>
                             <div class="form-group">
-                                <label for="new_lastName">Last Name <span style="color:red;">*</span></label>
-                                <input type="text" id="new_lastName" name="new_lastName" required>
+                                <label for="new_lastName_form">Last Name <span style="color:red;">*</span></label>
+                                <input type="text" id="new_lastName_form" name="new_lastName" required>
                             </div>
                             <div class="form-group">
-                                <label for="new_phone">Phone</label>
-                                <input type="tel" id="new_phone" name="new_phone">
+                                <label for="new_phone_form">Phone</label>
+                                <input type="tel" id="new_phone_form" name="new_phone">
                             </div>
                             <div class="form-group">
-                                <label for="new_roleID">Role <span style="color:red;">*</span></label>
-                                <select id="new_roleID" name="new_roleID" required>
-                                    <option value="employee">Employee</option>
+                                <label for="new_roleID_form">Role <span style="color:red;">*</span></label>
+                                <select id="new_roleID_form" name="new_roleID" required>
+                                    <option value="employee" selected>Employee</option>
                                     <option value="admin">Admin</option>
                                 </select>
                             </div>
-                            <!-- RFID assignment by sa malo riešiť skôr na edit user stránke alebo cez samostatnú funkcionalitu
-                                 Pretože tu by sme museli načítať $unassignedRfids, čo tento skript teraz nerobí.
-                            <div class="form-group">
-                                <label for="new_rfid_id">Assign RFID Card (Optional)</label>
-                                <select id="new_rfid_id" name="new_rfid_id">
-                                    <option value="">-- No Card --</option>
-                                    <?php /* foreach ($unassignedRfids as $rfid): ?>
-                                        <option value="<?php echo $rfid['RFID']; ?>">
-                                            <?php echo htmlspecialchars($rfid['rfid_uid'] . ($rfid['name'] ? ' - ' . $rfid['name'] : '')); ?>
-                                        </option>
-                                    <?php endforeach; */ ?>
-                                </select>
-                            </div>
-                            -->
                         </div>
                         <div class="form-actions">
                             <button type="submit" class="btn-primary"><span class="material-symbols-outlined">person_add</span> Add User</button>
@@ -316,7 +305,6 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_users'; // Default vi
                     </form>
                 </section>
 
-                <!-- List of Existing Users Section -->
                 <section id="all-users-section" class="content-panel <?php if ($currentView !== 'all_users') echo 'hidden-section'; ?>">
                     <div class="panel-header">
                         <h2 class="panel-title">Existing Users (<?php echo count($users); ?>)</h2>
@@ -325,13 +313,10 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_users'; // Default vi
                         <table class="users-table">
                             <thead>
                                 <tr>
-                                    <th>ID</th>
-                                    <th>Username</th>
                                     <th>Full Name</th>
                                     <th>Email</th>
                                     <th>Phone</th>
                                     <th>Role</th>
-                                    <th>RFID (UID)</th>
                                     <th>Registered</th>
                                     <th>Actions</th>
                                 </tr>
@@ -339,19 +324,24 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_users'; // Default vi
                             <tbody>
                                 <?php if (!empty($users)): ?>
                                     <?php foreach ($users as $user): ?>
+                                        <?php
+                                        $userPhotoSrc = $defaultAvatar_web; // Predvolený avatar
+                                        if (!empty($user['profile_photo']) && file_exists($profilePhotoBaseDir_server . $user['profile_photo'])) {
+                                            $userPhotoSrc = $profilePhotoBaseDir_web . htmlspecialchars($user['profile_photo']);
+                                        }
+                                        $userPhotoSrc .= '?' . time(); // Cache busting
+                                        ?>
                                         <tr>
-                                            <td><?php echo $user['userID']; ?></td>
-                                            <td><?php echo htmlspecialchars($user['username']); ?></td>
-                                            <td><?php echo htmlspecialchars($user['firstName'] . ' ' . $user['lastName']); ?></td>
+                                            <td class="full-name-cell">
+                                                <img src="<?php echo $userPhotoSrc; ?>" alt="Profile Photo" class="profile-photo-small">
+                                                <span><?php echo htmlspecialchars($user['firstName'] . ' ' . $user['lastName']); ?></span>
+                                            </td>
                                             <td><a href="mailto:<?php echo htmlspecialchars($user['email']); ?>"><?php echo htmlspecialchars($user['email']); ?></a></td>
                                             <td><?php echo htmlspecialchars($user['phone'] ?: 'N/A'); ?></td>
                                             <td>
                                                 <span class="role-badge role-<?php echo strtolower(htmlspecialchars($user['roleID'])); ?>">
                                                     <?php echo htmlspecialchars($user['roleID']); ?>
                                                 </span>
-                                            </td>
-                                            <td>
-                                                <?php echo htmlspecialchars($user['rfid_uid'] ?: 'N/A'); ?>
                                             </td>
                                             <td><?php echo date("M d, Y", strtotime($user['dateOfCreation'])); ?></td>
                                             <td class="actions-cell">
@@ -371,20 +361,19 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_users'; // Default vi
                                         </tr>
                                     <?php endforeach; ?>
                                 <?php else: ?>
-                                    <tr><td colspan="9" style="text-align:center; padding: 1.5rem;">No users found.</td></tr>
+                                    <tr><td colspan="8" style="text-align:center; padding: 1.5rem;">No users found.</td></tr>
                                 <?php endif; ?>
                             </tbody>
                         </table>
                     </div>
                 </section>
-            </div> <!-- .admin-content -->
-        </div> <!-- .admin-layout-container -->
+            </div>
+        </div>
     </main>
 
     <?php require "../components/footer-admin.php"; ?>
     <script>
-        // Základný JS pre mobilné menu, ak je v header-admin.php
-        // Prípadne ďalší JS špecifický pre túto stránku
+        // Prípadný JavaScript špecifický pre túto stránku
     </script>
 </body>
 </html>

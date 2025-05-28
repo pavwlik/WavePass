@@ -298,7 +298,7 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_cards';
                     </li>
                     <li>
                         <a href="admin-manage-rfid.php?view=add_new" class="<?php if ($currentView == 'add_new') echo 'active-view'; ?>">
-                            <span class="material-symbols-outlined">add_card</span> Add New Card (Manual)
+                            <span class="material-symbols-outlined">add_card</span> Add New Card
                         </a>
                     </li>
                     <h3>Settings</h3>

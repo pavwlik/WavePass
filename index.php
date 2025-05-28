@@ -794,22 +794,38 @@ require_once "db.php";
             });
         }
 
-        // FAQ Accordion Functionality
-        const faqItems = document.querySelectorAll('.faq-item');
+// FAQ Accordion Functionality
+const faqItems = document.querySelectorAll('.faq-item');
         faqItems.forEach(item => {
             const question = item.querySelector('.faq-question');
             const answer = item.querySelector('.faq-answer');
-            const answerContent = item.querySelector('.faq-answer-content'); 
+            const answerContent = item.querySelector('.faq-answer-content');
 
-            if(question && answer && answerContent) { 
+            if(question && answer && answerContent) {
                 question.addEventListener('click', () => {
                     const isActive = item.classList.contains('active');
-                    if (isActive) {
-                        item.classList.remove('active');
-                        answer.style.maxHeight = null;
+
+                    // Zavrieť všetky ostatné otvorené odpovede (voliteľné, pre "accordion" efekt)
+                    // Ak chcete, aby mohlo byť otvorených viacero naraz, tento blok odstráňte
+                    /*
+                    if (!isActive) { // Iba ak otvárame novú
+                        faqItems.forEach(otherItem => {
+                            if (otherItem !== item && otherItem.classList.contains('active')) {
+                                otherItem.classList.remove('active');
+                                otherItem.querySelector('.faq-answer').style.maxHeight = null;
+                            }
+                        });
+                    }
+                    */
+
+                    item.classList.toggle('active'); // Prepne triedu 'active' na .faq-item
+
+                    if (item.classList.contains('active')) {
+                        // Nastavíme max-height na skutočnú výšku obsahu
+                        answer.style.maxHeight = answerContent.scrollHeight + "px";
                     } else {
-                        item.classList.add('active');
-                        answer.style.maxHeight = answerContent.scrollHeight + "px"; 
+                        // Nastavíme max-height na null (alebo '0px'), aby sa odpoveď skryla s animáciou
+                        answer.style.maxHeight = null;
                     }
                 });
             }

@@ -296,7 +296,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             --danger-color: #f72585; --info-color-custom: #007bff;
             --shadow: 0 4px 20px rgba(0, 0, 0, 0.08); --transition: all 0.3s ease;
             --present-color-val: 67, 170, 139; --absent-color-val: 214, 40, 40;
-            --checked-out-color-val: 255, 193, 7; --info-color-val: 84, 160, 255;
+            --checked-out-color-val: 214, 40, 40; --info-color-val: 84, 160, 255;
             --neutral-color-val: 173, 181, 189; --warning-color-val: 248, 150, 30;
             --late-departure-icon-color-val: 23, 162, 184; --danger-color-val: 247, 37, 133;
             --true-danger-color-val: 220, 53, 69;

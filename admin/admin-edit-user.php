@@ -1,4 +1,5 @@
 <?php
+// ... (začiatok PHP kódu až po definíciu $userIdToEdit) ...
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
@@ -6,8 +7,9 @@ if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
-// 1. Restrict Access: Ensure only admin can access
-if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true || !isset($_SESSION["role"]) || $_SESSION["role"] !== 'admin') {
+// 1. Restrict Access
+if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true ||
+    !isset($_SESSION["role"]) || strtolower($_SESSION["role"]) !== 'admin') {
     header("location: ../login.php");
     exit;
 }
@@ -15,138 +17,197 @@ if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true || !isset($_
 require_once '../db.php';
 
 $sessionAdminFirstName = isset($_SESSION["first_name"]) ? htmlspecialchars($_SESSION["first_name"]) : 'Admin';
+$sessionAdminUserId = isset($_SESSION["user_id"]) ? (int)$_SESSION["user_id"] : null;
+$pathPrefix = "../";
 
 $dbErrorMessage = null;
 $successMessage = null;
-$rfidToEdit = null;
-$allUsers = []; // For assigning cards
+$userToEdit = null; // Inicializácia
+$allUnassignedActiveRfids = [];
 
-$rfidIDToEdit = filter_input(INPUT_GET, 'rfidID', FILTER_VALIDATE_INT);
+$userIdToEdit = filter_input(INPUT_GET, 'userID', FILTER_VALIDATE_INT);
 
-if (!$rfidIDToEdit) {
-    header("Location: admin-manage-rfid.php?error=No_rfid_specified");
+if (!$userIdToEdit) {
+    $_SESSION['user_operation_status'] = ['type' => 'error', 'text' => 'Invalid or missing User ID for editing.'];
+    header("location: admin-manage-users.php?view=all_users");
     exit;
 }
 
-// --- HANDLE DELETE RFID CARD ---
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['action'] == 'delete_rfid') {
-    $rfid_pk_to_delete = filter_input(INPUT_POST, 'rfid_pk_id', FILTER_VALIDATE_INT);
-
-    if ($rfid_pk_to_delete && $rfid_pk_to_delete == $rfidIDToEdit) {
-        try {
-            $stmtDelete = $pdo->prepare("DELETE FROM rfids WHERE RFID = :rfid_id");
-            $stmtDelete->bindParam(':rfid_id', $rfid_pk_to_delete, PDO::PARAM_INT);
-
-            if ($stmtDelete->execute()) {
-                header("Location: admin-manage-rfid.php?success=RFID_deleted");
-                exit;
-            } else {
-                $dbErrorMessage = "Failed to delete RFID card.";
-            }
-        } catch (PDOException $e) {
-            $dbErrorMessage = "Database error deleting RFID card: " . $e->getMessage();
-        }
+// --- HANDLE FORM SUBMISSION (UPDATE USER) ---
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['action'] == 'update_user' && isset($_POST['user_id_to_update'])) {
+    // ... (celá vaša logika pre spracovanie POST requestu zostáva rovnaká) ...
+    // Dôležité je, že ak tu nastane $dbErrorMessage, tak $userToEdit zostane null
+    // a musíme ho potom naplniť z $_POST pre zobrazenie formulára.
+    if ((int)$_POST['user_id_to_update'] !== $userIdToEdit) {
+        $dbErrorMessage = "Form submission user ID mismatch.";
     } else {
-        $dbErrorMessage = "RFID ID mismatch during deletion. Operation aborted.";
-    }
-}
+        $updated_username = trim(filter_input(INPUT_POST, 'username', FILTER_SANITIZE_SPECIAL_CHARS));
+        $updated_email = trim(filter_input(INPUT_POST, 'email', FILTER_VALIDATE_EMAIL));
+        $updated_firstName = trim(filter_input(INPUT_POST, 'firstName', FILTER_SANITIZE_SPECIAL_CHARS));
+        $updated_lastName = trim(filter_input(INPUT_POST, 'lastName', FILTER_SANITIZE_SPECIAL_CHARS));
+        $updated_phone = trim(filter_input(INPUT_POST, 'phone', FILTER_SANITIZE_SPECIAL_CHARS));
+        $updated_roleID = filter_input(INPUT_POST, 'roleID', FILTER_SANITIZE_SPECIAL_CHARS);
+        $new_password = $_POST['new_password'] ?? null;
+        $confirm_password = $_POST['confirm_password'] ?? null;
+        $assigned_rfid_id = filter_input(INPUT_POST, 'assigned_rfid_id', FILTER_VALIDATE_INT, FILTER_NULL_ON_FAILURE);
 
-// --- HANDLE UPDATE RFID FORM SUBMISSION ---
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['action'] == 'update_rfid') {
-    $rfid_pk_to_update = filter_input(INPUT_POST, 'rfid_pk_id', FILTER_VALIDATE_INT);
 
-    if ($rfid_pk_to_update && $rfid_pk_to_update == $rfidIDToEdit) {
-        $edit_rfid_uid = trim(filter_input(INPUT_POST, 'rfid_uid', FILTER_SANITIZE_SPECIAL_CHARS));
-        $edit_rfid_name = trim(filter_input(INPUT_POST, 'rfid_name', FILTER_SANITIZE_SPECIAL_CHARS));
-        $edit_card_type = filter_input(INPUT_POST, 'card_type', FILTER_SANITIZE_SPECIAL_CHARS);
-        $edit_assign_userID = filter_input(INPUT_POST, 'assign_userID', FILTER_SANITIZE_SPECIAL_CHARS); // Will be 'none' or user ID
-        $edit_is_active = isset($_POST['is_active']) ? 1 : 0;
+        if (empty($updated_username) || empty($updated_email) || empty($updated_firstName) || empty($updated_lastName) || empty($updated_roleID)) {
+            $dbErrorMessage = "Username, Email, First Name, Last Name, and Role are required.";
+        } elseif (!in_array($updated_roleID, ['employee', 'admin'])) {
+            $dbErrorMessage = "Invalid role selected.";
+        } elseif (!empty($new_password) && $new_password !== $confirm_password) {
+            $dbErrorMessage = "New passwords do not match.";
+        } elseif (strlen($new_password) > 0 && strlen($new_password) < 6) { 
+            $dbErrorMessage = "New password must be at least 6 characters long.";
+        }
 
-        if (empty($edit_rfid_uid) || empty($edit_card_type)) {
-            $dbErrorMessage = "RFID URL/UID and Card Type are required.";
-        } else {
+
+        if (!$dbErrorMessage) {
             try {
-                // Check if the new rfid_uid (if changed) conflicts with another card
-                $stmtCheckUrl = $pdo->prepare("SELECT RFID FROM rfids WHERE rfid_uid = :rfid_uid AND RFID != :current_rfid_id");
-                $stmtCheckUrl->bindParam(':rfid_uid', $edit_rfid_uid);
-                $stmtCheckUrl->bindParam(':current_rfid_id', $rfid_pk_to_update, PDO::PARAM_INT);
-                $stmtCheckUrl->execute();
-
-                if ($stmtCheckUrl->fetch()) {
-                    $dbErrorMessage = "The RFID URL/UID '" . htmlspecialchars($edit_rfid_uid) . "' is already in use by another card.";
+                $stmtCheckConflict = $pdo->prepare("SELECT userID FROM users WHERE (username = :username OR email = :email) AND userID != :currentUserID");
+                $stmtCheckConflict->execute([ // Použitie poľa pri execute
+                    ':username' => $updated_username,
+                    ':email' => $updated_email,
+                    ':currentUserID' => $userIdToEdit
+                ]);
+                if ($stmtCheckConflict->fetch()) {
+                    $dbErrorMessage = "The updated username or email already exists for another user.";
                 } else {
-                    $assignedUserIDForSQL = ($edit_assign_userID === 'none' || empty($edit_assign_userID)) ? null : (int)$edit_assign_userID;
+                    $pdo->beginTransaction();
 
-                    $sqlUpdate = "UPDATE rfids SET
-                                    rfid_uid = :rfid_uid,
-                                    name = :name,
-                                    card_type = :card_type,
-                                    userID = :userID,
-                                    is_active = :is_active
-                                  WHERE RFID = :rfid_pk_id";
-                    $stmtUpdate = $pdo->prepare($sqlUpdate);
-                    $stmtUpdate->bindParam(':rfid_uid', $edit_rfid_uid);
-                    $stmtUpdate->bindParam(':name', $edit_rfid_name);
-                    $stmtUpdate->bindParam(':card_type', $edit_card_type);
-                    $stmtUpdate->bindParam(':userID', $assignedUserIDForSQL, $assignedUserIDForSQL ? PDO::PARAM_INT : PDO::PARAM_NULL);
-                    $stmtUpdate->bindParam(':is_active', $edit_is_active, PDO::PARAM_INT);
-                    $stmtUpdate->bindParam(':rfid_pk_id', $rfid_pk_to_update, PDO::PARAM_INT);
+                    $sqlSetParts = [];
+                    $paramsToBind = []; // Parameter array for execute
 
-                    if ($stmtUpdate->execute()) {
-                        $successMessage = "RFID card details updated successfully!";
+                    $sqlSetParts[] = "username = :username"; $paramsToBind[':username'] = $updated_username;
+                    $sqlSetParts[] = "email = :email"; $paramsToBind[':email'] = $updated_email;
+                    $sqlSetParts[] = "firstName = :firstName"; $paramsToBind[':firstName'] = $updated_firstName;
+                    $sqlSetParts[] = "lastName = :lastName"; $paramsToBind[':lastName'] = $updated_lastName;
+                    $sqlSetParts[] = "phone = :phone"; $paramsToBind[':phone'] = $updated_phone ?: null;
+                    $sqlSetParts[] = "roleID = :roleID"; $paramsToBind[':roleID'] = $updated_roleID;
+
+                    if (!empty($new_password)) {
+                        $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+                        $sqlSetParts[] = "password = :password";
+                        $paramsToBind[':password'] = $hashed_password;
+                    }
+                    $paramsToBind[':userID_where'] = $userIdToEdit; // Pre WHERE klauzulu
+
+                    $sqlUpdateUser = "UPDATE users SET " . implode(", ", $sqlSetParts) . " WHERE userID = :userID_where";
+                    $stmtUpdateUser = $pdo->prepare($sqlUpdateUser);
+
+                    if ($stmtUpdateUser->execute($paramsToBind)) { // Odovzdanie parametrov tu
+                        $stmtUnassignOld = $pdo->prepare("UPDATE rfids SET userID = NULL WHERE userID = :userID_unassign");
+                        $stmtUnassignOld->execute([':userID_unassign' => $userIdToEdit]);
+
+                        if ($assigned_rfid_id) {
+                            $stmtCheckNewRfid = $pdo->prepare("SELECT userID FROM rfids WHERE RFID = :rfid_id_check");
+                            $stmtCheckNewRfid->execute([':rfid_id_check' => $assigned_rfid_id]);
+                            $rfidOwner = $stmtCheckNewRfid->fetchColumn();
+
+                            if ($rfidOwner === null || $rfidOwner == $userIdToEdit) {
+                                $stmtAssignNew = $pdo->prepare("UPDATE rfids SET userID = :userID_assign, is_active = 1 WHERE RFID = :rfid_id_assign");
+                                $stmtAssignNew->execute([
+                                    ':userID_assign' => $userIdToEdit,
+                                    ':rfid_id_assign' => $assigned_rfid_id
+                                ]);
+                            } else {
+                                $pdo->rollBack();
+                                $dbErrorMessage = "Selected RFID card is already assigned to another user. Changes rolled back.";
+                                goto end_update_processing;
+                            }
+                        }
+                        $pdo->commit();
+                        $_SESSION['user_operation_status'] = ['type' => 'success', 'text' => "User '" . htmlspecialchars($updated_username) . "' updated successfully!"];
+                        header("location: admin-manage-users.php?view=all_users");
+                        exit;
                     } else {
-                        $dbErrorMessage = "Failed to update RFID card.";
+                        $pdo->rollBack();
+                        $dbErrorMessage = "Failed to update user.";
                     }
                 }
             } catch (PDOException $e) {
-                $dbErrorMessage = "Database error updating RFID card: " . $e->getMessage();
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                $dbErrorMessage = "Database error updating user: " . $e->getMessage();
+                error_log("Admin Edit User - DB Update Error for userID $userIdToEdit: " . $e->getMessage());
             }
+            end_update_processing:;
         }
-    } else {
-        $dbErrorMessage = "RFID ID mismatch during update. Operation aborted.";
     }
 }
 
 
-// --- DATA FETCHING for the RFID card to be edited ---
-if (isset($pdo) && $pdo instanceof PDO && $rfidIDToEdit) {
-    try {
-        $stmtRfid = $pdo->prepare(
-            "SELECT RFID, rfid_uid, name, card_type, is_active, userID
-             FROM rfids
-             WHERE RFID = :rfidID_param"
-        );
-        $stmtRfid->bindParam(':rfidID_param', $rfidIDToEdit, PDO::PARAM_INT);
-        $stmtRfid->execute();
-        $rfidToEdit = $stmtRfid->fetch(PDO::FETCH_ASSOC);
+// --- LOAD USER DATA FOR EDITING ---
+// Načítame dáta, len ak nejde o POST request, ktorý už nastavil chybu
+// (pretože ak POST zlyhal, chceme zobraziť dáta z POSTu, nie prepísať dátami z DB)
+if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$dbErrorMessage) {
+    if (isset($pdo)) {
+        try {
+            $stmtLoadUser = $pdo->prepare(
+                "SELECT u.userID, u.username, u.email, u.firstName, u.lastName, u.phone, u.roleID, u.profile_photo, r.RFID as assigned_rfid_pk_id
+                 FROM users u
+                 LEFT JOIN rfids r ON u.userID = r.userID
+                 WHERE u.userID = :userID_load"
+            );
+            $stmtLoadUser->bindParam(':userID_load', $userIdToEdit, PDO::PARAM_INT);
+            $stmtLoadUser->execute();
+            $userToEdit = $stmtLoadUser->fetch(PDO::FETCH_ASSOC); // Tu sa nastavuje $userToEdit
 
-        if (!$rfidToEdit) {
-            $dbErrorMessage = "RFID Card with ID " . htmlspecialchars($rfidIDToEdit) . " not found.";
-        } else {
-            // Fetch all users for the "Assign to User" dropdown
-            $stmtAllUsers = $pdo->query("SELECT userID, firstName, lastName, username FROM users ORDER BY lastName, firstName");
-            $allUsers = $stmtAllUsers->fetchAll(PDO::FETCH_ASSOC);
+            if (!$userToEdit) {
+                // Ak používateľ nebol nájdený pri GET requeste
+                $_SESSION['user_operation_status'] = ['type' => 'error', 'text' => "User with ID $userIdToEdit not found."];
+                header("location: admin-manage-users.php?view=all_users");
+                exit;
+            }
+
+            // Načítanie voľných RFID kariet
+            $stmtUnassignedRfids = $pdo->prepare(
+                "SELECT RFID, rfid_uid, name FROM rfids
+                 WHERE (userID IS NULL AND is_active = 1) OR userID = :current_user_id_for_rfid
+                 ORDER BY rfid_uid"
+            );
+            $stmtUnassignedRfids->bindParam(':current_user_id_for_rfid', $userIdToEdit, PDO::PARAM_INT);
+            $stmtUnassignedRfids->execute();
+            $allUnassignedActiveRfids = $stmtUnassignedRfids->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (PDOException $e) {
+            $dbErrorMessage = "Database Error loading user for editing: " . $e->getMessage();
+            error_log("Admin Edit User - DB Load Error for userID $userIdToEdit: " . $e->getMessage());
+            $userToEdit = null; // Dôležité, ak načítanie zlyhá
         }
-    } catch (PDOException $e) {
-        $dbErrorMessage = "Database Query Error fetching RFID card data: " . $e->getMessage();
-        $rfidToEdit = null;
+    } elseif (!isset($pdo)) {
+         $dbErrorMessage = "Database connection is not available.";
+         $userToEdit = null;
     }
-} elseif (!$rfidIDToEdit && !$dbErrorMessage) {
-    $dbErrorMessage = "No RFID Card specified for editing.";
 }
 
-$currentPage = basename($_SERVER['PHP_SELF']);
+// Ak POST zlyhal a $userToEdit nie je z DB, naplníme ho z POST pre formulár
+if ($_SERVER["REQUEST_METHOD"] == "POST" && $dbErrorMessage && empty($userToEdit['userID'])) {
+    $userToEdit = [
+        'username' => $_POST['username'] ?? '',
+        'email' => $_POST['email'] ?? '',
+        'firstName' => $_POST['firstName'] ?? '',
+        'lastName' => $_POST['lastName'] ?? '',
+        'phone' => $_POST['phone'] ?? '',
+        'roleID' => $_POST['roleID'] ?? 'employee',
+        'assigned_rfid_pk_id' => $_POST['assigned_rfid_id'] ?? null,
+        'profile_photo' => null // Predpokladáme, že pri neúspešnom POSTe sa fotka nemení
+    ];
+}
+
+$currentPage = "admin-manage-users.php";
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="../imgs/logo.png" type="image/x-icon">
-    <title>Edit RFID Card - <?php echo $rfidToEdit ? htmlspecialchars($rfidToEdit['rfid_uid']) : 'Card Not Found'; ?> - Admin</title>
+    <link rel="icon" href="<?php echo htmlspecialchars($pathPrefix); ?>imgs/logo.png" type="image/x-icon">
+    <title>Edit User - <?php echo $userToEdit && isset($userToEdit['username']) ? htmlspecialchars($userToEdit['username']) : 'N/A'; ?> - Admin - WavePass</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+        /* ... (Vložte sem vaše existujúce CSS štýly) ... */
         :root {
             --primary-color: #4361ee; --primary-dark: #3a56d4; --secondary-color: #3f37c9;
             --primary-color-rgb: 67, 97, 238;
@@ -157,210 +218,137 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             --shadow: 0 4px 20px rgba(0, 0, 0, 0.08); --transition: all 0.3s ease;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Inter', sans-serif;
-            line-height: 1.6;
-            color: var(--dark-color);
-            background-color: #f4f6f9;
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-            padding-top: 80px; /* Ponecháno pro odsazení obsahu od fixního headeru */
-        }
-        main { flex-grow: 1; /* padding-top: 80px; bylo zde, přesunuto do body */ }
-        .container, .page-header .container { max-width: 1440px; margin-left: auto; margin-right: auto; padding-left: 20px; padding-right: 20px; }
-        
-        /* Styly specifické pro tuto stránku (formulář, zprávy atd.) */
-        .page-header { padding: 1.8rem 0; margin-bottom: 1.5rem; background-color:var(--white); box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
-        .page-header h1 { font-size: 1.7rem; margin: 0; }
-        .page-header .sub-heading { font-size: 0.9rem; color: var(--gray-color); }
-        
+        body { font-family: 'Inter', sans-serif; line-height: 1.6; color: var(--dark-color); background-color: #f4f6f9; display: flex; flex-direction: column; min-height: 100vh; }
+        main { flex-grow: 1; padding-top: 80px; }
+        header { background-color: var(--white); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: fixed; width: 100%; top: 0; z-index: 1000; height: 80px; }
+        .container { max-width: 800px; margin: 2rem auto; padding: 0 20px; }
+
+        .page-header { padding: 1.5rem 0; margin-bottom: 1.5rem; background-color:var(--white); box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+        .page-header .container {max-width: 100%; padding: 0;} /* Aby sa header roztiahol */
+        .page-header h1 { font-size: 1.7rem; margin: 0; text-align: center;}
+
         .db-error-message, .success-message { padding: 1rem; border-left-width: 4px; border-left-style: solid; margin-bottom: 1.5rem; border-radius: 4px; font-size:0.9rem;}
         .db-error-message { background-color: rgba(244,67,54,0.1); color: var(--danger-color); border-left-color: var(--danger-color); }
-        .success-message { background-color: rgba(76,175,80,0.1); color: var(--success-color); border-left-color: var(--success-color); }
+        /* .success-message sa tu nepoužíva, lebo redirectujeme */
 
-        .content-panel { background-color: var(--white); padding: 1.5rem 1.8rem; border-radius: 8px; box-shadow: var(--shadow); border: 1px solid var(--light-gray); margin-bottom: 2rem; }
-        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom:1.5rem; padding-bottom:1rem; border-bottom:1px solid var(--light-gray); }
-        .panel-title { font-size: 1.3rem; color: var(--dark-color); margin:0; }
-        
-        .btn-primary, .btn-secondary, .btn-danger {
-            background-color: var(--primary-color); color: var(--white); border:none;
-            padding: 0.7rem 1.5rem; border-radius: 6px; text-decoration:none;
-            font-weight: 500; cursor:pointer; transition: var(--transition);
-            display: inline-flex; align-items: center; gap: 0.5rem;
-        }
-        .btn-primary:hover { background-color: var(--primary-dark); }
-        .btn-secondary { background-color: var(--gray-color); }
-        .btn-secondary:hover { background-color: #5a6268; }
-        .btn-danger { background-color: var(--danger-color); }
-        .btn-danger:hover { background-color: #d32f2f; }
+        .content-panel { background-color: var(--white); padding: 2rem 2.5rem; border-radius: 10px; box-shadow: var(--shadow); border: 1px solid var(--light-gray); margin-bottom: 2rem; }
+        .panel-title { font-size: 1.4rem; color: var(--dark-color); margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom:1px solid var(--light-gray); }
 
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem 1.8rem; }
+        .form-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+        @media (min-width: 600px) { .form-grid { grid-template-columns: repeat(2, 1fr); gap: 1rem 1.5rem; } }
+
         .form-group { margin-bottom: 1.2rem; }
-        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem; }
-        .form-group input[type="text"], .form-group input[type="checkbox"], .form-group select {
-            width: 100%; padding: 0.8rem 1rem; border: 1px solid #ccd0d5;
-            border-radius: 6px; font-family: inherit; font-size: 0.95rem;
+        .form-group label { display: block; margin-bottom: 0.4rem; font-weight: 500; font-size: 0.9rem; }
+        .form-group input[type="text"],
+        .form-group input[type="email"],
+        .form-group input[type="password"],
+        .form-group input[type="tel"],
+        .form-group select {
+            width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--light-gray);
+            border-radius: 6px; font-family: inherit; font-size: 0.9rem;
         }
-        .form-group input[type="checkbox"] { width: auto; margin-right: 0.5rem; vertical-align: middle;}
         .form-group input:focus, .form-group select:focus { outline:none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb),0.2); }
-        .form-actions { margin-top: 2rem; display:flex; justify-content:space-between; gap:1rem; }
+        .form-actions { margin-top: 2rem; display: flex; justify-content: flex-start; gap: 10px; }
+        .btn-submit, .btn-cancel { padding: 0.7rem 1.5rem; border-radius: 6px; text-decoration:none; font-weight: 500; cursor:pointer; display: inline-flex; align-items: center; gap: 0.5rem; font-size:0.95rem; }
+        .btn-submit { background-color: var(--primary-color); color: var(--white); border:none; }
+        .btn-submit:hover { background-color: var(--primary-dark); }
+        .btn-cancel { background-color: var(--gray-color); color: var(--white); border:none; }
+        .btn-cancel:hover { background-color: #5a6268; }
+        .password-note { font-size: 0.8rem; color: var(--gray-color); margin-top: 0.3rem; }
 
-        .toggle-switch { position: relative; display: inline-block; width: 60px; height: 34px; }
-        .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        .toggle-slider {
-            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #ccc; transition: .4s; border-radius: 34px;
-        }
-        .toggle-slider:before {
-            position: absolute; content: ""; height: 26px; width: 26px;
-            left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%;
-        }
-        input:checked + .toggle-slider { background-color: var(--success-color); }
-        input:checked + .toggle-slider:before { transform: translateX(26px); }
-        .toggle-label { margin-left: 10px; vertical-align: middle; }
-
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0;
-                width: 100%; height: 100%; overflow: auto;
-                background-color: rgba(0,0,0,0.4); }
-        .modal-content {
-            background-color: #fefefe; margin: 15% auto; padding: 2rem;
-            border: 1px solid #888; width: 90%; max-width: 500px;
-            border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-        }
-        .modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem; }
+        footer { background-color: var(--dark-color); color: var(--white); padding: 2rem 0; margin-top: auto; text-align: center; }
+        footer p { margin: 0; font-size: 0.9rem;}
+        footer a { color: rgba(255,255,255,0.8); text-decoration:none;}
+        footer a:hover { color:var(--white); }
     </style>
 </head>
 <body>
-    <?php require "../components/header-admin.php"; // Předpokládá, že header-admin.php obsahuje navigaci ?>
-
+    <?php require_once $pathPrefix . "components/header-admin.php"; ?>
     <main>
         <div class="page-header">
             <div class="container">
-                <h1>Edit RFID Card</h1>
-                <p class="sub-heading">
-                    <?php echo $rfidToEdit ? 'Card UID: ' . htmlspecialchars($rfidToEdit['rfid_uid']) : 'RFID Card Management'; ?>
-                </p>
+                <h1>Edit User</h1>
             </div>
         </div>
 
-        <div class="container" style="padding-bottom: 2.5rem;">
+        <div class="container">
             <?php if ($dbErrorMessage): ?>
-                <div class="db-error-message" role="alert"><i class="fas fa-exclamation-triangle"></i> <?php echo $dbErrorMessage; ?></div>
-            <?php endif; ?>
-            <?php if ($successMessage): ?>
-                <div class="success-message" role="alert"><i class="fas fa-check-circle"></i> <?php echo $successMessage; ?></div>
+                <div class="db-error-message" role="alert"><i class="fas fa-exclamation-triangle"></i> <?php echo htmlspecialchars($dbErrorMessage); ?></div>
             <?php endif; ?>
 
-            <?php if ($rfidToEdit): ?>
+            <?php if ($userToEdit): // Zmenené z $messageToEdit ?>
             <section class="content-panel">
-                <form action="admin-edit-rfid.php?rfidID=<?php echo $rfidIDToEdit; ?>" method="POST">
-                    <input type="hidden" name="action" value="update_rfid">
-                    <input type="hidden" name="rfid_pk_id" value="<?php echo $rfidToEdit['RFID']; ?>">
+                <h2 class="panel-title">Editing: <?php echo htmlspecialchars(($userToEdit['firstName'] ?? '') . ' ' . ($userToEdit['lastName'] ?? '') . ' (@' . ($userToEdit['username'] ?? 'N/A') . ')'); ?></h2>
+                <form action="admin-edit-user.php?userID=<?php echo $userIdToEdit; ?>" method="POST">
+                    <input type="hidden" name="action" value="update_user">
+                    <input type="hidden" name="user_id_to_update" value="<?php echo $userIdToEdit; ?>">
 
-                    <div class="panel-header">
-                        <h2 class="panel-title">Card Details (DB ID: <?php echo $rfidToEdit['RFID']; ?>)</h2>
-                    </div>
                     <div class="form-grid">
                         <div class="form-group">
-                            <label for="rfid_uid">RFID URL/UID <span style="color:red;">*</span></label>
-                            <input type="text" id="rfid_uid" name="rfid_uid" value="<?php echo htmlspecialchars($rfidToEdit['rfid_uid']); ?>" required>
+                            <label for="username_edit">Username <span style="color:red;">*</span></label>
+                            <input type="text" id="username_edit" name="username" value="<?php echo htmlspecialchars($userToEdit['username'] ?? ''); ?>" required>
                         </div>
                         <div class="form-group">
-                            <label for="rfid_name">Card Name/Label (Optional)</label>
-                            <input type="text" id="rfid_name" name="rfid_name" value="<?php echo htmlspecialchars($rfidToEdit['name'] ?? ''); ?>">
+                            <label for="email_edit">Email <span style="color:red;">*</span></label>
+                            <input type="email" id="email_edit" name="email" value="<?php echo htmlspecialchars($userToEdit['email'] ?? ''); ?>" required>
                         </div>
                         <div class="form-group">
-                            <label for="card_type">Card Type <span style="color:red;">*</span></label>
-                            <select id="card_type" name="card_type" required>
-                                <option value="Primary Access Card" <?php if($rfidToEdit['card_type'] == 'Primary Access Card') echo 'selected'; ?>>Primary Access Card</option>
-                                <option value="Temporary Access Card" <?php if($rfidToEdit['card_type'] == 'Temporary Access Card') echo 'selected'; ?>>Temporary Access Card</option>
-                                <option value="Visitor Pass" <?php if($rfidToEdit['card_type'] == 'Visitor Pass') echo 'selected'; ?>>Visitor Pass</option>
-                                <option value="Other" <?php if($rfidToEdit['card_type'] == 'Other') echo 'selected'; ?>>Other</option>
+                            <label for="firstName_edit">First Name <span style="color:red;">*</span></label>
+                            <input type="text" id="firstName_edit" name="firstName" value="<?php echo htmlspecialchars($userToEdit['firstName'] ?? ''); ?>" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="lastName_edit">Last Name <span style="color:red;">*</span></label>
+                            <input type="text" id="lastName_edit" name="lastName" value="<?php echo htmlspecialchars($userToEdit['lastName'] ?? ''); ?>" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="phone_edit">Phone</label>
+                            <input type="tel" id="phone_edit" name="phone" value="<?php echo htmlspecialchars($userToEdit['phone'] ?? ''); ?>">
+                        </div>
+                        <div class="form-group">
+                            <label for="roleID_edit">Role <span style="color:red;">*</span></label>
+                            <select id="roleID_edit" name="roleID" required>
+                                <option value="employee" <?php if (($userToEdit['roleID'] ?? '') == 'employee') echo 'selected'; ?>>Employee</option>
+                                <option value="admin" <?php if (($userToEdit['roleID'] ?? '') == 'admin') echo 'selected'; ?>>Admin</option>
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label for="new_password_edit">New Password (leave blank to keep current)</label>
+                            <input type="password" id="new_password_edit" name="new_password">
+                        </div>
+                        <div class="form-group">
+                            <label for="confirm_password_edit">Confirm New Password</label>
+                            <input type="password" id="confirm_password_edit" name="confirm_password">
+                             <p class="password-note">If you enter a new password, please also confirm it.</p>
+                        </div>
                          <div class="form-group">
-                            <label for="assign_userID">Assign to User</label>
-                            <select id="assign_userID" name="assign_userID">
-                                <option value="none" <?php if (empty($rfidToEdit['userID'])) echo 'selected'; ?>>-- Unassigned --</option>
-                                <?php foreach ($allUsers as $user): ?>
-                                    <option value="<?php echo $user['userID']; ?>" <?php if ($rfidToEdit['userID'] == $user['userID']) echo 'selected'; ?>>
-                                        <?php echo htmlspecialchars($user['firstName'] . ' ' . $user['lastName'] . ' (' . $user['username'] . ')'); ?>
+                            <label for="assigned_rfid_id_edit">Assigned RFID Card</label>
+                            <select id="assigned_rfid_id_edit" name="assigned_rfid_id">
+                                <option value="">-- Unassign Card / No Card --</option>
+                                <?php foreach ($allUnassignedActiveRfids as $rfid): ?>
+                                    <option value="<?php echo $rfid['RFID']; ?>" <?php if (isset($userToEdit['assigned_rfid_pk_id']) && $userToEdit['assigned_rfid_pk_id'] == $rfid['RFID']) echo 'selected'; ?>>
+                                        <?php echo htmlspecialchars($rfid['rfid_uid'] . ($rfid['name'] ? ' (' . $rfid['name'] . ')' : '')); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
-                        </div>
-                         <div class="form-group" style="align-self: center;">
-                            <label style="display: flex; align-items: center;">
-                                <span class="toggle-switch">
-                                    <input type="checkbox" id="is_active" name="is_active" value="1" <?php if($rfidToEdit['is_active']) echo 'checked'; ?>>
-                                    <span class="toggle-slider"></span>
-                                </span>
-                                <span class="toggle-label">Card is Active</span>
-                            </label>
+                            <small>Select a card to assign it. Choosing "-- Unassign Card --" will remove any currently assigned card.</small>
                         </div>
                     </div>
-
                     <div class="form-actions">
-                        <div>
-                            <button type="button" class="btn-danger" onclick="confirmDelete()">
-                                <span class="material-symbols-outlined">delete</span> Delete Card
-                            </button>
-                        </div>
-                        <div style="display: flex; gap: 1rem;">
-                            <a href="admin-manage-rfid.php" class="btn-secondary"><span class="material-symbols-outlined">arrow_back</span> Cancel</a>
-                            <button type="submit" class="btn-primary"><span class="material-symbols-outlined">save</span> Update RFID Card</button>
-                        </div>
+                        <button type="submit" class="btn-submit"><span class="material-symbols-outlined">save</span> Save Changes</button>
+                        <a href="admin-manage-users.php?view=all_users" class="btn-cancel">Cancel</a>
                     </div>
                 </form>
-
-                <!-- Delete Confirmation Modal -->
-                <div id="deleteModal" class="modal">
-                    <div class="modal-content">
-                        <h3>Confirm Deletion</h3>
-                        <p>Are you sure you want to permanently delete this RFID card?</p>
-                        <p><strong>Card UID:</strong> <?php echo htmlspecialchars($rfidToEdit['rfid_uid']); ?></p>
-                        <p>This action cannot be undone.</p>
-
-                        <div class="modal-actions">
-                            <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
-                            <form action="admin-edit-rfid.php?rfidID=<?php echo $rfidIDToEdit; ?>" method="POST" style="margin:0;">
-                                <input type="hidden" name="action" value="delete_rfid">
-                                <input type="hidden" name="rfid_pk_id" value="<?php echo $rfidToEdit['RFID']; ?>">
-                                <button type="submit" class="btn-danger">
-                                    <span class="material-symbols-outlined">delete_forever</span> Delete Permanently
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
             </section>
-            <?php elseif(!$dbErrorMessage): ?>
-                <div class="db-error-message" role="alert"><i class="fas fa-exclamation-triangle"></i> RFID Card with the specified ID could not be found.</div>
-                <a href="admin-manage-rfid.php" class="btn-secondary" style="margin-top:1rem;"><span class="material-symbols-outlined">arrow_back</span> Back to RFID List</a>
+            <?php elseif (!$dbErrorMessage): // Ak $userToEdit je null (po oprave názvu) a nie je ani DB chyba, niečo je zle s ID (už by malo byť pokryté presmerovaním) ?>
+                <div class="db-error-message" role="alert"><i class="fas fa-exclamation-triangle"></i> Could not load user data. The user may not exist or you do not have permission. (Ref: Initial Load)</div>
+                <p><a href="admin-manage-users.php?view=all_users" class="btn-cancel" style="text-decoration:none;">Back to User List</a></p>
             <?php endif; ?>
         </div>
     </main>
 
-    <?php require "../components/footer-admin.php"; // Předpokládá, že footer-admin.php je relevantní ?>
-
+    <?php require_once $pathPrefix . "components/footer-admin.php"; ?>
     <script>
-        // JavaScript pro modální okno potvrzení smazání
-        function confirmDelete() {
-            document.getElementById('deleteModal').style.display = 'block';
-        }
-
-        function closeModal() {
-            document.getElementById('deleteModal').style.display = 'none';
-        }
-
-        // Zavření modálního okna kliknutím mimo něj
-        window.onclick = function(event) {
-            const modal = document.getElementById('deleteModal');
-            if (event.target == modal) {
-                closeModal();
-            }
-        }
+        // Prípadný JavaScript špecifický pre túto stránku
     </script>
 </body>
 </html>
