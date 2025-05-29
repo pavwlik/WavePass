@@ -752,17 +752,18 @@ require_once "db.php";
             // Mobile Menu Toggle (předpokládáme, že prvky jsou v header-main.php)
             const hamburger = document.getElementById('hamburger');
             const mobileMenu = document.getElementById('mobileMenu');
-            const closeMenu = document.getElementById('closeMenu');
+            const closeMenu = document.getElementById('closeMenu'); // Ujistěte se, že ID je 'closeMenu'
             const body = document.body;
 
             if (hamburger && mobileMenu && closeMenu) {
-                if (closeMenu.innerHTML.includes('×') || closeMenu.querySelector('i')) {
+                // Zajistíme, že close button a hamburger spany nebudou přeloženy
+                if (closeMenu.innerHTML.includes('×') || closeMenu.querySelector('i')) { // '×' je ×
                     closeMenu.setAttribute('translate', 'no');
                 }
                 if (hamburger.querySelectorAll('span')) {
                     hamburger.querySelectorAll('span').forEach(span => {
                         span.setAttribute('translate', 'no');
-                        // aria-hidden by mělo být již nastaveno v HTML
+                        // aria-hidden by mělo být již nastaveno v HTML v header-main.php
                     });
                 }
 
@@ -771,6 +772,7 @@ require_once "db.php";
                     mobileMenu.classList.toggle('active');
                     body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
                     hamburger.setAttribute('aria-expanded', isActive ? 'true' : 'false');
+                    if (mobileMenu) mobileMenu.setAttribute('aria-hidden', !isActive);
                 });
 
                 closeMenu.addEventListener('click', () => {
@@ -778,23 +780,35 @@ require_once "db.php";
                     mobileMenu.classList.remove('active');
                     body.style.overflow = '';
                     hamburger.setAttribute('aria-expanded', 'false');
+                    if (mobileMenu) mobileMenu.setAttribute('aria-hidden', 'true');
+                    if (hamburger) hamburger.focus(); // Volitelné: vrátit focus na hamburger
                 });
 
                 const mobileNavLinksList = document.querySelectorAll('.mobile-menu a');
                 mobileNavLinksList.forEach(link => {
                     link.addEventListener('click', () => {
+                        // Zavřít menu při kliknutí na jakýkoli odkaz v mobilním menu,
+                        // pokud to není odkaz do nového okna
                         if (!link.target || link.target === '_self') {
                             hamburger.classList.remove('active');
                             mobileMenu.classList.remove('active');
                             body.style.overflow = '';
                             if (hamburger) hamburger.setAttribute('aria-expanded', 'false');
+                            if (mobileMenu) mobileMenu.setAttribute('aria-hidden', 'true');
                         }
                     });
                 });
+                 // Zavřít menu klávesou Escape
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && mobileMenu && mobileMenu.classList.contains('active')) {
+                        closeMenu.click(); // Simulace kliknutí na zavírací tlačítko
+                    }
+                });
             }
 
+
             // Shared header element and height for scroll calculations
-            const pageHeader = document.querySelector('header');
+            const pageHeader = document.getElementById('pageHeader'); // Použijeme ID z header-main.php
             const headerHeight = pageHeader ? pageHeader.offsetHeight : 0;
 
             // Smooth scrolling for anchor links
@@ -856,22 +870,23 @@ require_once "db.php";
                 if (question && answer) {
                     question.addEventListener('click', () => {
                         const isActive = item.classList.contains('active');
+                        
+                        // Zavřít ostatní položky (accordion efekt) PŘED změnou aktuální
+                        if (!isActive) { 
+                            faqItems.forEach(otherItem => {
+                                if (otherItem !== item && otherItem.classList.contains('active')) {
+                                    otherItem.classList.remove('active');
+                                    otherItem.querySelector('.faq-answer').style.maxHeight = null;
+                                }
+                            });
+                        }
+                        
                         // Otevřít/zavřít aktuální položku
                         item.classList.toggle('active');
                         if (item.classList.contains('active')) {
                             answer.style.maxHeight = answer.scrollHeight + "px";
                         } else {
                             answer.style.maxHeight = null;
-                        }
-
-                        // Zavřít ostatní položky (accordion efekt)
-                        if (!isActive) { // Pokud jsme právě otevřeli tuto položku
-                             faqItems.forEach(otherItem => {
-                                if (otherItem !== item && otherItem.classList.contains('active')) {
-                                    otherItem.classList.remove('active');
-                                    otherItem.querySelector('.faq-answer').style.maxHeight = null;
-                                }
-                            });
                         }
                     });
                 }
@@ -889,7 +904,6 @@ require_once "db.php";
                         alert('Please fill in all required fields.');
                         return;
                     }
-                    // Simulace odeslání
                     console.log('Form submitted (demo):', { name, email, message });
                     alert('Thank you for your message! (This is a demo, data not actually sent)');
                     contactForm.reset();
@@ -899,13 +913,16 @@ require_once "db.php";
             // Scroll to Top Button Functionality
             const scrollToTopBtn = document.getElementById("scrollToTopBtn");
             if (scrollToTopBtn) {
-                window.addEventListener('scroll', function() { // Použijeme addEventListener pro konzistenci
+                const scrollFunction = () => {
                     if (document.body.scrollTop > 200 || document.documentElement.scrollTop > 200) {
                         scrollToTopBtn.classList.add("show");
                     } else {
                         scrollToTopBtn.classList.remove("show");
                     }
-                });
+                };
+                window.addEventListener('scroll', scrollFunction);
+                scrollFunction(); // Zkontroluj stav i při načtení stránky
+
                 scrollToTopBtn.addEventListener("click", function() {
                     window.scrollTo({ top: 0, behavior: "smooth" });
                 });
@@ -913,90 +930,103 @@ require_once "db.php";
 
             // Active Nav Link Highlighting on Scroll (and load/hashchange)
             function highlightActiveNavLinkOnScroll() {
-                if (!pageHeader) return;
+                const pageHeaderForNav = document.getElementById('pageHeader');
+                if (!pageHeaderForNav) return;
+                const headerHeightForNav = pageHeaderForNav.offsetHeight;
 
                 const scrollPosition = window.pageYOffset;
-                let currentActiveSectionId = null;
+                let currentActiveSectionId = null; // Bude ID sekce, např. "features"
                 const sections = [];
 
-                // Sbíráme sekce pouze z odkazů, které jsou pro aktuální stránku (index.php)
-                const navLinksToConsider = document.querySelectorAll('header .nav-links a[href^="index.php#"]:not(.btn), header .mobile-links a[href^="index.php#"]:not(.btn), header .nav-links a[href^="#"]:not(.btn), header .mobile-links a[href^="#"]:not(.btn)');
+                // Sbíráme sekce pouze z odkazů, které jsou pro aktuální stránku (index.php) a obsahují #
+                const navLinksToConsider = document.querySelectorAll(
+                    'header#pageHeader .nav-links a:not(.btn)[href*="#"], header#pageHeader .mobile-links a:not(.btn)[href*="#"]'
+                );
 
                 navLinksToConsider.forEach(link => {
                     const href = link.getAttribute('href');
-                    let sectionIdSelector;
-
-                    if (href.startsWith('index.php#')) {
-                        sectionIdSelector = href.substring(href.indexOf('#'));
-                    } else if (href.startsWith('#') && window.location.pathname.match(/index\.php$|\/$/)) {
-                        // Pokud je odkaz jen #hash a jsme na index.php (nebo root)
-                        sectionIdSelector = href;
+                    let sectionIdSelector = '';
+                    // Chceme jen část za #
+                    if (href.includes('#')) {
+                        sectionIdSelector = href.substring(href.indexOf('#')); // #features
                     }
+                    
+                    // Zkontrolujeme, zda odkaz skutečně míří na index.php (nebo je relativní a jsme na index.php)
+                    const isLinkForIndexPage = href.startsWith('index.php#') || (href.startsWith('#') && (window.location.pathname.endsWith('index.php') || window.location.pathname === '/' || window.location.pathname.endsWith('/')));
 
-                    if (sectionIdSelector && sectionIdSelector.length > 1) {
+                    if (sectionIdSelector && sectionIdSelector.length > 1 && isLinkForIndexPage) {
                         try {
-                            const sectionElement = document.querySelector(sectionIdSelector);
+                            const sectionElement = document.querySelector(sectionIdSelector); // Hledá prvek s ID např. id="features"
                             if (sectionElement && !sections.some(s => s.id === sectionElement.id)) {
                                 sections.push(sectionElement);
                             }
-                        } catch (e) { console.warn("Invalid selector for active link highlighting: " + sectionIdSelector); }
+                        } catch (e) { console.warn("Invalid selector for active link: " + sectionIdSelector, e); }
                     }
                 });
-
                 sections.sort((a, b) => a.offsetTop - b.offsetTop);
 
                 for (let i = sections.length - 1; i >= 0; i--) {
                     const section = sections[i];
                     const sectionTop = section.offsetTop;
-                    const sectionHeight = section.offsetHeight;
-                    // Aktivní, pokud je horní část sekce viditelná pod headerem,
-                    // nebo pokud jsme uvnitř sekce (až do 2/3 její výšky shora)
-                    const triggerPointTop = sectionTop - headerHeight - Math.min(100, window.innerHeight * 0.1);
-                    const triggerPointBottom = sectionTop + sectionHeight * 0.66 - headerHeight;
+                    const triggerPointTop = sectionTop - headerHeightForNav - Math.min(80, window.innerHeight * 0.15); // Menší buffer
 
-                    if (scrollPosition >= triggerPointTop && scrollPosition < triggerPointBottom) {
-                        currentActiveSectionId = section.getAttribute('id');
+                    if (scrollPosition >= triggerPointTop) {
+                        currentActiveSectionId = section.getAttribute('id'); // "features"
                         break;
                     }
                 }
-
-                if (sections.length > 0 && (window.innerHeight + scrollPosition >= document.body.offsetHeight - 20)) {
-                    currentActiveSectionId = sections[sections.length - 1].getAttribute('id');
+                
+                // Pokud jsme na úplném konci stránky, aktivujeme poslední sekci
+                if (sections.length > 0 && (window.innerHeight + scrollPosition >= document.body.offsetHeight - 30)) {
+                     currentActiveSectionId = sections[sections.length - 1].getAttribute('id');
+                }
+                
+                // Pokud jsme na vrchu a žádná sekce není aktivní, a jsme na index.php bez hashe
+                const currentHash = window.location.hash;
+                if (!currentActiveSectionId && sections.length > 0 && (currentHash === "" || currentHash === "#") && scrollPosition < sections[0].offsetTop - headerHeightForNav) {
+                    // Můžete zde nastavit defaultní sekci, např. první v poli sections
+                    // currentActiveSectionId = sections[0].id; // Např. "features", pokud je první
                 }
 
-                navLinksToConsider.forEach(link => {
-                    link.classList.remove('active');
-                    const linkHref = link.getAttribute('href');
-                    let linkSectionId = '';
 
-                    if (linkHref.startsWith('index.php#')) {
-                        linkSectionId = linkHref.substring(linkHref.indexOf('#') + 1);
-                    } else if (linkHref.startsWith('#')) {
-                        linkSectionId = linkHref.substring(1);
+                // Sjednocení třídy na .active-link
+                document.querySelectorAll('header#pageHeader .nav-links a, header#pageHeader .mobile-links a').forEach(link => {
+                    link.classList.remove('active-link');
+                });
+
+                let isHashLinkNowActive = false;
+                navLinksToConsider.forEach(link => { // Iterujeme pouze odkazy na sekce
+                    const linkHref = link.getAttribute('href');
+                    let linkSectionIdFromHref = '';
+
+                    if (linkHref.includes('#')) {
+                        linkSectionIdFromHref = linkHref.substring(linkHref.indexOf('#') + 1); // "features"
                     }
 
-                    if (linkSectionId && linkSectionId === currentActiveSectionId) {
-                        link.classList.add('active');
+                    if (linkSectionIdFromHref && linkSectionIdFromHref === currentActiveSectionId) {
+                        link.classList.add('active-link');
+                        isHashLinkNowActive = true;
                     }
                 });
 
-                // Aktivní stav pro Login/Dashboard (pokud nejsme na hash lince)
+                // Zvláštní logika pro Login/Dashboard tlačítka
                 const currentPathBase = window.location.pathname.split('/').pop() || 'index.php';
-                const loginBtnDesktop = document.querySelector('header .nav-item-login a.btn'); // Používáme selektor z header-main.php
-                const loginBtnMobile = document.querySelector('header .mobile-menu a.btn[href*="login.php"], header .mobile-menu a.btn[href*="dashboard.php"]');
+                const loginBtnDesktop = document.querySelector('header#pageHeader .nav-links a.btn[href="login.php"]');
+                const dashboardBtnDesktop = document.querySelector('header#pageHeader .nav-links a.btn[href="dashboard.php"]');
+                const loginBtnMobile = document.querySelector('header#pageHeader .mobile-menu a.btn[href="login.php"]');
+                const dashboardBtnMobile = document.querySelector('header#pageHeader .mobile-menu a.btn[href="dashboard.php"]');
 
-
-                if (loginBtnDesktop) {
-                    const btnPath = loginBtnDesktop.getAttribute('href').split('/').pop();
-                    loginBtnDesktop.classList.toggle('active', btnPath === currentPathBase && !currentActiveSectionId);
-                }
-                if (loginBtnMobile) {
-                    const btnPathMobile = loginBtnMobile.getAttribute('href').split('/').pop();
-                    loginBtnMobile.classList.toggle('active', btnPathMobile === currentPathBase && !currentActiveSectionId);
+                // Aktivuj Login/Dashboard jen pokud NENÍ aktivní žádný odkaz na sekci A zároveň jsme na dané stránce
+                if (!isHashLinkNowActive) {
+                    if (loginBtnDesktop && currentPathBase === 'login.php') loginBtnDesktop.classList.add('active-link');
+                    if (dashboardBtnDesktop && currentPathBase === 'dashboard.php') dashboardBtnDesktop.classList.add('active-link');
+                    if (loginBtnMobile && currentPathBase === 'login.php') loginBtnMobile.classList.add('active-link');
+                    if (dashboardBtnMobile && currentPathBase === 'dashboard.php') dashboardBtnMobile.classList.add('active-link');
                 }
             }
 
-            if (pageHeader) {
+            const pageHeaderForNavHighlight = document.getElementById('pageHeader');
+            if (pageHeaderForNavHighlight) {
                 window.addEventListener('scroll', highlightActiveNavLinkOnScroll);
                 window.addEventListener('load', highlightActiveNavLinkOnScroll);
                 window.addEventListener('hashchange', highlightActiveNavLinkOnScroll);

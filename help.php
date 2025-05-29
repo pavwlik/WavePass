@@ -599,8 +599,7 @@ require_once "db.php";
         </section>
     </main>
 
-    <!-- Footer -->
-    <?php  require_once "components/footer-user.php"; ?>
+
 
     <script>
 

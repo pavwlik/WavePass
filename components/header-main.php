@@ -133,6 +133,7 @@ error_reporting(E_ALL);
         .close-btn:hover { color: var(--primary-color); transform: rotate(90deg); }
         @media (max-width: 768px) { .nav-links { display: none; } .hamburger { display: flex; } }
         
+    
     </style>
 
     <script>
