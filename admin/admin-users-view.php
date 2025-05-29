@@ -22,98 +22,147 @@ $usersData = [];
 $dbErrorMessage = null;
 $todayDate = date('Y-m-d');
 
-// Cesty pre profilové fotky
 $profilePhotoBaseDir_server = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'profile_photos' . DIRECTORY_SEPARATOR;
 $profilePhotoBaseDir_web = $pathPrefix . 'profile_photos/';
-$defaultAvatar_web = $pathPrefix . 'imgs/default_avatar.png'; // Uistite sa, že tento obrázok existuje
+$defaultAvatar_web = $pathPrefix . 'imgs/default_avatar.jpg';
+
+$adminProfilePhoto_web = $defaultAvatar_web;
+if ($sessionAdminUserId && isset($pdo) && $pdo instanceof PDO) {
+    try {
+        $stmtAdminPhoto = $pdo->prepare("SELECT profile_photo FROM users WHERE userID = :admin_id");
+        $stmtAdminPhoto->execute([':admin_id' => $sessionAdminUserId]);
+        $adminPhotoFile = $stmtAdminPhoto->fetchColumn();
+        if (!empty($adminPhotoFile) && file_exists($profilePhotoBaseDir_server . $adminPhotoFile)) {
+            $adminProfilePhoto_web = $profilePhotoBaseDir_web . htmlspecialchars($adminPhotoFile) . '?' . time();
+        }
+    } catch (PDOException $e) {
+        error_log("Error fetching admin profile photo for header: " . $e->getMessage());
+    }
+}
+
+$filterName = isset($_GET['name']) ? trim($_GET['name']) : '';
+$filterRole = isset($_GET['role']) ? trim($_GET['role']) : '';
+$filterStatus = isset($_GET['status']) ? trim($_GET['status']) : '';
+$filterLateDeparture = isset($_GET['late_departure']) ? trim($_GET['late_departure']) : '';
+
+$filtersExpanded = !empty($filterName) || !empty($filterRole) || !empty($filterStatus) || !empty($filterLateDeparture);
 
 $totalUsers = 0;
 $usersPresentToday = 0;
 $usersOnLeaveToday = 0;
 $lateDepartureCount = 0;
 
+$activeQuery = null; 
+$paramsUsers = []; // Initialize paramsUsers outside the try block
+
 if (isset($pdo) && $pdo instanceof PDO) {
     try {
-        // 1. Fetch all users (vrátane profilovej fotky)
-        $stmtUsers = $pdo->query("SELECT userID, firstName, lastName, email, username, roleID, profile_photo FROM users ORDER BY lastName, firstName");
-        $users = $stmtUsers->fetchAll(PDO::FETCH_ASSOC);
-        $totalUsers = count($users);
+        $sqlUsers = "SELECT u.userID, u.firstName, u.lastName, u.username, u.roleID, u.profile_photo FROM users u WHERE 1=1";
+        // $paramsUsers is already initialized
 
-        // 2. Fetch all primary, active RFIDs
+        if (!empty($filterName)) {
+            // IMPORTANT: Bind wildcards with the parameter value for LIKE
+            $sqlUsers .= " AND (u.firstName LIKE :name_fn OR u.lastName LIKE :name_ln OR u.username LIKE :name_un)";
+            $paramsUsers[':name_fn'] = "%" . $filterName . "%";
+            $paramsUsers[':name_ln'] = "%" . $filterName . "%";
+            $paramsUsers[':name_un'] = "%" . $filterName . "%";
+        }
+        if (!empty($filterRole)) {
+            $sqlUsers .= " AND LOWER(u.roleID) = :role";
+            $paramsUsers[':role'] = strtolower($filterRole);
+        }
+        if (!empty($filterLateDeparture)) {
+            if ($filterLateDeparture === 'yes') {
+                $sqlUsers .= " AND EXISTS (SELECT 1 FROM late_departure_notifications ldn WHERE ldn.userID = u.userID AND ldn.notification_date = :today_date_for_late_filter)";
+                $paramsUsers[':today_date_for_late_filter'] = $todayDate;
+            } elseif ($filterLateDeparture === 'no') {
+                $sqlUsers .= " AND NOT EXISTS (SELECT 1 FROM late_departure_notifications ldn WHERE ldn.userID = u.userID AND ldn.notification_date = :today_date_for_late_filter)";
+                $paramsUsers[':today_date_for_late_filter'] = $todayDate;
+            }
+        }
+        $sqlUsers .= " ORDER BY u.lastName, u.firstName";
+        $activeQuery = $sqlUsers; 
+        
+        $stmtUsers = $pdo->prepare($sqlUsers);
+        $stmtUsers->execute($paramsUsers);
+        $users = $stmtUsers->fetchAll(PDO::FETCH_ASSOC);
+        
+        $stmtTotalAllUsers = $pdo->query("SELECT COUNT(*) FROM users");
+        $totalUsers = $stmtTotalAllUsers->fetchColumn();
+
+        $stmtLateDepartureCountAll = $pdo->prepare("SELECT COUNT(DISTINCT userID) FROM late_departure_notifications WHERE notification_date = :today_date_stat");
+        $stmtLateDepartureCountAll->execute([':today_date_stat' => $todayDate]);
+        $lateDepartureCount = $stmtLateDepartureCountAll->fetchColumn();
+
         $stmtRfids = $pdo->query("SELECT userID, name AS rfid_name, rfid_uid FROM rfids WHERE card_type = 'Primary Access Card' AND is_active = 1");
         $primaryRfids = [];
         foreach ($stmtRfids->fetchAll(PDO::FETCH_ASSOC) as $rfid) {
             $primaryRfids[$rfid['userID']] = $rfid;
         }
 
-        // 3. Fetch latest attendance logs for today for all users
         $stmtLatestLogs = $pdo->prepare(
             "SELECT al.userID, al.logType, al.logResult, al.logTime, al.rfid_uid_used
              FROM attendance_logs al
              INNER JOIN (
                  SELECT userID, MAX(logTime) as max_logTime
                  FROM attendance_logs
-                 WHERE DATE(logTime) = :today_date
+                 WHERE DATE(logTime) = :today_date_logs
                  GROUP BY userID
              ) latest_today ON al.userID = latest_today.userID AND al.logTime = latest_today.max_logTime"
         );
-        $stmtLatestLogs->execute([':today_date' => $todayDate]);
+        $stmtLatestLogs->execute([':today_date_logs' => $todayDate]);
         $latestLogs = [];
         foreach ($stmtLatestLogs->fetchAll(PDO::FETCH_ASSOC) as $log) {
             $latestLogs[$log['userID']] = $log;
         }
 
-        // 4. Fetch all active approved absences for today
         $stmtAbsences = $pdo->prepare(
             "SELECT userID, absence_type
              FROM absence
-             WHERE :today_date_check BETWEEN DATE(absence_start_datetime) AND DATE(absence_end_datetime)
+             WHERE :today_date_absences BETWEEN DATE(absence_start_datetime) AND DATE(absence_end_datetime)
                AND status = 'approved'"
         );
-        $stmtAbsences->execute([':today_date_check' => $todayDate]);
+        $stmtAbsences->execute([':today_date_absences' => $todayDate]);
         $approvedAbsences = [];
         foreach ($stmtAbsences->fetchAll(PDO::FETCH_ASSOC) as $absence) {
             $approvedAbsences[$absence['userID']] = $absence;
         }
 
-        // 5. Fetch today's late departure notifications
-        $stmtLateDepartures = $pdo->prepare(
+        $stmtLateDeparturesInfo = $pdo->prepare(
             "SELECT userID, planned_departure_time, notes
              FROM late_departure_notifications
-             WHERE notification_date = :today_date"
+             WHERE notification_date = :today_date_late_info"
         );
-        $stmtLateDepartures->execute([':today_date' => $todayDate]);
+        $stmtLateDeparturesInfo->execute([':today_date_late_info' => $todayDate]);
         $lateDepartureNotifications = [];
-        foreach ($stmtLateDepartures->fetchAll(PDO::FETCH_ASSOC) as $notification) {
+        foreach ($stmtLateDeparturesInfo->fetchAll(PDO::FETCH_ASSOC) as $notification) {
             $lateDepartureNotifications[$notification['userID']] = $notification;
         }
-        $lateDepartureCount = count($lateDepartureNotifications);
+        
+        $tempUsersData = [];
+        $currentUsersPresent = 0; 
+        $currentUsersOnLeave = 0; 
 
-
-        // 6. Combine data for each user
         foreach ($users as $user) {
-            if ($user['userID'] == $sessionAdminUserId && $totalUsers > 1) { // Preskočíme admina, ak nie je jediný používateľ
-                // $totalUsers--; // Ak ho preskakujeme, znížime celkový počet pre štatistiku
-                // continue;
-            }
             $userData = $user;
-
-            // Profilová fotka
             $userPhotoSrc = $defaultAvatar_web;
             if (!empty($user['profile_photo']) && file_exists($profilePhotoBaseDir_server . $user['profile_photo'])) {
                 $userPhotoSrc = $profilePhotoBaseDir_web . htmlspecialchars($user['profile_photo']);
             }
             $userData['profile_photo_url'] = $userPhotoSrc . '?' . time();
 
+            $status = "Not Checked In"; $statusClass = "neutral";
+            $lastAction = "N/A"; $lastActionTime = "--:--"; $rfidUsedForLastAction = "N/A";
+            $isCurrentlyPresent = false; $isCurrentlyOnLeave = false; $isCurrentlyCheckedOut = false;
 
-            $userData['rfid_name_assigned'] = $primaryRfids[$user['userID']]['rfid_name'] ?? 'N/A';
-            $userData['rfid_uid_assigned'] = $primaryRfids[$user['userID']]['rfid_uid'] ?? 'N/A';
-
-            $status = "Not Checked In";
-            $statusClass = "neutral";
-            $lastAction = "N/A";
-            $lastActionTime = "--:--";
-            $rfidUsedForLastAction = "N/A";
+            if (isset($approvedAbsences[$user['userID']])) {
+                $absenceItem = $approvedAbsences[$user['userID']]; // Renamed to avoid conflict
+                $absenceTypeDisplay = ucfirst(str_replace('_', ' ', $absenceItem['absence_type']));
+                $status = "On Leave"; 
+                $statusClass = "on-leave"; $lastAction = htmlspecialchars($absenceTypeDisplay);
+                if (strtolower($user['roleID']) == 'employee') $currentUsersOnLeave++;
+                $isCurrentlyOnLeave = true;
+            }
 
             if (isset($latestLogs[$user['userID']])) {
                 $log = $latestLogs[$user['userID']];
@@ -122,25 +171,33 @@ if (isset($pdo) && $pdo instanceof PDO) {
 
                 if ($log['logResult'] == 'granted') {
                     if ($log['logType'] == 'entry') {
-                        $status = "Present"; $statusClass = "present"; $lastAction = "Entry";
-                        if (!isset($approvedAbsences[$user['userID']])) { // Počítame len ak nie sú zároveň na absencii
-                            $usersPresentToday++;
+                        if (!$isCurrentlyOnLeave) {
+                            $status = "Present"; $statusClass = "present";
+                            if (strtolower($user['roleID']) == 'employee') $currentUsersPresent++;
+                            $isCurrentlyPresent = true;
                         }
+                        $lastAction = "Entry";
                     } elseif ($log['logType'] == 'exit') {
-                        $status = "Checked Out"; $statusClass = "checked-out"; $lastAction = "Exit";
+                        if (!$isCurrentlyOnLeave) {
+                           $status = "Checked Out"; $statusClass = "checked-out";
+                           $isCurrentlyCheckedOut = true;
+                        }
+                        $lastAction = "Exit";
                     }
                 } elseif ($log['logResult'] == 'denied') {
-                    $status = "Access Denied"; $statusClass = "danger";
+                     if (!$isCurrentlyOnLeave) { $status = "Access Denied"; $statusClass = "danger"; }
                     $lastAction = ($log['logType'] == 'entry' ? "Entry Attempt" : "Exit Attempt");
-                } else {
-                    $status = "Status Unknown"; $statusClass = "neutral"; $lastAction = ucfirst($log['logType']);
+                } else { 
+                     if (!$isCurrentlyOnLeave) { $status = "Status Unknown"; $statusClass = "neutral"; }
+                    $lastAction = ucfirst($log['logType']);
                 }
-            } elseif (isset($approvedAbsences[$user['userID']])) {
-                $absence = $approvedAbsences[$user['userID']];
-                $absenceTypeDisplay = ucfirst(str_replace('_', ' ', $absence['absence_type']));
-                $status = "On Leave (" . htmlspecialchars($absenceTypeDisplay) . ")";
-                $statusClass = "info"; $lastAction = "N/A";
-                $usersOnLeaveToday++;
+            }
+            
+            if (!empty($filterStatus)) {
+                if ($filterStatus === 'present' && !$isCurrentlyPresent) continue;
+                if ($filterStatus === 'on_leave' && !$isCurrentlyOnLeave) continue;
+                if ($filterStatus === 'checked_out' && !$isCurrentlyCheckedOut) continue;
+                if ($filterStatus === 'not_checked_in' && ($isCurrentlyPresent || $isCurrentlyOnLeave || $isCurrentlyCheckedOut)) continue;
             }
 
             $userData['current_status_display'] = $status;
@@ -154,19 +211,22 @@ if (isset($pdo) && $pdo instanceof PDO) {
                 $plannedDepartureTimeFormatted = date("H:i", strtotime($lateDepartureNotifications[$user['userID']]['planned_departure_time']));
                 $plannedDepartureOutput = $plannedDepartureTimeFormatted;
                 if (!empty($lateDepartureNotifications[$user['userID']]['notes'])) {
-                    $plannedDepartureOutput .= " <i class='fas fa-sticky-note has-tooltip' title='" . htmlspecialchars($lateDepartureNotifications[$user['userID']]['notes']) . "'></i>";
+                    $noteTitle = htmlspecialchars($lateDepartureNotifications[$user['userID']]['notes']);
+                    $plannedDepartureOutput .= " <span class='tooltip-trigger' tabindex='0'><i class='fas fa-sticky-note'></i><span class='tooltip-content'>{$noteTitle}</span></span>";
                 }
             }
             $userData['planned_departure_info'] = $plannedDepartureOutput;
-
-            $usersData[] = $userData;
+            $tempUsersData[] = $userData;
         }
+        $usersData = $tempUsersData;
+        $usersPresentToday = $currentUsersPresent; 
+        $usersOnLeaveToday = $currentUsersOnLeave;
 
     } catch (PDOException $e) {
-        error_log("Admin Panel DB Error: " . $e->getMessage() . " --- SQL: " . ($e->getTrace()[0]['args'][0] ?? 'N/A'));
-        $dbErrorMessage = "A database error occurred. Please check server logs.";
+        error_log("Admin Users View DB Error: " . $e->getMessage() . " --- SQL: " . ($activeQuery ?? 'Could not get active query') . " --- Params: " . json_encode($paramsUsers));
+        $dbErrorMessage = "A database error occurred. Please check server logs for more details. Ensure your database user has correct permissions and the database schema matches the queries.";
     } catch (Exception $e) {
-        error_log("Admin Panel App Error: " . $e->getMessage());
+        error_log("Admin Users View App Error: " . $e->getMessage());
         $dbErrorMessage = "An application error occurred.";
     }
 } elseif (!isset($pdo)) {
@@ -180,150 +240,241 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="<?php echo htmlspecialchars($pathPrefix); ?>imgs/logo.png" type="image/x-icon">
-    <title>Admin Panel - User Overview - WavePass</title>
+    <title>User Activity Overview - Admin - WavePass</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="<?php echo htmlspecialchars($pathPrefix); ?>css/header-styles.css"> 
+    <link rel="stylesheet" href="<?php echo htmlspecialchars($pathPrefix); ?>css/main-styles.css">
     <style>
         :root {
             --primary-color: #4361ee; --primary-dark: #3a56d4;
-            --secondary-color: #3f37c9; /* Pre admin rolu - badge */
+            --primary-color-rgb: 67, 97, 238;
+            --secondary-color: #3f37c9; 
             --dark-color: #1a1a2e; --light-color: #f8f9fa; --gray-color: #6c757d;
             --light-gray: #e9ecef; --white: #ffffff;
-            --success-color: #28a745; /* Zelená pre "Present" */
-            --warning-color: #ffc107; /* Žltá pre "Checked Out" */
-            --info-color: #17a2b8;   /* Modrozelená pre "On Leave" */
-            --danger-color: #dc3545;  /* Červená pre "Access Denied" */
-            --neutral-color: #6c757d; /* Šedá pre "Not Checked In" / "N/A" */
-            --shadow: 0 4px 20px rgba(0, 0, 0, 0.07);
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.08); 
             --transition: all 0.3s ease;
 
             --present-color-val: 40, 167, 69;
-            --checked-out-color-val: 214, 40, 40;
-            --info-color-val: 23, 162, 184;
-            --neutral-color-val: 108, 117, 125;
+            --checked-out-color-val: 108, 117, 125; 
+            --on-leave-color-val: 23, 162, 184;   
             --danger-color-val: 220, 53, 69;
+            --neutral-color-val: 173, 181, 189; 
+
+            --stat-primary-color-val: var(--primary-color-rgb); 
+            --stat-success-color-val: 67, 170, 139; 
+            --stat-info-color-val: 23, 162, 184;    
+            --late-departure-icon-color-val: 23, 162, 184; 
+            
+            --stat-total-users-color: var(--primary-color);
+            --stat-present-color: rgb(var(--stat-success-color-val));
+            --stat-on-leave-color: rgb(var(--stat-info-color-val));
+            --stat-late-exit-color: rgb(var(--late-departure-icon-color-val)); 
+
+            --employee-badge-bg: #e0f3ff;
+            --employee-badge-text: #007bff;
+            --admin-badge-bg: #e9d8fd;
+            --admin-badge-text: #6f42c1;
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; line-height: 1.6; color: var(--dark-color); background-color: #f4f6f9; display: flex; flex-direction: column; min-height: 100vh; }
-        main { flex-grow: 1; padding-top: 80px; }
-        header { /* Predpokladáme, že header má svoje štýly z header-admin.php */ }
-        .container { max-width: 1500px; /* Mierne širší pre admin panel */ margin: 0 auto; padding: 0 20px; }
+        body {font-family: 'Inter', sans-serif; padding-top: 80px; background-color: #f4f7fc; } 
+        main { padding-bottom: 3rem; }
+        
+        .page-header h1 { font-size: 2rem; font-weight: 700; }
+        .page-header .sub-heading { font-size: 1rem; color: var(--gray-color); }
+        .db-error-message {background-color: rgba(var(--danger-color-val),0.1); color: rgb(var(--danger-color-val)); padding: 1rem; border-left: 4px solid rgb(var(--danger-color-val)); margin-bottom: 1.5rem; border-radius: 4px; font-size:0.9rem;}
 
-        .page-header { padding: 1.5rem 0; margin-bottom: 1.5rem; background-color:var(--white); box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
-        .page-header h1 { font-size: 1.8rem; margin: 0; }
-        .page-header .sub-heading { font-size: 0.95rem; color: var(--gray-color); margin-top: 0.25rem; }
+        .admin-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem; }
+        .stat-card { background-color: var(--white); padding: 1.2rem 1.5rem; border-radius: 8px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 1.2rem; transition: var(--transition); border: 1px solid var(--light-gray); position:relative; overflow:hidden;}
+        .stat-card::before { content: ''; position:absolute; top:0; left:0; width:5px; height:100%; background-color:transparent; transition: var(--transition); }
+        .stat-card:hover{transform: translateY(-4px); box-shadow: 0 6px 28px rgba(0,0,0,0.09);}
+        .stat-card .icon { font-size: 2.2rem; padding: 0.8rem; border-radius: 50%; display:flex; align-items:center; justify-content:center; width:55px; height:55px; flex-shrink:0; }
+        .stat-card .info .value { font-size: 1.8rem; font-weight: 500; color: var(--dark-color); display:block; line-height:1.1; margin-bottom:0.3rem;}
+        .stat-card .info .label { font-size: 0.8rem; color: var(--gray-color); text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-card.total-users::before { background-color: var(--stat-total-users-color); }
+        .stat-card.total-users .icon { background-color: rgba(var(--stat-primary-color-val),0.1); color: var(--stat-total-users-color); }
+        .stat-card.present-stat::before { background-color: var(--stat-present-color); }
+        .stat-card.present-stat .icon { background-color: rgba(var(--stat-success-color-val),0.1); color: var(--stat-present-color); }
+        .stat-card.on-leave-stat::before { background-color: var(--stat-on-leave-color); }
+        .stat-card.on-leave-stat .icon { background-color: rgba(var(--stat-info-color-val),0.1); color: var(--stat-on-leave-color); }
+        .stat-card.late-stat::before { background-color: var(--stat-late-exit-color); }
+        .stat-card.late-stat .icon { background-color: rgba(var(--late-departure-icon-color-val),0.1); color: var(--stat-late-exit-color); }
 
-        .db-error-message {background-color: rgba(var(--danger-color-val),0.1); color: var(--danger-color); padding: 1rem; border-left: 4px solid var(--danger-color); margin-bottom: 1.5rem; border-radius: 4px; font-size:0.9rem;}
+        .users-list-panel { background-color: var(--white); border-radius: 8px; box-shadow: var(--shadow); padding: 0; margin-bottom: 2rem; border: 1px solid var(--light-gray); }
+        .users-list-panel .panel-header { padding: 1.2rem 1.5rem; margin-bottom:0; display: flex; justify-content: space-between; align-items: center;}
+        .users-list-panel .panel-header .panel-title { font-size: 1.3rem; color: var(--dark-color); margin:0; }
+        
+        .filters-toggle-section { padding: 0.8rem 1.5rem; border-top: 1px solid var(--light-gray); border-bottom: 1px solid var(--light-gray); display: flex; justify-content: space-between; align-items: center; cursor: pointer; background-color: #fdfdff; }
+        .filters-toggle-section h3 { font-size: 1.05rem; color: var(--dark-color); margin: 0; font-weight: 600; }
+        .filters-toggle-section .toggle-icon { font-size: 1.5rem; color: var(--gray-color); transition: transform 0.3s ease; }
+        .filters-toggle-section.expanded .toggle-icon { transform: rotate(180deg); }
+        
+        .filters-body { padding: 1.5rem; display: none; flex-wrap: wrap; gap: 1.2rem 1.5rem; align-items: flex-end; border-bottom: 1px solid var(--light-gray); background-color: #fdfdff; }
+        .filters-body.expanded { display: flex; } 
 
-        .stats-overview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.2rem; margin-bottom: 2rem; }
-        .stat-item { background-color: var(--white); padding: 1.2rem 1.5rem; border-radius: 8px; box-shadow: var(--shadow); text-align: left; display: flex; flex-direction: column; justify-content: space-between; border-left: 5px solid var(--primary-color); }
-        .stat-item .stat-label { font-size: 0.85rem; color: var(--gray-color); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; }
-        .stat-item .stat-value { font-size: 2.2rem; font-weight: 600; color: var(--dark-color); display: block; line-height:1.1; }
-        .stat-item.present-stat { border-left-color: var(--success-color); }
-        .stat-item.present-stat .stat-value { color: var(--success-color); }
-        .stat-item.on-leave-stat { border-left-color: var(--info-color); }
-        .stat-item.on-leave-stat .stat-value { color: var(--info-color); }
-        .stat-item.late-stat { border-left-color: var(--warning-color); }
-        .stat-item.late-stat .stat-value { color: var(--warning-color); }
+        .filter-group { display: flex; flex-direction: column; min-width: 180px; flex-grow:1;}
+        .filter-group label { font-size: 0.8rem; color: var(--gray-color); margin-bottom: 0.4rem; font-weight: 500; }
+        .filter-group input[type="text"], .filter-group select { padding: 0.7rem 0.9rem; border: 1px solid #ced4da; border-radius: 6px; font-size: 0.9rem; background-color: var(--white); }
+        .filter-group input[type="text"]:focus, .filter-group select:focus { border-color: var(--primary-color); box-shadow: 0 0 0 0.2rem rgba(var(--primary-color-rgb), 0.25); outline: 0; }
+        .filter-buttons-group { display: flex; gap: 0.8rem; align-items: flex-end; flex-grow: 0.3; margin-top: 1.2rem; }
+        .filter-buttons-group button, .filter-buttons-group a.button { padding: 0.7rem 1.3rem; color: var(--white); border: none; border-radius: 6px; cursor: pointer; font-weight: 500; transition: background-color 0.2s ease; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; }
+        .filter-buttons-group button { background-color: var(--primary-color); }
+        .filter-buttons-group button:hover { background-color: var(--primary-dark); }
+        .filter-buttons-group a.button.clear { background-color: var(--gray-color); }
+        .filter-buttons-group a.button.clear:hover { background-color: #5a6268; }
+        .filter-buttons-group .material-symbols-outlined { font-size: 1.2em;}
 
-
-        .content-panel { background-color: var(--white); padding: 1.5rem 1.8rem; border-radius: 8px; box-shadow: var(--shadow); border: 1px solid var(--light-gray); }
-        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom:1.5rem; padding-bottom:1rem; border-bottom:1px solid var(--light-gray); }
-        .panel-title { font-size: 1.3rem; color: var(--dark-color); margin:0; }
-
-        .users-table-wrapper { overflow-x: auto; }
-        .users-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; } /* Zväčšený default font */
+        .users-table-wrapper { overflow-x: auto; padding: 0.5rem; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;}
+        .users-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.9rem; min-width: 700px; /* Ensure table has a min-width for scrolling */ }
         .users-table th, .users-table td { padding: 0.9rem 1.1rem; text-align: left; border-bottom: 1px solid var(--light-gray); white-space: nowrap; vertical-align: middle; }
-        .users-table th { background-color: #f9fafb; font-weight: 600; /* Tučnejšie hlavičky */ color: var(--gray-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px; }
+        .users-table th { background-color: #f8f9fc; font-weight: 600; color: var(--dark-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px; }
         .users-table tbody tr:last-child td { border-bottom:none; }
-        .users-table tbody tr:hover { background-color: #f0f4ff; }
-
-        .users-table .profile-photo-cell { display: flex; align-items: center; gap: 12px; /* Väčšia medzera */ }
-        .users-table .profile-photo { width: 36px; height: 36px; /* Väčšie fotky */ border-radius: 50%; object-fit: cover; border: 2px solid var(--light-gray); }
-        .users-table .user-name-role .user-name { font-weight: 500; display:block; line-height:1.2; }
-        .users-table .user-name-role .user-role-badge {
-            font-size: 0.7rem;
-            padding: 2px 6px; /* Menší padding pre badge */
-            border-radius: 4px;
-            color: var(--white);
-            text-transform: uppercase; /* Všetko veľké pre badge */
-            letter-spacing: 0.5px;
-            display: inline-block;
-            margin-top: 2px; /* Malý odstup od mena */
-        }
-        .users-table .user-role-badge.admin { background-color: var(--secondary-color); }
-        .users-table .user-role-badge.employee { background-color: var(--info-color); }
-
-        .status-badge { display: inline-block; padding: 0.35rem 0.9rem; /* Trochu väčší padding */ border-radius: 18px; /* Zaoblenejší */ font-size: 0.78rem; font-weight: 500; white-space: normal; line-height: 1.3; text-align: center; min-width: 110px; /* Konzistentná šírka */}
+        .users-table tbody tr:hover { background-color: #eff3f9; }
+        .users-table .profile-photo-cell { display: flex; align-items: center; gap: 0.8rem; }
+        .users-table .profile-photo { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 2px solid var(--white); box-shadow: 0 1px 3px rgba(0,0,0,0.1);}
+        .users-table .user-name-role .user-name { font-weight: 600; display:block; line-height:1.3; color: var(--dark-color); font-size: 0.95rem;}
+        .users-table .user-name-role .user-role-badge { font-size: 0.8rem; padding: 0.25rem 0.8rem; border-radius: 12px; font-weight: 500; text-transform: capitalize; display: inline-block; margin-top: 4px; line-height: 1.2; }
+        .users-table .user-role-badge.admin { background-color: var(--admin-badge-bg); color: var(--admin-badge-text); }
+        .users-table .user-role-badge.employee { background-color: var(--employee-badge-bg); color: var(--employee-badge-text); }
+        .status-badge { display: inline-flex; align-items:center; gap: 0.4rem; padding: 0.4rem 0.9rem; border-radius: 16px; font-size: 0.8rem; font-weight: 500; white-space: nowrap; text-align: center; min-width: 125px; }
+        .status-badge .material-symbols-outlined { font-size: 1.1em; margin-right:2px;}
         .status-badge.present { background-color: rgba(var(--present-color-val), 0.15); color: rgb(var(--present-color-val)); }
-        .status-badge.absent { background-color: rgba(var(--neutral-color-val),0.15); color: rgb(var(--neutral-color-val));} /* Šedá pre Not Checked In */
-        .status-badge.checked-out { background-color: rgba(var(--checked-out-color-val), 0.15); color: rgb(var(--checked-out-color-val));}
-        .status-badge.info { background-color: rgba(var(--info-color-val), 0.15); color: rgb(var(--info-color-val)); }
+        .status-badge.checked-out { background-color: rgba(var(--checked-out-color-val), 0.2); color: rgb(var(--checked-out-color-val));}
+        .status-badge.on-leave { background-color: rgba(var(--on-leave-color-val), 0.15); color: rgb(var(--on-leave-color-val));}
         .status-badge.danger { background-color: rgba(var(--danger-color-val),0.15); color: rgb(var(--danger-color-val));}
-
-        .users-table td.rfid-uid-cell { font-family: 'Courier New', Courier, monospace; color: var(--gray-color); font-size: 0.85rem; }
+        .status-badge.neutral { background-color: rgba(var(--neutral-color-val),0.15); color: rgb(var(--neutral-color-val));}
+        .users-table td.rfid-uid-cell { color: #555; font-size: 0.85rem; }
         .users-table td.last-action-time { color: var(--gray-color); font-size: 0.85rem; }
-        .planned-departure-cell { font-style: italic;}
-        .planned-departure-cell .fa-sticky-note { margin-left: 5px; cursor: help; color: var(--gray-color); font-size: 0.9em; }
-        .no-users-msg {text-align:center; padding: 2.5rem 1rem; color:var(--gray-color); font-size:0.95rem; background-color: #fdfdfd; border-radius: 4px; border: 1px dashed var(--light-gray);}
-        footer { background-color: var(--dark-color); color: var(--white); padding: 2rem 0; margin-top: auto; text-align: center; }
-        footer p { margin: 0; font-size: 0.9rem;}
-        footer a { color: rgba(255,255,255,0.8); text-decoration:none;}
-        footer a:hover { color:var(--white); }
+        .planned-departure-cell .fa-sticky-note, .planned-departure-cell .tooltip-trigger .fa-sticky-note { margin-left: 6px; cursor: help; color: var(--primary-color); font-size: 1em; opacity: 0.7; }
+        .planned-departure-cell .fa-sticky-note:hover { opacity: 1; }
+        .tooltip-trigger { position: relative; display: inline-block; cursor: help; }
+        .tooltip-content { visibility: hidden; opacity: 0; background-color: var(--dark-color); color: var(--light-color); text-align: left; border-radius: 6px; padding: 10px 14px; position: absolute; z-index: 10; bottom: 130%; left: 50%; transform: translateX(-50%); font-size: 0.85rem; white-space: normal; width: 220px; transition: opacity 0.25s, visibility 0.25s; box-shadow: 0 3px 12px rgba(0,0,0,0.2); line-height: 1.5; }
+        .tooltip-content::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -6px; border-width: 6px; border-style: solid; border-color: var(--dark-color) transparent transparent transparent; }
+        .tooltip-trigger:hover .tooltip-content, .tooltip-trigger:focus .tooltip-content { visibility: visible; opacity: 1; }
 
+        /* No JS card transformation - rely on table wrapper's overflow-x: auto */
+        @media screen and (max-width: 1024px) { 
+            .filter-group { min-width: calc(33.33% - 1rem); }
+        }
+         @media screen and (max-width: 880px) { 
+            .filter-group { min-width: calc(50% - 1rem); } 
+         }
+         @media screen and (max-width: 600px) { 
+            .filters-body { flex-direction: column; align-items: stretch; }
+            .filter-group { width: 100%; min-width: unset; }
+            .filter-buttons-group { width: 100%; justify-content: flex-start; margin-top: 1rem;}
+            .admin-stats-grid { grid-template-columns: 1fr; } 
+            .page-header h1 { font-size: 1.6rem;}
+            .page-header .sub-heading { font-size: 0.9rem;}
+        }
     </style>
 </head>
 <body>
-    <?php require_once "../components/header-admin.php"; ?>
+    <?php require "../components/header-admin.php"; ?>
 
     <main>
         <div class="page-header">
             <div class="container">
                 <h1>User Activity Overview</h1>
-                <p class="sub-heading">Live status and daily summary for all users.</p>
+                <p class="sub-heading">Live status and daily summary for all users as of <?php echo date("F d, Y"); ?>.</p>
             </div>
         </div>
 
-        <div class="container" style="padding-bottom: 2.5rem;">
+        <div class="container">
             <?php if (isset($dbErrorMessage) && $dbErrorMessage): ?>
                 <div class="db-error-message" role="alert">
                     <i class="fas fa-exclamation-triangle" style="margin-right: 0.5rem;"></i> <?php echo htmlspecialchars($dbErrorMessage); ?>
                 </div>
             <?php endif; ?>
 
-            <section class="stats-overview-grid">
-                <div class="stat-item">
-                    <span class="stat-label">Total Users</span>
-                    <span class="stat-value"><?php echo $totalUsers; ?></span>
+            <section class="admin-stats-grid">
+                <div class="stat-card total-users">
+                    <div class="icon"><span class="material-symbols-outlined">groups</span></div>
+                    <div class="info">
+                        <span class="value"><?php echo $totalUsers; ?></span>
+                        <span class="label">Total Users</span>
+                    </div>
                 </div>
-                <div class="stat-item present-stat">
-                    <span class="stat-label">Present Today</span>
-                    <span class="stat-value"><?php echo $usersPresentToday; ?></span>
+                <div class="stat-card present-stat">
+                    <div class="icon"><span class="material-symbols-outlined">person_check</span></div>
+                    <div class="info">
+                        <span class="value"><?php echo $usersPresentToday; ?></span>
+                        <span class="label">Employees Present</span>
+                    </div>
                 </div>
-                <div class="stat-item on-leave-stat">
-                    <span class="stat-label">On Leave Today</span>
-                    <span class="stat-value"><?php echo $usersOnLeaveToday; ?></span>
+                <div class="stat-card on-leave-stat">
+                    <div class="icon"><span class="material-symbols-outlined">event_busy</span></div>
+                     <div class="info">
+                        <span class="value"><?php echo $usersOnLeaveToday; ?></span>
+                        <span class="label">Employees On Leave</span>
+                    </div>
                 </div>
-                <div class="stat-item late-stat">
-                     <span class="stat-label">Late Exits Notified</span>
-                    <span class="stat-value"><?php echo $lateDepartureCount; ?></span>
+                <div class="stat-card late-stat">
+                    <div class="icon"><span class="material-symbols-outlined">history_edu</span></div>
+                    <div class="info">
+                        <span class="value"><?php echo $lateDepartureCount; ?></span>
+                        <span class="label">Late Exits Notified</span>
+                    </div>
                 </div>
             </section>
 
-            <section class="content-panel">
+            <section class="users-list-panel">
                 <div class="panel-header">
-                    <h2 class="panel-title">User Status - <?php echo date("F d, Y"); ?></h2>
-                    <!-- Filter/Search by user can be added here if needed -->
+                    <h2 class="panel-title">User Status List (<?php echo count($usersData); ?> matching)</h2>
+                </div>
+
+                <div class="filters-toggle-section <?php if($filtersExpanded) echo 'expanded'; ?>" id="filtersHeaderToggle">
+                    <h3><span class="material-symbols-outlined" style="font-size:1.2em; vertical-align:middle; margin-right:5px;">filter_list</span>Filter Users</h3>
+                    <span class="material-symbols-outlined toggle-icon">expand_more</span>
+                </div>
+                <div class="filters-body <?php if($filtersExpanded) echo 'expanded'; ?>" id="filtersBody">
+                    <form method="GET" action="admin-users-view.php" style="display:contents; width:100%;">
+                        <div class="filter-group">
+                            <label for="filterName">Name/Username</label>
+                            <input type="text" id="filterName" name="name" value="<?php echo htmlspecialchars($filterName); ?>" placeholder="Search name or username...">
+                        </div>
+                        <div class="filter-group">
+                            <label for="filterRole">Role</label>
+                            <select id="filterRole" name="role">
+                                <option value="">All Roles</option>
+                                <option value="admin" <?php if ($filterRole === 'admin') echo 'selected'; ?>>Admin</option>
+                                <option value="employee" <?php if ($filterRole === 'employee') echo 'selected'; ?>>Employee</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="filterStatus">Current Status</label>
+                            <select id="filterStatus" name="status">
+                                <option value="">All Statuses</option>
+                                <option value="present" <?php if ($filterStatus === 'present') echo 'selected'; ?>>Present</option>
+                                <option value="on_leave" <?php if ($filterStatus === 'on_leave') echo 'selected'; ?>>On Leave</option>
+                                <option value="checked_out" <?php if ($filterStatus === 'checked_out') echo 'selected'; ?>>Checked Out</option>
+                                <option value="not_checked_in" <?php if ($filterStatus === 'not_checked_in') echo 'selected'; ?>>Not Checked In</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="filterLateDeparture">Planned Late Exit (Today)</label>
+                            <select id="filterLateDeparture" name="late_departure">
+                                <option value="">Any</option>
+                                <option value="yes" <?php if ($filterLateDeparture === 'yes') echo 'selected'; ?>>Yes</option>
+                                <option value="no" <?php if ($filterLateDeparture === 'no') echo 'selected'; ?>>No</option>
+                            </select>
+                        </div>
+                        <div class="filter-buttons-group">
+                            <button type="submit"><span class="material-symbols-outlined">search</span>Filter</button>
+                            <?php if (!empty($filterName) || !empty($filterRole) || !empty($filterStatus) || !empty($filterLateDeparture)): ?>
+                                <a href="admin-users-view.php" class="button clear"><span class="material-symbols-outlined">clear_all</span>Clear</a>
+                            <?php endif; ?>
+                        </div>
+                    </form>
                 </div>
 
                 <div class="users-table-wrapper">
                     <table class="users-table" id="userStatusTable">
                         <thead>
                             <tr>
-                                <th>Name</th>
-                                <th>Email</th>
+                                <th>Name & Role</th>
                                 <th>Current Status</th>
-                                <th>Last Scan (Time)</th>
+                                <th>Last Action (Time)</th>
                                 <th>Source (Card UID)</th>
                                 <th>Planned Exit</th>
                             </tr>
@@ -332,33 +483,44 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                             <?php if (!empty($usersData)): ?>
                                 <?php foreach ($usersData as $user): ?>
                                     <tr>
-                                        <td class="profile-photo-cell">
+                                        <td data-label="Name & Role" class="profile-photo-cell">
                                             <img src="<?php echo htmlspecialchars($user['profile_photo_url']); ?>" alt="Photo" class="profile-photo">
                                             <div class="user-name-role">
                                                 <span class="user-name"><?php echo htmlspecialchars($user['firstName'] . ' ' . $user['lastName']); ?></span>
-                                                <span class="user-role-badge <?php echo htmlspecialchars(strtolower($user['roleID'])); ?>"><?php echo htmlspecialchars($user['roleID']); ?></span>
+                                                <span class="user-role-badge <?php echo htmlspecialchars(strtolower($user['roleID'])); ?>"><?php echo htmlspecialchars(ucfirst($user['roleID'])); ?></span>
                                             </div>
                                         </td>
-                                        <td><?php echo htmlspecialchars($user['email']); ?></td>
-                                        <td>
+                                        <td data-label="Current Status">
                                             <span class="status-badge <?php echo htmlspecialchars($user['status_class_display']); ?>">
+                                                <?php 
+                                                    $statusIcon = "help_outline";
+                                                    if ($user['status_class_display'] === 'present') $statusIcon = "person_check";
+                                                    else if ($user['status_class_display'] === 'checked-out') $statusIcon = "logout";
+                                                    else if ($user['status_class_display'] === 'on-leave') $statusIcon = "event_busy";
+                                                    else if ($user['status_class_display'] === 'danger') $statusIcon = "gpp_maybe";
+                                                    else if ($user['status_class_display'] === 'neutral') $statusIcon = "person_off";
+                                                ?>
+                                                <span class="material-symbols-outlined"><?php echo $statusIcon; ?></span>
                                                 <?php echo htmlspecialchars($user['current_status_display']); ?>
                                             </span>
                                         </td>
-                                        <td class="last-action-time">
+                                        <td data-label="Last Action (Time)" class="last-action-time">
                                             <?php echo htmlspecialchars($user['last_action_display']); ?>
-                                            <?php if ($user['last_action_time_display'] !== '--:--') echo ' at ' . htmlspecialchars($user['last_action_time_display']); ?>
+                                            <?php if ($user['last_action_time_display'] !== '--:--') echo ' @ ' . htmlspecialchars($user['last_action_time_display']); ?>
                                         </td>
-                                        <td class="rfid-uid-cell"><?php echo htmlspecialchars($user['rfid_used_last_action']); ?></td>
-                                        <td class="planned-departure-cell">
-                                            <?php echo $user['planned_departure_info']; // Obsahuje HTML pre ikonu ?>
+                                        <td data-label="Source (Card UID)" class="rfid-uid-cell"><?php echo htmlspecialchars($user['rfid_used_last_action']); ?></td>
+                                        <td data-label="Planned Exit" class="planned-departure-cell">
+                                            <?php echo $user['planned_departure_info']; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <?php if (!$dbErrorMessage): ?>
                                 <tr>
-                                    <td colspan="6" class="no-users-msg">No users found in the system.</td>
+                                    <td colspan="5" class="no-users-msg" style="text-align: center; padding: 2rem;">
+                                        <span class="material-symbols-outlined" style="font-size: 3rem; display:block; margin-bottom:0.5rem;">search_off</span>
+                                        No users found matching your criteria. Try adjusting the filters.
+                                    </td>
                                 </tr>
                                 <?php endif; ?>
                             <?php endif; ?>
@@ -373,12 +535,45 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // JavaScript pre túto stránku (napr. pre tooltipy, ak by ste ich chceli dynamickejšie)
-        // Príklad pre jednoduché natívne tooltipy (ak title atribut nestačí)
-        const tooltips = document.querySelectorAll('.has-tooltip');
-        tooltips.forEach(tip => {
-            // Tu by bola logika pre zobrazenie vlastného tooltipu, ak je to potrebné.
-            // Pre jednoduchosť sa spoliehame na natívny title atribút.
+        const filtersHeaderToggle = document.getElementById('filtersHeaderToggle');
+        const filtersBody = document.getElementById('filtersBody');
+
+        if (filtersHeaderToggle && filtersBody) {
+            filtersHeaderToggle.addEventListener('click', function() {
+                const isExpanded = filtersBody.classList.contains('expanded');
+                if (isExpanded) {
+                    filtersBody.classList.remove('expanded');
+                    filtersHeaderToggle.classList.remove('expanded');
+                } else {
+                    filtersBody.classList.add('expanded');
+                    filtersHeaderToggle.classList.add('expanded');
+                }
+            });
+        }
+
+        const mobileNavToggle = document.querySelector('.mobile-nav-toggle');
+        const mainNav = document.querySelector('.main-nav');
+        if (mobileNavToggle && mainNav) {
+            mobileNavToggle.addEventListener('click', function() {
+                const isExpanded = mobileNavToggle.getAttribute('aria-expanded') === 'true' || false;
+                mobileNavToggle.setAttribute('aria-expanded', !isExpanded);
+                mainNav.classList.toggle('active'); 
+            });
+        }
+
+        const tooltipTriggers = document.querySelectorAll('.tooltip-trigger');
+        tooltipTriggers.forEach(trigger => {
+            trigger.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    if (document.activeElement === trigger) {
+                        // Could try to blur and re-focus to trigger CSS if needed,
+                        // but pure CSS :focus should generally work.
+                    } else {
+                        trigger.focus();
+                    }
+                }
+            });
         });
     });
 </script>

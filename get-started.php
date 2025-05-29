@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WavePass - Get Started</title>
-    <!-- CORRECTED Google Material Symbols Link -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -44,7 +43,7 @@
         
         main {
             flex-grow: 1; 
-            padding-top: 80px;; /* Height of the fixed header */
+            padding-top: 80px; /* Height of the fixed header */
         }
 
         h1, h2, h3, h4 {
@@ -58,227 +57,9 @@
             padding: 0 20px;
         }
 
-        /* Improved Header & Navigation */
-        header {
-            background-color: var(--white);
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-            position: fixed;
-            width: 100%;
-            top: 0;
-            z-index: 1000;
-            transition: var(--transition);
-        }
+        /* Štýly pre header by mali byť v header.php alebo v linkovanom CSS */
+        /* Tu ponechávam len štýly špecifické pre get-started.php */
 
-        .navbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 0;
-            height: 80px;
-        }
-
-        .logo {
-            font-size: 1.8rem;
-            font-weight: 800;
-            color: var(--primary-color);
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .logo i { font-size: 1.5rem; }
-        .logo span { color: var(--dark-color); font-weight: 600; }
-
-        .nav-links {
-            display: flex;
-            list-style: none;
-            align-items: center;
-            gap: 0.5rem; /* Reduced gap to account for padding on links */
-            transition: var(--transition);
-        }
-
-        /* Desktop Navigation Links (non-buttons) */
-        .nav-links a:not(.btn) {
-            color: var(--dark-color);
-            text-decoration: none;
-            font-weight: 500; /* Standard weight */
-            transition: color var(--transition), background-color var(--transition);
-            padding: 0.7rem 1rem; /* Padding for clickable area and background */
-            font-size: 0.95rem;
-            border-radius: 8px; /* Rounded corners for the hover background */
-            position: relative; /* Keep for potential future pseudo-elements if needed */
-            transition: var(--transition);
-        }
-        .nav-links a:not(.btn):hover {
-            color: var(--primary-color);
-            background-color: rgba(67, 97, 238, 0.07); /* Light primary background on hover */
-        }
-        .nav-links a:not(.btn)::after { /* Ensure no underline by default or on hover */
-            display: none;
-        }
-        
-        /* Desktop Navigation Buttons (.btn, .btn-outline) */
-        .nav-links .btn,
-        .nav-links .btn-outline {
-            display: inline-flex;
-            gap: 8px;
-            align-items: center;
-            justify-content: center;
-            padding: 0.7rem 1.5rem; 
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            transition: var(--transition);
-            cursor: pointer;
-            text-align: center;
-            font-size: 0.9rem; 
-        }
-        .nav-links .btn {
-            background-color: var(--primary-color);
-            color: var(--white);
-            box-shadow: 0 4px 14px rgba(67, 97, 238, 0.2);
-        }
-        .nav-links .btn .material-symbols-outlined { /* Icon styling within nav button */
-            font-size: 1.2em; /* Adjust icon size */
-            vertical-align: middle; /* Align icon nicely with text */
-            margin-right: 4px; /* Space between icon and text */
-        }
-        .nav-links .btn:hover{
-            background-color: var(--primary-dark);
-            box-shadow: 0 6px 20px rgba(67, 97, 238, 0.3);
-            transform: translateY(-2px);
-        }
-        .nav-links .btn-outline {
-            background-color: transparent;
-            border: 2px solid var(--primary-color);
-            color: var(--primary-color);
-            box-shadow: none;
-        }
-        .nav-links .btn-outline:hover {
-            background-color: var(--primary-color);
-            color: var(--white);
-            transform: translateY(-2px);
-        }
-
-
-        /* General Button Styles (used elsewhere on the page) */
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 0.8rem 2rem;
-            background-color: var(--primary-color);
-            color: var(--white);
-            border: none;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            transition: var(--transition);
-            cursor: pointer;
-            text-align: center;
-            box-shadow: 0 4px 14px rgba(67, 97, 238, 0.3);
-            font-size: 0.95rem;
-        }
-        .btn:hover {
-            background-color: var(--primary-dark);
-            box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
-            transform: translateY(-2px);
-        }
-        .btn-outline {
-            background-color: transparent;
-            border: 2px solid var(--primary-color);
-            color: var(--primary-color);
-            box-shadow: none;
-        }
-        .btn-outline:hover { 
-            background-color: var(--primary-color); 
-            color: var(--white); 
-            transform: translateY(-2px);
-        }
-
-        /* Hamburger Menu Icon */
-        .hamburger { display: none; cursor: pointer; width: 30px; height: 24px; position: relative; z-index: 1001; transition: var(--transition); }
-        .hamburger span { display: block; width: 100%; height: 3px; background-color: var(--dark-color); position: absolute; left: 0; transition: var(--transition); transform-origin: center; }
-        .hamburger span:nth-child(1) { top: 0; }
-        .hamburger span:nth-child(2) { top: 50%; transform: translateY(-50%); }
-        .hamburger span:nth-child(3) { bottom: 0; }
-        .hamburger.active span:nth-child(1) { top: 50%; transform: translateY(-50%) rotate(45deg); }
-        .hamburger.active span:nth-child(2) { opacity: 0; }
-        .hamburger.active span:nth-child(3) { bottom: 50%; transform: translateY(50%) rotate(-45deg); }
-
-        /* Mobile Menu */
-        .mobile-menu {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100vh;
-            background-color: var(--white);
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            transform: translateX(-100%);
-            transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1);
-            padding: 2rem;
-        }
-
-        .mobile-menu.active {
-            transform: translateX(0);
-        }
-
-        .mobile-links {
-            list-style: none;
-            text-align: center;
-            width: 100%;
-            max-width: 300px;
-        }
-
-        .mobile-links li {
-            margin-bottom: 1.5rem;
-        }
-
-        .mobile-links a {
-            color: var(--dark-color);
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 1.2rem;
-            display: inline-block;
-            padding: 0.5rem 1rem;
-            transition: var(--transition);
-            border-radius: 8px;
-        }
-
-        .mobile-links a:hover {
-            color: var(--primary-color);
-            background-color: rgba(67, 97, 238, 0.1);
-        }
-
-        .mobile-menu .btn {
-            margin-top: 2rem;
-            width: 100%;
-            max-width: 200px;
-        }
-
-        .close-btn {
-            position: absolute;
-            top: 30px;
-            right: 30px;
-            font-size: 1.8rem;
-            color: var(--dark-color);
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .close-btn:hover {
-            color: var(--primary-color);
-            transform: rotate(90deg);
-        }
-
-        /* Get Started Page Styles */
         .page-header-bar {
             padding: 1.5rem 0;
             border-bottom: 1px solid var(--light-gray);
@@ -428,28 +209,25 @@
             margin-top: 1.5rem; 
         }
         
-
-        /* Footer */
+        /* Footer Styles - mali by byť v footer.php alebo main-styles.css */
         footer { background-color: var(--dark-color); color: var(--white); padding: 5rem 0 2rem; }
         .footer-content { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 3rem; margin-bottom: 3rem; }
         .footer-column h3 { font-size: 1.3rem; margin-bottom: 1.8rem; position: relative; padding-bottom: 0.8rem; }
         .footer-column h3::after { content: ''; position: absolute; left: 0; bottom: 0; width: 50px; height: 3px; background-color: var(--primary-color); border-radius: 3px; }
-        .footer-links { list-style: none; }
+        .footer-links { list-style: none; padding:0; /*Reset*/ }
         .footer-links li { margin-bottom: 0.8rem; }
         .footer-links a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); font-size: 0.95rem; display: inline-block; padding: 0.2rem 0; }
         .footer-links a:hover { color: var(--white); transform: translateX(5px); }
         .footer-links a i { margin-right: 0.5rem; width: 20px; text-align: center; }
-        .social-links { display: flex; gap: 1.2rem; margin-top: 1.5rem; }
+        .social-links { display: flex; gap: 1.2rem; margin-top: 1.5rem; padding:0; /*Reset*/ }
         .social-links a { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; background-color: rgba(255, 255, 255, 0.1); color: var(--white); border-radius: 50%; font-size: 1.1rem; transition: var(--transition); }
         .social-links a:hover { background-color: var(--primary-color); transform: translateY(-3px); }
         .footer-bottom { text-align: center; padding-top: 3rem; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.9rem; color: rgba(255, 255, 255, 0.6); }
         .footer-bottom a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); }
         .footer-bottom a:hover { color: var(--primary-color); }
 
-        /* Responsive Styles */
         @media (max-width: 992px) {
-            .nav-links { display: none; }
-            .hamburger { display: flex; }
+            /* Štýly pre header by mali byť v header.php alebo linkovanom CSS */
             .request-form-container {
                 padding: 2rem 1.5rem;
             }
@@ -472,22 +250,17 @@
     </style>
 </head>
 <body>
-    <!-- Header -->
-    <?php require_once "components/header.php" ?>
+    <?php
+        // Definovanie $asset_prefix pre túto stránku (get-started.php je v roote)
+        $asset_prefix = ""; // Keďže sme v roote
+        // Nasledujúci riadok je dôležitý, aby header.php vedel, ako tvoriť cesty
+        // Ak header.php už má svoju logiku pre $asset_prefix, toto nemusí byť nutné,
+        // ale je dobré zabezpečiť, aby header mal prístup k správnemu prefixu.
+        // V tomto prípade, keďže get-started.php je v roote, header.php bude tiež generovať root cesty.
+        require_once "components/header-main.php";
+    ?>
 
-    <!-- Main Content for Get Started Page -->
     <main>
-    <!--
-                <div class="page-header-bar">
-            <div class="container">
-                <a href="index.php" class="back-link">
-                    <span class="material-symbols-outlined">arrow_back</span>
-                    Back to Home
-                </a>
-            </div>
-        </div>
-    !-->
-
         <section class="intro-section">
             <div class="container">
                 <h1>Ready to Modernize Your School's Attendance?</h1>
@@ -600,111 +373,75 @@
         </section>
     </main>
 
-    <!-- Footer -->
-    <footer>
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-column">
-                    <h3>WavePass</h3>
-                    <p>Modern attendance tracking solutions for educational institutions of all sizes.</p>
-                    <div class="social-links">
-                        <a href="#"><i class="fab fa-facebook-f"></i></a>
-                        <a href="#"><i class="fab fa-twitter"></i></a>
-                        <a href="#"><i class="fab fa-linkedin-in"></i></a>
-                        <a href="#"><i class="fab fa-instagram"></i></a>
-                    </div>
-                </div>
-                
-                <div class="footer-column">
-                    <h3>Quick Links</h3>
-                    <ul class="footer-links">
-                        <li><a href="index.php#features"><i class="fas fa-chevron-right"></i> Features</a></li>
-                        <li><a href="index.php#how-it-works"><i class="fas fa-chevron-right"></i> How It Works</a></li>
-                        <li><a href="index.php#contact"><i class="fas fa-chevron-right"></i> Contact</a></li> 
-                        <li><a href="index.php#faq"><i class="fas fa-chevron-right"></i> FAQ</a></li> 
-                        <li><a href="help.php"><i class="fas fa-chevron-right"></i> Help Center</a></li>
-                        <li><a href="pricing.php"><i class="fas fa-chevron-right"></i> Pricing</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-column">
-                    <h3>Resources</h3>
-                    <ul class="footer-links">
-                        <li><a href="blog.php"><i class="fas fa-chevron-right"></i> Blog</a></li>
-                        <li><a href="help.php"><i class="fas fa-chevron-right"></i> Help Center</a></li>
-                        <li><a href="webinars.php"><i class="fas fa-chevron-right"></i> Webinars</a></li>
-                        <li><a href="api.php"><i class="fas fa-chevron-right"></i> API Documentation</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-column">
-                    <h3>Contact Info</h3>
-                    <ul class="footer-links">
-                        <li><a href="mailto:info@WavePass.com"><i class="fas fa-envelope"></i> info@WavePass.com</a></li>
-                        <li><a href="tel:+15551234567"><i class="fas fa-phone"></i> +1 (555) 123-4567</a></li>
-                        <li>
-                             <a href="https://www.google.com/maps/search/?api=1&query=123%20Education%20St%2C%20Boston%2C%20MA%2002115" target="_blank" rel="noopener noreferrer" title="View on Google Maps">
-                                <i class="fas fa-map-marker-alt"></i> 123 Education St, Boston, MA
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-            
-            <div class="footer-bottom">
-                <p> <p>&copy; <?php echo date("Y"); ?> WavePass All rights reserved. | <a href="privacy.php">Privacy Policy</a> | <a href="terms.php">Terms of Service</a></p>
-            </div>
-        </div>
-    </footer>
+    <?php require "components/footer-admin.php"; ?>
 
     <script>
-
-        
-        // Smooth scrolling (if any on-page anchors are used, e.g., from footer)
+        // Smooth scrolling for on-page anchors
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function(e) {
-                if (this.getAttribute('href') === '#') return;
-                
-                const targetId = this.getAttribute('href');
-                if (targetId.startsWith('#') && document.querySelector(targetId)) {
-                    e.preventDefault();
-                    const targetElement = document.querySelector(targetId);
-                    const headerHeight = document.querySelector('header') ? document.querySelector('header').offsetHeight : 0;
-                    const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset - headerHeight;
+                const hrefAttribute = this.getAttribute('href');
+                // Zabezpečenie, že sa jedná o platnú kotvu a nie len "#"
+                if (hrefAttribute.length > 1 && hrefAttribute.startsWith('#')) {
+                    const targetId = hrefAttribute.substring(1);
+                    const targetElement = document.getElementById(targetId);
                     
-                    window.scrollTo({
-                        top: targetPosition,
-                        behavior: 'smooth'
-                    });
+                    if (targetElement) {
+                        e.preventDefault();
+                        const headerHeight = document.querySelector('header') ? document.querySelector('header').offsetHeight : 80; // Fallback
+                        const elementPosition = targetElement.getBoundingClientRect().top;
+                        const offsetPosition = elementPosition + window.pageYOffset - headerHeight;
+                        
+                        window.scrollTo({
+                            top: offsetPosition,
+                            behavior: 'smooth'
+                        });
+                    }
                 }
             });
         });
         
-        // Add shadow to header on scroll
+        // Add shadow to header on scroll (prevzaté z components/header.php, ak tam nie je)
         const header = document.querySelector('header');
         if (header) {
+            const initialHeaderShadow = getComputedStyle(header).boxShadow;
             window.addEventListener('scroll', () => {
                 if (window.scrollY > 10) {
-                    header.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.05)'; 
+                    header.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.07)'; 
                 } else {
-                    header.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.05)'; 
+                    header.style.boxShadow = initialHeaderShadow; 
                 }
             });
         }
 
-        // Service Request Form Submission (Basic example)
-        const serviceRequestForm = document.querySelector('.request-form-container form');
-        if (serviceRequestForm) {
-            serviceRequestForm.addEventListener('submit', function(e) {
-                if (!this.checkValidity()) {
-                    e.preventDefault(); 
-                } else {
-                    // For demo purposes, prevent actual submission and show an alert
-                    // In a real application, you would let the form submit to process_service_request.php
-                    // e.preventDefault(); 
-                    // alert('Service request submitted! (This is a demo and the data was not actually sent).');
-                    // this.reset(); // Optionally reset the form after demo alert
-                }
+        // Hamburger menu functionality (prevzaté z components/header.php, ak tam nie je)
+        const hamburger = document.getElementById('hamburger');
+        const mobileMenu = document.getElementById('mobileMenu');
+        const closeMenuBtn = document.getElementById('closeMenu');
+        const body = document.body;
+
+        if (hamburger && mobileMenu && closeMenuBtn) {
+            hamburger.addEventListener('click', () => {
+                hamburger.classList.toggle('active');
+                mobileMenu.classList.toggle('active');
+                body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
+            });
+
+            closeMenuBtn.addEventListener('click', () => {
+                hamburger.classList.remove('active');
+                mobileMenu.classList.remove('active');
+                body.style.overflow = '';
+            });
+
+            const mobileLinks = mobileMenu.querySelectorAll('.mobile-links a');
+            mobileLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    // Ak odkaz smeruje na kotvu na tej istej stránke alebo na inú stránku
+                    if (mobileMenu.classList.contains('active')) {
+                        hamburger.classList.remove('active');
+                        mobileMenu.classList.remove('active');
+                        body.style.overflow = '';
+                    }
+                });
             });
         }
 

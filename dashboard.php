@@ -53,29 +53,32 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) &&
         }
         $planned_departure_time_db = date("H:i:s", strtotime($planned_departure_time_str));
 
-        // Addition: Check if user is present if this is a NEW submission
-        $stmtCheckPresenceForNew = $pdo->prepare("SELECT logType, logResult FROM attendance_logs WHERE userID = :userid AND DATE(logTime) = :today_date ORDER BY logTime DESC LIMIT 1");
-        $stmtCheckPresenceForNew->execute([':userid' => $userID, ':today_date' => $todayDateForAction]);
-        $latestEventForPresence = $stmtCheckPresenceForNew->fetch(PDO::FETCH_ASSOC);
-        $isActuallyPresent = ($latestEventForPresence && $latestEventForPresence['logType'] == 'entry' && $latestEventForPresence['logResult'] == 'granted');
-        $stmtCheckPresenceForNew->closeCursor();
-
+        // Check if a notification for today already exists (pre-transaction check)
         $stmtCheckExisting = $pdo->prepare("SELECT notificationID FROM late_departure_notifications WHERE userID = :userID AND notification_date = :notification_date");
         $stmtCheckExisting->execute([':userID' => $userID, ':notification_date' => $todayDateForAction]);
         $existingNotificationCheck = $stmtCheckExisting->fetch(PDO::FETCH_ASSOC);
         $stmtCheckExisting->closeCursor();
 
-        if (!$existingNotificationCheck && !$isActuallyPresent) { // If it's a new notification AND user is not present
-            http_response_code(403); // Forbidden
-            $response['message'] = 'You must be currently present to notify a new late exit.';
-            echo json_encode($response);
-            exit;
+        // If it's a NEW notification (no existing one found), then check if the user is actually present.
+        if (!$existingNotificationCheck) {
+            $stmtCheckPresenceForNew = $pdo->prepare("SELECT logType, logResult FROM attendance_logs WHERE userID = :userid AND DATE(logTime) = :today_date ORDER BY logTime DESC LIMIT 1");
+            $stmtCheckPresenceForNew->execute([':userid' => $userID, ':today_date' => $todayDateForAction]);
+            $latestEventForPresence = $stmtCheckPresenceForNew->fetch(PDO::FETCH_ASSOC);
+            $isActuallyPresent = ($latestEventForPresence && $latestEventForPresence['logType'] == 'entry' && $latestEventForPresence['logResult'] == 'granted');
+            $stmtCheckPresenceForNew->closeCursor();
+
+            if (!$isActuallyPresent) {
+                http_response_code(403); // Forbidden
+                $response['message'] = 'You must be currently present to notify a new late exit.';
+                echo json_encode($response);
+                exit;
+            }
         }
-        // End Addition
+        // End Addition: Presence check for new submission
 
         try {
             $pdo->beginTransaction();
-            // Re-fetch existing notification inside transaction to be safe from race conditions if needed, though less critical here.
+            // Re-fetch existing notification inside transaction to be safe from race conditions.
             $stmtCheck = $pdo->prepare("SELECT notificationID FROM late_departure_notifications WHERE userID = :userID AND notification_date = :notification_date");
             $stmtCheck->execute([':userID' => $userID, ':notification_date' => $todayDateForAction]);
             $existingNotification = $stmtCheck->fetch(PDO::FETCH_ASSOC);
@@ -193,6 +196,7 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
             } elseif ($latestEvent['logType'] == 'exit' && $latestEvent['logResult'] == 'granted') {
                 $rfidStatus = "Checked Out"; $rfidStatusClass = "absent";
 
+                // Check if they had a planned late departure for today
                 $stmtCheckPlannedLate = $pdo->prepare(
                     "SELECT planned_departure_time FROM late_departure_notifications 
                      WHERE userID = :userid AND notification_date = :today_date LIMIT 1"
@@ -206,6 +210,7 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
                     $actualCheckoutTimeSeconds = strtotime($actualCheckoutTimeStr);
                     $plannedDepartureTimeSeconds = strtotime($plannedLateInfo['planned_departure_time']);
 
+                    // If they checked out earlier than their planned late departure, cancel the notification
                     if ($actualCheckoutTimeSeconds < $plannedDepartureTimeSeconds) {
                         $stmtCancelLateAuto = $pdo->prepare(
                             "DELETE FROM late_departure_notifications 
@@ -215,7 +220,7 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
                     }
                 }
             } elseif ($latestEvent['logResult'] == 'denied') {
-                $rfidStatus = ($latestEvent['logType'] == 'entry' ? "entry Denied" : "Exit Denied");
+                $rfidStatus = ($latestEvent['logType'] == 'entry' ? "Entry Denied" : "Exit Denied"); // Capitalized for consistency
                 $rfidStatusClass = "danger";
             } else {
                 $rfidStatus = "Status Unknown"; $rfidStatusClass = "neutral";
@@ -255,7 +260,7 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
         if ($upcoming) { $leaveType = ucfirst(str_replace('_', ' ', $upcoming['absence_type'])); $leaveDate = date("M d, Y", strtotime($upcoming['absence_start_datetime'])); $upcomingLeaveDisplay = htmlspecialchars($leaveType) . " on " . $leaveDate; }
         $stmtUpcomingLeave->closeCursor();
 
-        // Fetch existing late departure notification (reflects auto-cancellation)
+        // Fetch existing late departure notification (reflects any auto-cancellation that might have occurred)
         $stmtExistingLate = $pdo->prepare("SELECT planned_departure_time, notes FROM late_departure_notifications WHERE userID = :userid AND notification_date = :today_date LIMIT 1");
         $stmtExistingLate->execute([':userid' => $sessionUserId, ':today_date' => $todayDate]);
         $existingLateDeparture = $stmtExistingLate->fetch(PDO::FETCH_ASSOC);
@@ -276,13 +281,13 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
             "SELECT al.logTime, al.logType, al.logResult, al.rfid_uid_used 
             FROM attendance_logs al
             WHERE al.userID = :userid AND DATE(al.logTime) = :selected_date 
-            ORDER BY al.logTime ASC" // Changed to ASC for chronological display, will be reversed by usort later if needed for latest first.
+            ORDER BY al.logTime ASC" 
         );
         $stmtActivityLog->execute([':userid' => $sessionUserId, ':selected_date' => $selectedDate]);
         while ($log = $stmtActivityLog->fetch(PDO::FETCH_ASSOC)) {
             $logTypeDisplay = 'Unknown'; $statusClass = 'neutral';
-            if ($log['logType'] == 'entry') { $logTypeDisplay = 'entry'; $statusClass = ($log['logResult'] == 'granted') ? 'present' : 'danger'; }
-            elseif ($log['logType'] == 'exit') { $logTypeDisplay = 'exit'; $statusClass = ($log['logResult'] == 'granted') ? 'absent' : 'danger'; }
+            if ($log['logType'] == 'entry') { $logTypeDisplay = 'Entry'; $statusClass = ($log['logResult'] == 'granted') ? 'present' : 'danger'; } // Capitalized
+            elseif ($log['logType'] == 'exit') { $logTypeDisplay = 'Exit'; $statusClass = ($log['logResult'] == 'granted') ? 'absent' : 'danger'; } // Capitalized
             
             $activityForSelectedDate[] = [
                 'time' => date("H:i", strtotime($log['logTime'])),
@@ -317,7 +322,8 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
                 $absenceTypeDetailForMsg = htmlspecialchars(ucfirst(str_replace('_',' ',$selectedDayAbsenceInfo['absence_type'])));
                 $activityForSelectedDate[] = ['time' => '--:--', 'log_type' => 'Scheduled Absence', 'log_result' => htmlspecialchars($absenceTypeDetailForMsg), 'details' => (!empty($selectedDayAbsenceInfo['reason']) ? 'Reason: '.htmlspecialchars($selectedDayAbsenceInfo['reason']) : 'Approved absence'), 'rfid_card_uid' => 'N/A', 'status_class' => 'absent'];
             } else {
-                if(empty($activityForSelectedDate)) { // Ensure this check is within the 'else' of $selectedDayAbsenceInfo
+                 // Ensure this check is within the 'else' of $selectedDayAbsenceInfo
+                if(empty($activityForSelectedDate)) {
                     $activityForSelectedDate[] = ['time' => '--:--', 'log_type' => 'No Record', 'log_result' => 'N/A', 'details' => 'No attendance events or approved absences logged for this day.', 'rfid_card_uid' => 'N/A', 'status_class' => 'neutral'];
                 }
             }
@@ -325,12 +331,9 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
         
         if (!empty($activityForSelectedDate)) {
             usort($activityForSelectedDate, function($a, $b) {
-                // Handle '--:--' times to ensure they appear correctly (e.g., at the top or bottom based on preference)
-                if ($a['time'] === '--:--' && $b['time'] !== '--:--') return -1; // '--:--' comes before actual times
-                if ($a['time'] !== '--:--' && $b['time'] === '--:--') return 1;  // Actual times come after '--:--'
-                if ($a['time'] === '--:--' && $b['time'] === '--:--') return 0;  // Both are '--:--'
-                
-                // Sort by actual time, descending (latest first)
+                if ($a['time'] === '--:--' && $b['time'] !== '--:--') return -1; 
+                if ($a['time'] !== '--:--' && $b['time'] === '--:--') return 1;  
+                if ($a['time'] === '--:--' && $b['time'] === '--:--') return 0;  
                 return strtotime($b['time']) - strtotime($a['time']);
             });
         }
@@ -662,7 +665,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                                 <?php elseif ($logTypeClean === 'exit'): ?><span class="material-symbols-outlined">logout</span>
                                                 <?php elseif ($logTypeClean === 'scheduledabsence' || ($logTypeClean === 'currentstatus' && isset($activity['log_result']) && strpos(strtolower($activity['log_result']), 'leave') !== false)): ?><span class="material-symbols-outlined">event_busy</span>
                                                 <?php elseif ($logTypeClean === 'system' || ($logTypeClean === 'currentstatus' && isset($activity['log_result']) && strpos(strtolower($activity['log_result']), 'present') !== false)): ?><span class="material-symbols-outlined">verified_user</span>
-                                                <?php elseif ($logTypeClean === 'currentstatus' && isset($activity['log_result']) && strpos(strtolower($activity['log_result']), 'checked out') !== false): ?><span class="material-symbols-outlined">person_off</span>
+                                                <?php elseif ($logTypeClean === 'currentstatus' && isset($activity['log_result']) && strpos(strtolower($activity['log_result']), 'checkedout') !== false): ?><span class="material-symbols-outlined">person_off</span>
                                                 <?php elseif ($logTypeClean === 'norecord'): ?><span class="material-symbols-outlined">manage_search</span>
                                                 <?php else: ?><span class="material-symbols-outlined">help_outline</span>
                                                 <?php endif; ?>
@@ -773,16 +776,18 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         const existingLatePHP = <?php echo json_encode($existingLateDeparture); ?> || null; 
 
         function openLateModal(isEditing = false) {
-            // If trying to open for a *new* notification AND user is not present
-            if (!isEditing && !isUserCurrentlyPresent) {
-                alert("You must be currently checked in (Present) to notify a new late departure.");
-                return;
-            }
-
             if (!lateModal || !plannedTimeInput || !notesInput || !cancelLateBtnInModal || !modalTitleEl || !modalSubmitButton) {
                 console.error("One or more modal elements are missing from the DOM for late departure.");
                 return;
             }
+            
+            // If trying to open for a *new* notification AND user is not present (client-side check)
+            if (!isEditing && !isUserCurrentlyPresent) {
+                // This alert is helpful UX, server-side will enforce it too.
+                alert("You must be currently checked in (Present) to notify a new late departure.");
+                return; 
+            }
+
             lateModal.classList.add('show');
             if (body) body.style.overflow = 'hidden'; 
 
@@ -876,7 +881,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 }
                 
                 modalSubmitButton.disabled = true;
-                const originalSubmitButtonText = modalSubmitButton.innerHTML; // Store original text
+                const originalSubmitButtonText = modalSubmitButton.innerHTML; 
                 modalSubmitButton.innerHTML = 'Saving... <i class="fas fa-spinner fa-spin"></i>';
 
 
@@ -904,7 +909,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                  })
                 .finally(() => { 
                     modalSubmitButton.disabled = false; 
-                    modalSubmitButton.innerHTML = originalSubmitButtonText; // Restore original button text
+                    modalSubmitButton.innerHTML = originalSubmitButtonText; 
                 });
             });
         }
