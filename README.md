@@ -68,5 +68,8 @@ In a world that demands efficiency and reliability, WavePass stands out as the i
 **WavePass isn't just an attendance system; it's a partner in optimizing your school's operational efficiency and fostering a more secure and organized environment.**
 
 ---
+<p align="center">
+  Copyright © <span id="currentYear">2024</span> Pavel Bureš, Kryštof Topinka, Filip Elznic. All Rights Reserved.
+</p>
 
 *Thank you for considering WavePass!*
