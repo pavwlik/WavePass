@@ -69,7 +69,6 @@ In a world that demands efficiency and reliability, WavePass stands out as the i
 
 ---
 <p align="center">
-  Copyright © <span id="currentYear">2024</span> Pavel Bureš, Kryštof Topinka, Filip Elznic. All Rights Reserved.
+  Copyright © <span id="currentYear">2025</span> Pavel Bureš. All Rights Reserved.
 </p>
-
 *Thank you for considering WavePass!*
