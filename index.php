@@ -343,38 +343,33 @@ require_once "db.php";
         .form-group textarea { min-height: 130px; resize: vertical; }
         .contact-form .btn { width: 100%; padding: 0.9rem 2rem; }
 
-        /* FAQ Section Specifics -- UPDATED */
+        /* FAQ Section Specifics */
         .faq-section { background-color: var(--white); }
         .faq-container { max-width: 800px; margin: 0 auto; }
         .faq-item {
             background-color: var(--white); margin-bottom: 1rem; border-radius: 8px;
-            overflow: hidden;
-            box-shadow: var(--shadow); transition: box-shadow var(--transition);
+            overflow: hidden; box-shadow: var(--shadow); transition: box-shadow var(--transition);
             border: 1px solid var(--light-gray);
         }
-        .faq-item:hover { box-shadow: 0 6px 25px rgba(0, 0, 0, 0.1); }
+        .faq-item:hover { box-shadow: 0 6px 25px rgba(0,0,0,0.1); }
         .faq-question {
             padding: 1.5rem; display: flex; justify-content: space-between; align-items: center;
             cursor: pointer; font-weight: 600; color: var(--dark-color);
             transition: background-color 0.3s ease, color 0.3s ease;
         }
-        .faq-question:hover { color: var(--primary-color); background-color: rgba(67, 97, 238, 0.03); }
+        .faq-question:hover { color: var(--primary-color); background-color: rgba(var(--primary-color-rgb), 0.03); }
         .faq-question i { transition: transform var(--transition); }
-
         .faq-answer {
-            max-height: 0;
-            overflow: hidden;
+            max-height: 0; overflow: hidden;
             transition: max-height 0.35s ease-out;
-            background-color: rgba(67, 97, 238, 0.02);
+            background-color: rgba(var(--primary-color-rgb), 0.02);
         }
         .faq-answer-content {
-            padding: 1.5rem;
-            color: var(--gray-color);
-            line-height: 1.6;
-            font-size: 0.95rem;
+            padding: 1.5rem; color: var(--gray-color);
+            line-height: 1.6; font-size: 0.95rem;
         }
         .faq-item.active .faq-question i { transform: rotate(180deg); }
-        .faq-item.active .faq-question { color: var(--primary-color); background-color: rgba(67, 97, 238, 0.05); }
+        .faq-item.active .faq-question { color: var(--primary-color); background-color: rgba(var(--primary-color-rgb), 0.05); }
 
 
 
@@ -554,9 +549,9 @@ require_once "db.php";
                             <h3 class="member-name">Pavel Bureš</h3>
                             <p class="member-role">Full-Stack Developer <span class="greySymbol">|</span> UI & UX Design <span class="greySymbol">|</span> Database</p>
                             <div class="member-social-links">
-                                <a href="#" target="_blank" title="Pavel Bureš Instagram" aria-label="Pavel Bureš Instagram"><i class="fab fa-instagram"></i></a>
-                                <a href="#" target="_blank" title="Pavel Bureš LinkedIn" aria-label="Pavel Bureš LinkedIn"><i class="fab fa-linkedin-in"></i></a>
-                                <a href="mailto:pavel.bures@example.com" title="Email Pavel Bureš" aria-label="Email Pavel Bureš"><i class="fas fa-envelope"></i></a>
+                                <a href="https://www.instagram.com/pavwlik/" target="_blank" title="Pavel Bureš Instagram" aria-label="Pavel Bureš Instagram"><i class="fab fa-instagram"></i></a>
+                                <a href="https://www.linkedin.com/in/pavel-bure%C5%A1-71992b311/" target="_blank" title="Pavel Bureš LinkedIn" aria-label="Pavel Bureš LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+                                <a href="mailto:pavelbures07@gmail.com" title="Email Pavel Bureš" aria-label="Email Pavel Bureš"><i class="fas fa-envelope"></i></a>
                             </div>
                         </div>
                         <div class="team-member-card">
@@ -566,9 +561,9 @@ require_once "db.php";
                             <h3 class="member-name">Kryštof Topinka</h3>
                             <p class="member-role">Backend Developer <span class="greySymbol">|</span> Documentation <span class="greySymbol">|</span> Database</p>
                             <div class="member-social-links">
-                                <a href="#" target="_blank" title="Kryštof Topinka Instagram" aria-label="Kryštof Topinka Instagram"><i class="fab fa-instagram"></i></a>
-                                <a href="#" target="_blank" title="Kryštof Topinka LinkedIn" aria-label="Kryštof Topinka LinkedIn"><i class="fab fa-linkedin-in"></i></a>
-                                <a href="mailto:krystof.topinka@example.com" title="Email Kryštof Topinka" aria-label="Email Kryštof Topinka"><i class="fas fa-envelope"></i></a>
+                                <a href="https://www.instagram.com/kikous_topa/" target="_blank" title="Kryštof Topinka Instagram" aria-label="Kryštof Topinka Instagram"><i class="fab fa-instagram"></i></a>
+                                <!--<a href="#" target="_blank" title="Kryštof Topinka LinkedIn" aria-label="Kryštof Topinka LinkedIn"><i class="fab fa-linkedin-in"></i></a> !-->
+                                <a href="mailto:kikotopaxd@gmail.com" title="Email Kryštof Topinka" aria-label="Email Kryštof Topinka"><i class="fas fa-envelope"></i></a>
                             </div>
                         </div>
                         <div class="team-member-card">
@@ -578,9 +573,9 @@ require_once "db.php";
                             <h3 class="member-name">Filip Elznic</h3>
                             <p class="member-role">Operating Systems <span class="greySymbol">|</span> Project Manager</p>
                             <div class="member-social-links">
-                                <a href="#" target="_blank" title="Filip Elznic Instagram" aria-label="Filip Elznic Instagram"><i class="fab fa-instagram"></i></a>
-                                <a href="#" target="_blank" title="Filip Elznic LinkedIn" aria-label="Filip Elznic LinkedIn"><i class="fab fa-linkedin-in"></i></a>
-                                <a href="mailto:filip.elznic@example.com" title="Email Filip Elznic" aria-label="Email Filip Elznic"><i class="fas fa-envelope"></i></a>
+                                <a href="https://www.instagram.com/filip_elza_elznic/" target="_blank" title="Filip Elznic Instagram" aria-label="Filip Elznic Instagram"><i class="fab fa-instagram"></i></a>
+                                <!-- <a href="#" target="_blank" title="Kryštof Topinka LinkedIn" aria-label="Kryštof Topinka LinkedIn"><i class="fab fa-linkedin-in"></i></a> !-->
+                                <a href="mailtoelznic.f@gmail.com" title="Email Filip Elznic" aria-label="Email Filip Elznic"><i class="fas fa-envelope"></i></a>
                             </div>
                         </div>
                     </div>
@@ -593,7 +588,7 @@ require_once "db.php";
                             <p class="member-role">QA & Testing <span class="greySymbol">|</span> Support</p>
                             <div class="member-social-links">
                                 <a href="#" target="_blank" title="Tomáš Kočí Instagram" aria-label="Tomáš Kočí Instagram"><i class="fab fa-instagram"></i></a>
-                                <a href="#" target="_blank" title="Tomáš Kočí LinkedIn" aria-label="Tomáš Kočí LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+                                <!-- <a href="#" target="_blank" title="Kryštof Topinka LinkedIn" aria-label="Kryštof Topinka LinkedIn"><i class="fab fa-linkedin-in"></i></a> !-->
                                 <a href="mailto:tomas.koci@example.com" title="Email Tomáš Kočí" aria-label="Email Tomáš Kočí"><i class="fas fa-envelope"></i></a>
                             </div>
                         </div>
@@ -605,7 +600,7 @@ require_once "db.php";
                             <p class="member-role">QA & Testing <span class="greySymbol">|</span> Support</p>
                             <div class="member-social-links">
                                 <a href="#" target="_blank" title="Zdeněk Čepelák Instagram" aria-label="Zdeněk Čepelák Instagram"><i class="fab fa-instagram"></i></a>
-                                <a href="#" target="_blank" title="Zdeněk Čepelák LinkedIn" aria-label="Zdeněk Čepelák LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+                                <!-- <a href="#" target="_blank" title="Kryštof Topinka LinkedIn" aria-label="Kryštof Topinka LinkedIn"><i class="fab fa-linkedin-in"></i></a> !-->
                                 <a href="mailto:zdenek.cepelak@example.com" title="Email Zdeněk Čepelák" aria-label="Email Zdeněk Čepelák"><i class="fas fa-envelope"></i></a>
                             </div>
                         </div>
@@ -747,23 +742,26 @@ require_once "db.php";
     </button>
 
 
+    <!-- Scroll to Top Button -->
+    <button id="scrollToTopBtn" title="Go to top">
+        <span class="material-symbols-outlined" aria-hidden="true" translate="no">arrow_upward</span>
+    </button>
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             // Mobile Menu Toggle (předpokládáme, že prvky jsou v header-main.php)
             const hamburger = document.getElementById('hamburger');
             const mobileMenu = document.getElementById('mobileMenu');
-            const closeMenu = document.getElementById('closeMenu'); // Ujistěte se, že ID je 'closeMenu'
+            const closeMenu = document.getElementById('closeMenu'); 
             const body = document.body;
 
             if (hamburger && mobileMenu && closeMenu) {
-                // Zajistíme, že close button a hamburger spany nebudou přeloženy
-                if (closeMenu.innerHTML.includes('×') || closeMenu.querySelector('i')) { // '×' je ×
+                if (closeMenu.innerHTML.includes('×') || closeMenu.querySelector('i')) { 
                     closeMenu.setAttribute('translate', 'no');
                 }
                 if (hamburger.querySelectorAll('span')) {
                     hamburger.querySelectorAll('span').forEach(span => {
                         span.setAttribute('translate', 'no');
-                        // aria-hidden by mělo být již nastaveno v HTML v header-main.php
                     });
                 }
 
@@ -781,14 +779,12 @@ require_once "db.php";
                     body.style.overflow = '';
                     hamburger.setAttribute('aria-expanded', 'false');
                     if (mobileMenu) mobileMenu.setAttribute('aria-hidden', 'true');
-                    if (hamburger) hamburger.focus(); // Volitelné: vrátit focus na hamburger
+                    if (hamburger) hamburger.focus();
                 });
 
                 const mobileNavLinksList = document.querySelectorAll('.mobile-menu a');
                 mobileNavLinksList.forEach(link => {
                     link.addEventListener('click', () => {
-                        // Zavřít menu při kliknutí na jakýkoli odkaz v mobilním menu,
-                        // pokud to není odkaz do nového okna
                         if (!link.target || link.target === '_self') {
                             hamburger.classList.remove('active');
                             mobileMenu.classList.remove('active');
@@ -798,20 +794,17 @@ require_once "db.php";
                         }
                     });
                 });
-                 // Zavřít menu klávesou Escape
+                
                 document.addEventListener('keydown', (e) => {
                     if (e.key === 'Escape' && mobileMenu && mobileMenu.classList.contains('active')) {
-                        closeMenu.click(); // Simulace kliknutí na zavírací tlačítko
+                        closeMenu.click();
                     }
                 });
             }
 
-
-            // Shared header element and height for scroll calculations
-            const pageHeader = document.getElementById('pageHeader'); // Použijeme ID z header-main.php
+            const pageHeader = document.getElementById('pageHeader');
             const headerHeight = pageHeader ? pageHeader.offsetHeight : 0;
 
-            // Smooth scrolling for anchor links
             document.querySelectorAll('a[href^="#"], a[href^="index.php#"]').forEach(anchor => {
                 anchor.addEventListener('click', function(e) {
                     const href = this.getAttribute('href');
@@ -850,13 +843,12 @@ require_once "db.php";
                 });
             });
 
-            // Add shadow to header on scroll
             if (pageHeader) {
                 window.addEventListener('scroll', () => {
                     if (window.scrollY > 10) {
-                        pageHeader.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.05)';
+                        pageHeader.style.boxShadow = '0 4px 10px rgba(0,0,0,0.05)';
                     } else {
-                        pageHeader.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.05)';
+                        pageHeader.style.boxShadow = '0 2px 10px rgba(0,0,0,0.05)';
                     }
                 });
             }
@@ -871,7 +863,6 @@ require_once "db.php";
                     question.addEventListener('click', () => {
                         const isActive = item.classList.contains('active');
                         
-                        // Zavřít ostatní položky (accordion efekt) PŘED změnou aktuální
                         if (!isActive) { 
                             faqItems.forEach(otherItem => {
                                 if (otherItem !== item && otherItem.classList.contains('active')) {
@@ -881,7 +872,6 @@ require_once "db.php";
                             });
                         }
                         
-                        // Otevřít/zavřít aktuální položku
                         item.classList.toggle('active');
                         if (item.classList.contains('active')) {
                             answer.style.maxHeight = answer.scrollHeight + "px";
@@ -892,7 +882,6 @@ require_once "db.php";
                 }
             });
 
-            // Contact Form Submission (Basic example)
             const contactForm = document.querySelector('.contact-form');
             if (contactForm) {
                 contactForm.addEventListener('submit', function(e) {
@@ -921,8 +910,7 @@ require_once "db.php";
                     }
                 };
                 window.addEventListener('scroll', scrollFunction);
-                scrollFunction(); // Zkontroluj stav i při načtení stránky
-
+                scrollFunction(); 
                 scrollToTopBtn.addEventListener("click", function() {
                     window.scrollTo({ top: 0, behavior: "smooth" });
                 });
@@ -933,12 +921,9 @@ require_once "db.php";
                 const pageHeaderForNav = document.getElementById('pageHeader');
                 if (!pageHeaderForNav) return;
                 const headerHeightForNav = pageHeaderForNav.offsetHeight;
-
                 const scrollPosition = window.pageYOffset;
-                let currentActiveSectionId = null; // Bude ID sekce, např. "features"
+                let currentActiveSectionId = null;
                 const sections = [];
-
-                // Sbíráme sekce pouze z odkazů, které jsou pro aktuální stránku (index.php) a obsahují #
                 const navLinksToConsider = document.querySelectorAll(
                     'header#pageHeader .nav-links a:not(.btn)[href*="#"], header#pageHeader .mobile-links a:not(.btn)[href*="#"]'
                 );
@@ -946,17 +931,13 @@ require_once "db.php";
                 navLinksToConsider.forEach(link => {
                     const href = link.getAttribute('href');
                     let sectionIdSelector = '';
-                    // Chceme jen část za #
                     if (href.includes('#')) {
-                        sectionIdSelector = href.substring(href.indexOf('#')); // #features
+                        sectionIdSelector = href.substring(href.indexOf('#'));
                     }
-                    
-                    // Zkontrolujeme, zda odkaz skutečně míří na index.php (nebo je relativní a jsme na index.php)
                     const isLinkForIndexPage = href.startsWith('index.php#') || (href.startsWith('#') && (window.location.pathname.endsWith('index.php') || window.location.pathname === '/' || window.location.pathname.endsWith('/')));
-
                     if (sectionIdSelector && sectionIdSelector.length > 1 && isLinkForIndexPage) {
                         try {
-                            const sectionElement = document.querySelector(sectionIdSelector); // Hledá prvek s ID např. id="features"
+                            const sectionElement = document.querySelector(sectionIdSelector);
                             if (sectionElement && !sections.some(s => s.id === sectionElement.id)) {
                                 sections.push(sectionElement);
                             }
@@ -968,55 +949,46 @@ require_once "db.php";
                 for (let i = sections.length - 1; i >= 0; i--) {
                     const section = sections[i];
                     const sectionTop = section.offsetTop;
-                    const triggerPointTop = sectionTop - headerHeightForNav - Math.min(80, window.innerHeight * 0.15); // Menší buffer
-
+                    const triggerPointTop = sectionTop - headerHeightForNav - Math.min(80, window.innerHeight * 0.15);
                     if (scrollPosition >= triggerPointTop) {
-                        currentActiveSectionId = section.getAttribute('id'); // "features"
+                        currentActiveSectionId = section.getAttribute('id');
                         break;
                     }
                 }
-                
-                // Pokud jsme na úplném konci stránky, aktivujeme poslední sekci
                 if (sections.length > 0 && (window.innerHeight + scrollPosition >= document.body.offsetHeight - 30)) {
                      currentActiveSectionId = sections[sections.length - 1].getAttribute('id');
                 }
                 
-                // Pokud jsme na vrchu a žádná sekce není aktivní, a jsme na index.php bez hashe
                 const currentHash = window.location.hash;
-                if (!currentActiveSectionId && sections.length > 0 && (currentHash === "" || currentHash === "#") && scrollPosition < sections[0].offsetTop - headerHeightForNav) {
-                    // Můžete zde nastavit defaultní sekci, např. první v poli sections
-                    // currentActiveSectionId = sections[0].id; // Např. "features", pokud je první
+                if (!currentActiveSectionId && sections.length > 0 && (currentHash === "" || currentHash === "#") && scrollPosition < sections[0].offsetTop - headerHeightForNav ) {
+                    // Pokud chcete defaultní sekci (např. první), odkomentujte:
+                    // currentActiveSectionId = sections[0].id;
                 }
 
-
-                // Sjednocení třídy na .active-link
+                // Používáme třídu .active-link
                 document.querySelectorAll('header#pageHeader .nav-links a, header#pageHeader .mobile-links a').forEach(link => {
                     link.classList.remove('active-link');
                 });
 
                 let isHashLinkNowActive = false;
-                navLinksToConsider.forEach(link => { // Iterujeme pouze odkazy na sekce
+                navLinksToConsider.forEach(link => {
                     const linkHref = link.getAttribute('href');
                     let linkSectionIdFromHref = '';
-
                     if (linkHref.includes('#')) {
-                        linkSectionIdFromHref = linkHref.substring(linkHref.indexOf('#') + 1); // "features"
+                        linkSectionIdFromHref = linkHref.substring(linkHref.indexOf('#') + 1);
                     }
-
                     if (linkSectionIdFromHref && linkSectionIdFromHref === currentActiveSectionId) {
                         link.classList.add('active-link');
                         isHashLinkNowActive = true;
                     }
                 });
 
-                // Zvláštní logika pro Login/Dashboard tlačítka
                 const currentPathBase = window.location.pathname.split('/').pop() || 'index.php';
                 const loginBtnDesktop = document.querySelector('header#pageHeader .nav-links a.btn[href="login.php"]');
                 const dashboardBtnDesktop = document.querySelector('header#pageHeader .nav-links a.btn[href="dashboard.php"]');
                 const loginBtnMobile = document.querySelector('header#pageHeader .mobile-menu a.btn[href="login.php"]');
                 const dashboardBtnMobile = document.querySelector('header#pageHeader .mobile-menu a.btn[href="dashboard.php"]');
 
-                // Aktivuj Login/Dashboard jen pokud NENÍ aktivní žádný odkaz na sekci A zároveň jsme na dané stránce
                 if (!isHashLinkNowActive) {
                     if (loginBtnDesktop && currentPathBase === 'login.php') loginBtnDesktop.classList.add('active-link');
                     if (dashboardBtnDesktop && currentPathBase === 'dashboard.php') dashboardBtnDesktop.classList.add('active-link');
