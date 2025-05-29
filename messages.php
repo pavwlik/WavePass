@@ -443,16 +443,16 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <h3>Filter Messages</h3>
                 <ul class="filter-list">
                      <li><a href="messages.php?filter=unread" class="<?php if ($currentFilter == 'unread') echo 'active-filter'; ?>">
-                        <span class="material-symbols-outlined">mark_email_unread</span> Unread Messages</a>
+                        <span aria-hidden="true" translate="no" class="material-symbols-outlined">mark_email_unread</span> Unread Messages</a>
                     </li>
                     <li><a href="messages.php?filter=all" class="<?php if ($currentFilter == 'all') echo 'active-filter'; ?>">
-                        <span class="material-symbols-outlined">mail</span> All Messages</a>
+                        <span aria-hidden="true" translate="no" class="material-symbols-outlined">mail</span> All Messages</a>
                     </li>
                     <li><a href="messages.php?filter=for_you" class="<?php if ($currentFilter == 'for_you') echo 'active-filter'; ?>">
-                        <span class="material-symbols-outlined">person</span> For You</a>
+                        <span aria-hidden="true" translate="no" class="material-symbols-outlined">person</span> For You</a>
                     </li>
                     <li><a href="messages.php?filter=for_everyone" class="<?php if ($currentFilter == 'for_everyone') echo 'active-filter'; ?>">
-                        <span class="material-symbols-outlined">groups</span> For Everyone</a>
+                        <span aria-hidden="true" translate="no" class="material-symbols-outlined">groups</span> For Everyone</a>
                     </li>
                 </ul>
 
@@ -488,9 +488,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                         <input type="hidden" name="current_status" value="<?php echo $message['is_read_by_user']; ?>">
                                         <button type="submit" class="btn-toggle-read">
                                             <?php if ($message['is_read_by_user']): ?>
-                                                <span class="material-symbols-outlined">mark_email_unread</span> Mark as Unread
+                                                <span aria-hidden="true" translate="no" class="material-symbols-outlined">mark_email_unread</span> Mark as Unread
                                             <?php else: ?>
-                                                <span class="material-symbols-outlined">drafts</span> Mark as Read
+                                                <span aria-hidden="true" translate="no" class="material-symbols-outlined">drafts</span> Mark as Read
                                             <?php endif; ?>
                                         </button>
                                     </form>
@@ -500,7 +500,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     <?php else: ?>
                         <?php if (!$dbErrorMessage): ?>
                         <div class="no-messages">
-                            <span class="material-symbols-outlined">forum</span>
+                            <span aria-hidden="true" translate="no" class="material-symbols-outlined">forum</span>
                             No messages found for the selected filter.
                         </div>
                         <?php endif; ?>

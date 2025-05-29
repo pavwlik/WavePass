@@ -57,7 +57,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             line-height: 1.6; color: var(--dark-color); background-color: var(--light-color);
             display: flex; flex-direction: column; min-height: 100vh;
         }
-        main { flex-grow: 1; padding-top: 100px; /* Prostor pro fixní header */ }
+        main { flex-grow: 1; padding-top:40px; }
         .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
 
         /* Header styly - předpokládáme, že je máte v components/header.php */
@@ -265,31 +265,35 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <h2>Downloadable Documents</h2>
                 <p>Access key documents related to the WavePass project, including technical specifications, user manuals, and presentations.</p>
                 <ul>
+                <!--
                     <li>
                         <a href="documentation/WavePass_Project_Presentation.pdf" download class="doc-link">
-                            <span class="material-symbols-outlined">slideshow</span> Project Presentation
+                            <span aria-hidden="true" translate="no" class="material-symbols-outlined">slideshow</span> Project Presentation
                         </a>
                         <span class="file-type">PDF</span>
                     </li>
+                !-->
                     <li>
-                        <a href="documentation/WavePass_Technical_Documentation.pdf" download class="doc-link">
-                            <span class="material-symbols-outlined">article</span> Technical Documentation & ERD
+                        <a href="https://spsrakovnik.sharepoint.com/:w:/r/sites/Team01/_layouts/15/Doc2.aspx?action=edit&sourcedoc=%7Bfd44f074-8e33-44e7-81fd-0729efe739e1%7D&wdOrigin=TEAMS-WEB.teams_ns.rwc&wdExp=TEAMS-TREATMENT&wdhostclicktime=1748504544846&web=1" download class="doc-link">
+                            <span aria-hidden="true" translate="no" class="material-symbols-outlined">article</span> Technical Documentation 
                         </a>
-                        <span class="file-type">PDF</span>
+                        <span class="file-type">DOCX</span>
                     </li>
+                <!--
                     <li>
                         <a href="documentation/WavePass_User_Manual_Admin.pdf" download class="doc-link">
-                            <span class="material-symbols-outlined">person</span> User Manual - Administrator
+                            <span aria-hidden="true" translate="no" class="material-symbols-outlined">person</span> User Manual - Administrator
                         </a>
                         <span class="file-type">PDF</span>
                     </li>
                     <li>
                         <a href="documentation/WavePass_User_Manual_Employee.pdf" download class="doc-link">
-                            <span class="material-symbols-outlined">badge</span> User Manual - Employee
+                            <span aria-hidden="true" translate="no" class="material-symbols-outlined">badge</span> User Manual - Employee
                         </a>
                         <span class="file-type">PDF</span>
-                    </li>
-                    <!-- Přidejte další soubory podle potřeby -->
+                    </li>      
+                !-->
+                <!-- Přidejte další soubory podle potřeby -->
                 </ul>
             </section>
 
@@ -297,7 +301,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <h2>Design & Prototyping (Figma)</h2>
                 <p>The user interface (UI) and user experience (UX) design for WavePass, including wireframes, mockups, and interactive prototypes, were developed using Figma. You can explore the design process and final visuals via the link below.</p>
                 <p>
-                    <a href="https://www.figma.com/file/your-figma-project-link" target="_blank" rel="noopener noreferrer" class="btn-link">
+                    <a href="https://www.figma.com/design/ojZH8Cr8afGZXZjKxWdivb/Untitled?node-id=0-1&t=YxfhIqPVooqNi3ZH-1" target="_blank" rel="noopener noreferrer" class="btn-link">
                         <i class="fab fa-figma" style="margin-right: 0.5rem;"></i> View on Figma
                     </a>
                 </p>
@@ -309,7 +313,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <p>The WavePass Attendance System was conceived and developed as a practical project with the aim of modernizing attendance tracking in educational institutions. A significant part of its development and conceptualization was made possible through the invaluable experiences and collaborative opportunities offered by the <strong>Erasmus+ programme</strong>.</p>
                 <p>This international exchange provided a platform for learning, sharing ideas, and gaining diverse perspectives, which directly contributed to the features and user-centric design of WavePass. We are grateful for the support of the Erasmus+ programme in fostering innovation and cross-cultural collaboration.</p>
                 <!-- Můžete zde přidat logo Erasmus+, pokud máte a smíte ho použít -->
-                <img src="imgs/erasmus.png" alt="Erasmus+ Programme Logo" class="erasmus-logo"> 
+                <!-- <img src="imgs/erasmus.png" alt="Erasmus+ Programme Logo" class="erasmus-logo">  !-->
                 <!-- Ujistěte se, že máte soubor imgs/erasmus_logo.png nebo upravte cestu a alt text -->
             </section>
 

@@ -545,13 +545,13 @@ if (rtrim($currentScriptPath, '/') !== rtrim($projectRootPath, '/')) {
                 <aside class="account-sidebar">
                     <h3>Settings</h3>
                     <ul>
-                        <li><a href="?section=profile" class="<?php if ($activeSection === 'profile') echo 'active'; ?>"><span class="material-symbols-outlined">manage_accounts</span> Profile Information</a></li>
-                        <li><a href="?section=password" class="<?php if ($activeSection === 'password') echo 'active'; ?>"><span class="material-symbols-outlined">lock_reset</span> Change Password</a></li>
-                        <li><a href="?section=rfid" class="<?php if ($activeSection === 'rfid') echo 'active'; ?>"><span class="material-symbols-outlined">credit_card</span> My RFID Cards</a></li>
+                        <li><a href="?section=profile" class="<?php if ($activeSection === 'profile') echo 'active'; ?>"><span aria-hidden="true" translate="no" class="material-symbols-outlined">manage_accounts</span> Profile Information</a></li>
+                        <li><a href="?section=password" class="<?php if ($activeSection === 'password') echo 'active'; ?>"><span aria-hidden="true" translate="no" class="material-symbols-outlined">lock_reset</span> Change Password</a></li>
+                        <li><a href="?section=rfid" class="<?php if ($activeSection === 'rfid') echo 'active'; ?>"><span aria-hidden="true" translate="no" class="material-symbols-outlined">credit_card</span> My RFID Cards</a></li>
                         <?php if (strtolower($sessionRole) === 'admin'): ?>
                             <li style="margin-top: 1.5rem; border-top:1px solid var(--light-gray); padding-top:1rem;">
                                 <a href="<?php echo htmlspecialchars(WEB_ROOT_PATH); ?>admin/admin-panel.php" style="color: var(--secondary-color); font-weight:bold;"> <!-- Použití WEB_ROOT_PATH -->
-                                    <span class="material-symbols-outlined">admin_panel_settings</span> Admin Panel
+                                    <span aria-hidden="true" translate="no" class="material-symbols-outlined">admin_panel_settings</span> Admin Panel
                                 </a>
                             </li>
                         <?php endif; ?>
@@ -583,7 +583,7 @@ if (rtrim($currentScriptPath, '/') !== rtrim($projectRootPath, '/')) {
                                 </div>
                                 <div class="profile-upload-actions">
                                     <label for="profile_photo_input" class="btn btn-outline"> 
-                                        <span class="material-symbols-outlined">photo_camera</span> Update photo
+                                        <span aria-hidden="true" translate="no" class="material-symbols-outlined">photo_camera</span> Update photo
                                     </label>
                                     <input type="file" name="profile_photo_input" id="profile_photo_input" accept="image/jpeg,image/png,image/gif">
                                     <small>Max 2MB. JPG, PNG, GIF.</small>
@@ -599,7 +599,7 @@ if (rtrim($currentScriptPath, '/') !== rtrim($projectRootPath, '/')) {
                                 <div class="form-group"><label for="phone" class="form-label">Phone</label><input type="tel" id="phone" name="phone" class="form-control" value="<?php echo htmlspecialchars($userData['phone'] ?: ''); ?>" placeholder="Optional"></div>
                             </div>
                             <div class="form-actions">
-                                <button type="submit" name="update_profile" class="btn btn-primary"><span class="material-symbols-outlined">save</span> Save Changes</button>
+                                <button type="submit" name="update_profile" class="btn btn-primary"><span aria-hidden="true" translate="no" class="material-symbols-outlined">save</span> Save Changes</button>
                             </div>
                         </form>
                     </div>
@@ -612,7 +612,7 @@ if (rtrim($currentScriptPath, '/') !== rtrim($projectRootPath, '/')) {
                             <div class="form-group"><label for="new_password" class="form-label">New Password</label><input type="password" id="new_password" name="new_password" class="form-control" required minlength="8" placeholder="Minimum 8 characters"></div>
                             <div class="form-group"><label for="confirm_password" class="form-label">Confirm Password</label><input type="password" id="confirm_password" name="confirm_password" class="form-control" required></div>
                             <div class="form-actions">
-                                <button type="submit" name="change_password" class="btn btn-primary"><span class="material-symbols-outlined">lock_reset</span> Change Password</button>
+                                <button type="submit" name="change_password" class="btn btn-primary"><span aria-hidden="true" translate="no" class="material-symbols-outlined">lock_reset</span> Change Password</button>
                             </div>
                         </form>
                     </div>
@@ -641,7 +641,7 @@ if (rtrim($currentScriptPath, '/') !== rtrim($projectRootPath, '/')) {
                                     <?php endif; ?>
                                     <p>Type: <?php echo $card['type']; ?></p>
                                     <p class="rfid-card-status <?php echo $card['status_class']; ?>">
-                                        <span class="material-symbols-outlined"><?php echo ($card['status_bool'] ? 'verified_user' : 'do_not_disturb_on'); ?></span>
+                                        <span aria-hidden="true" translate="no" class="material-symbols-outlined"><?php echo ($card['status_bool'] ? 'verified_user' : 'do_not_disturb_on'); ?></span>
                                         <?php echo $card['status_text']; ?>
                                     </p>
                                 </div>

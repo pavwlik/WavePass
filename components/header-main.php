@@ -21,7 +21,7 @@ error_reporting(E_ALL);
     <header>
         <div class="container">
             <nav class="navbar">
-                <a href="index.php" class="logo">
+                <a href="index.php" class="logo" translate="no">
                 <img src="./imgs/logo.png" alt="WavePass Logo" class="logo-img">
                     Wave<span>Pass</span>
                 </a>
@@ -32,9 +32,9 @@ error_reporting(E_ALL);
                     <li><a href="index.php#contact">Contact</a></li>
                     <li><a href="index.php#faq">FAQ</a></li>
                     <?php if (isset($_SESSION['loggedin'])) : ?>
-                        <li class="nav-item-login"><a href="dashboard.php" class="btn"><span class="material-symbols-outlined">dashboard</span> Dashboard</a></li>
+                        <li class="nav-item-login"><a href="dashboard.php" class="btn"><span aria-hidden="true" translate="no" class="material-symbols-outlined">dashboard</span> Dashboard</a></li>
                     <?php else : ?>
-                        <li class="nav-item-login"><a href="login.php" class="btn <?php echo basename($_SERVER['PHP_SELF']) === 'login.php' ? 'active-link' : ''; ?>"><span class="material-symbols-outlined">account_circle</span> Login</a></li>
+                        <li class="nav-item-login"><a href="login.php" class="btn <?php echo basename($_SERVER['PHP_SELF']) === 'login.php' ? 'active-link' : ''; ?>"><span aria-hidden="true" translate="no" class="material-symbols-outlined">account_circle</span> Login</a></li>
                     <?php endif; ?>
                 </ul>
                 <div class="hamburger" id="hamburger"><span></span><span></span><span></span></div>
@@ -50,9 +50,9 @@ error_reporting(E_ALL);
                 <li><a href="index.php#faq">FAQ</a></li>
             </ul>
             <?php if (isset($_SESSION['loggedin'])) : ?>
-                <a href="dashboard.php" class="btn"><span class="material-symbols-outlined">dashboard</span> Dashboard</a>
+                <a href="dashboard.php" class="btn"><span aria-hidden="true" translate="no" class="material-symbols-outlined">dashboard</span> Dashboard</a>
             <?php else : ?>
-                <a href="login.php" class="btn <?php echo basename($_SERVER['PHP_SELF']) === 'login.php' ? 'active-link' : ''; ?>"><span class="material-symbols-outlined">person</span> Login</a>
+                <a href="login.php" class="btn <?php echo basename($_SERVER['PHP_SELF']) === 'login.php' ? 'active-link' : ''; ?>"><span aria-hidden="true" translate="no" class="material-symbols-outlined">person</span> Login</a>
             <?php endif; ?>
         </div>
     </header>

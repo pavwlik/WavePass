@@ -145,11 +145,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) &&
 
 
 // --- REGULAR PAGE LOAD LOGIC ---
-if (!file_exists('db.php')) {
+if (!file_exists('../db.php')) {
     $dbErrorMessage = "Critical error: Database configuration file (db.php) not found. Please contact support.";
     die($dbErrorMessage); 
 }
-require_once 'db.php'; 
+require_once '../db.php'; 
 
 $sessionFirstName = isset($_SESSION["first_name"]) ? htmlspecialchars($_SESSION["first_name"]) : 'Employee';
 $sessionUserId = isset($_SESSION["user_id"]) ? (int)$_SESSION["user_id"] : null;
@@ -559,7 +559,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 </head>
 <body>
     <!-- Header -->
-    <?php require "components/header-admin.php"; ?>
+    <?php require "../components/header-admin.php"; ?>
 
     <main>
         <div class="page-header">
@@ -578,7 +578,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
             <section class="employee-stats-grid">
                 <div class="stat-card rfid-status <?php echo htmlspecialchars($rfidStatusClass); ?>">
-                    <div class="icon"><span class="material-symbols-outlined">
+                    <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">
                         <?php 
                             if ($rfidStatusClass === "present") echo "person_check";
                             elseif ($rfidStatusClass === "absent") echo "person_off"; // Catches "Checked Out" and "Scheduled Leave"
@@ -592,14 +592,14 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     </div>
                 </div>
                 <div class="stat-card unread-messages">
-                    <div class="icon"><span class="material-symbols-outlined">mark_chat_unread</span></div>
+                    <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">mark_chat_unread</span></div>
                     <div class="info">
                         <span class="value"><?php echo $unreadMessagesCount; ?></span>
                         <span class="label">Unread Messages</span>
                     </div>
                 </div>
                 <div class="stat-card upcoming-leave">
-                    <div class="icon"><span class="material-symbols-outlined">flight_takeoff</span></div>
+                    <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">flight_takeoff</span></div>
                     <div class="info">
                         <span class="value"><?php echo htmlspecialchars($upcomingLeaveDisplay); ?></span>
                         <span class="label">Upcoming Leave</span>
@@ -607,7 +607,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 </div>
                 
                 <div class="stat-card action-card" id="lateDepartureActionCard">
-                    <div class="icon"><span class="material-symbols-outlined">schedule_send</span></div>
+                    <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">schedule_send</span></div>
                     <div class="info">
                         <?php if ($existingLateDeparture): ?>
                             <span class="value" id="displayedLateTime">Planned: <?php echo date("H:i", strtotime($existingLateDeparture['planned_departure_time'])); ?></span>
@@ -635,9 +635,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <div class="panel-header">
                     <h2 class="panel-title">Activity for <span id="selectedDateDisplay"><?php echo date("F d, Y", strtotime($selectedDate)); ?></span></h2>
                     <div class="date-navigation">
-                        <button class="btn-nav" id="prevDayBtn" title="Previous Day"><span class="material-symbols-outlined">chevron_left</span></button>
+                        <button class="btn-nav" id="prevDayBtn" title="Previous Day"><span aria-hidden="true" translate="no" class="material-symbols-outlined">chevron_left</span></button>
                         <input type="date" id="activity-date-selector" value="<?php echo htmlspecialchars($selectedDate); ?>" max="<?php echo $todayDate; ?>">
-                        <button class="btn-nav" id="nextDayBtn" title="Next Day" <?php if ($selectedDate >= $todayDate) echo 'disabled'; ?>><span class="material-symbols-outlined">chevron_right</span></button>
+                        <button class="btn-nav" id="nextDayBtn" title="Next Day" <?php if ($selectedDate >= $todayDate) echo 'disabled'; ?>><span aria-hidden="true" translate="no" class="material-symbols-outlined">chevron_right</span></button>
                     </div>
                 </div>
                 
@@ -661,13 +661,13 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                             <span class="activity-status <?php echo htmlspecialchars($activity['status_class'] ?? 'neutral'); ?>">
                                                 <?php 
                                                 $logTypeClean = isset($activity['log_type']) ? strtolower(str_replace(' ', '', $activity['log_type'])) : '';
-                                                if ($logTypeClean === 'entry'): ?><span class="material-symbols-outlined">login</span>
-                                                <?php elseif ($logTypeClean === 'exit'): ?><span class="material-symbols-outlined">logout</span>
-                                                <?php elseif ($logTypeClean === 'scheduledabsence' || ($logTypeClean === 'currentstatus' && isset($activity['log_result']) && (strpos(strtolower($activity['log_result']), 'leave') !== false || strpos(strtolower($activity['log_result']), 'scheduled') !== false))): ?><span class="material-symbols-outlined">event_busy</span>
-                                                <?php elseif ($logTypeClean === 'system' || ($logTypeClean === 'currentstatus' && isset($activity['log_result']) && strpos(strtolower($activity['log_result']), 'present') !== false)): ?><span class="material-symbols-outlined">verified_user</span>
-                                                <?php elseif ($logTypeClean === 'currentstatus' && isset($activity['log_result']) && strpos(strtolower($activity['log_result']), 'checked out') !== false): ?><span class="material-symbols-outlined">person_off</span>
-                                                <?php elseif ($logTypeClean === 'norecord'): ?><span class="material-symbols-outlined">manage_search</span>
-                                                <?php else: ?><span class="material-symbols-outlined">help_outline</span>
+                                                if ($logTypeClean === 'entry'): ?><span aria-hidden="true" translate="no" class="material-symbols-outlined">login</span>
+                                                <?php elseif ($logTypeClean === 'exit'): ?><span aria-hidden="true" translate="no" class="material-symbols-outlined">logout</span>
+                                                <?php elseif ($logTypeClean === 'scheduledabsence' || ($logTypeClean === 'currentstatus' && isset($activity['log_result']) && (strpos(strtolower($activity['log_result']), 'leave') !== false || strpos(strtolower($activity['log_result']), 'scheduled') !== false))): ?><span aria-hidden="true" translate="no" class="material-symbols-outlined">event_busy</span>
+                                                <?php elseif ($logTypeClean === 'system' || ($logTypeClean === 'currentstatus' && isset($activity['log_result']) && strpos(strtolower($activity['log_result']), 'present') !== false)): ?><span aria-hidden="true" translate="no" class="material-symbols-outlined">verified_user</span>
+                                                <?php elseif ($logTypeClean === 'currentstatus' && isset($activity['log_result']) && strpos(strtolower($activity['log_result']), 'checked out') !== false): ?><span aria-hidden="true" translate="no" class="material-symbols-outlined">person_off</span>
+                                                <?php elseif ($logTypeClean === 'norecord'): ?><span aria-hidden="true" translate="no" class="material-symbols-outlined">manage_search</span>
+                                                <?php else: ?><span aria-hidden="true" translate="no" class="material-symbols-outlined">help_outline</span>
                                                 <?php endif; ?>
                                                 <?php echo htmlspecialchars($activity['log_type'] ?? 'N/A'); ?>
                                             </span>
@@ -718,7 +718,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     </div>
 
     <!-- Footer -->
-    <?php require "components/footer-admin.php"; ?>
+    <?php require "../components/footer-admin.php"; ?>
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {

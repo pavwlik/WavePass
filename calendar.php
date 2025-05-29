@@ -377,8 +377,8 @@ if (isset($pdo) && $pdo instanceof PDO) {
                 <div class="calendar-header">
                     <h2 id="currentMonthYear">Month Year</h2>
                     <div class="calendar-nav">
-                        <button id="prevMonthBtn"><span class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">arrow_back_ios</span> Prev</button>
-                        <button id="nextMonthBtn">Next <span class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">arrow_forward_ios</span></button>
+                        <button id="prevMonthBtn"><span aria-hidden="true" translate="no" class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">arrow_back_ios</span> Prev</button>
+                        <button id="nextMonthBtn">Next <span aria-hidden="true" translate="no" class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">arrow_forward_ios</span></button>
                     </div>
                 </div>
                 <div class="calendar-grid" id="calendarGrid">

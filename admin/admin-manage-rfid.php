@@ -293,18 +293,18 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_cards';
                     <h3>Card Management</h3>
                     <li>
                         <a href="admin-manage-rfid.php?view=all_cards" class="<?php if ($currentView == 'all_cards') echo 'active-view'; ?>">
-                            <span class="material-symbols-outlined">badge</span> All RFID Cards
+                            <span aria-hidden="true" translate="no" class="material-symbols-outlined">badge</span> All RFID Cards
                         </a>
                     </li>
                     <li>
                         <a href="admin-manage-rfid.php?view=add_new" class="<?php if ($currentView == 'add_new') echo 'active-view'; ?>">
-                            <span class="material-symbols-outlined">add_card</span> Add New Card
+                            <span aria-hidden="true" translate="no" class="material-symbols-outlined">add_card</span> Add New Card
                         </a>
                     </li>
                     <h3>Settings</h3>
                     <li>
                         <a href="admin-manage-rfid.php?view=api_control" class="<?php if ($currentView == 'api_control') echo 'active-view'; ?>">
-                            <span class="material-symbols-outlined">settings_remote</span> API Registration Control
+                            <span aria-hidden="true" translate="no" class="material-symbols-outlined">settings_remote</span> API Registration Control
                         </a>
                     </li>
                 </ul>
@@ -321,7 +321,7 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_cards';
                 <!-- Sekcia API Control -->
                 <section id="api-control-section" class="content-panel <?php if ($currentView !== 'api_control') echo 'hidden-section'; ?>" style="background-color: #fffde7; border-left: 4px solid #ffab00;">
                     <div class="panel-header" style="border-bottom: none; margin-bottom: 0.5rem;">
-                        <h2 class="panel-title" style="font-size: 1.1rem;"><span class="material-symbols-outlined" style="vertical-align:bottom; margin-right:5px; color:var(--warning-color);">settings_remote</span>API Control: RFID Card Registration</h2>
+                        <h2 class="panel-title" style="font-size: 1.1rem;"><span aria-hidden="true" translate="no" class="material-symbols-outlined" style="vertical-align:bottom; margin-right:5px; color:var(--warning-color);">settings_remote</span>API Control: RFID Card Registration</h2>
                     </div>
                     <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
                         <p style="margin: 0; font-size: 0.9rem; color: #424242; flex-grow:1;">
@@ -396,7 +396,7 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_cards';
                             <!-- === KONIEC NOVÉHO TOGGLE BUTTONU === -->
                         </div>
                         <div class="form-actions">
-                            <button type="submit" class="btn-primary"><span class="material-symbols-outlined">add_card</span> Add RFID Card</button>
+                            <button type="submit" class="btn-primary"><span aria-hidden="true" translate="no" class="material-symbols-outlined">add_card</span> Add RFID Card</button>
                         </div>
                     </form>
                 </section>
@@ -458,7 +458,7 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_cards';
                                             </td>
                                             <td class="actions-cell">
                                                 <a href="admin-edit-rfid.php?rfidID=<?php echo $rfid['RFID']; ?>" class="btn-edit-rfid" title="Edit RFID Card">
-                                                    <span class="material-symbols-outlined">credit_card_gear</span> Edit
+                                                    <span aria-hidden="true" translate="no" class="material-symbols-outlined">credit_card_gear</span> Edit
                                                 </a>
                                             </td>
                                         </tr>

@@ -389,28 +389,28 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
             <section class="admin-stats-grid">
                 <div class="stat-card total-users">
-                    <div class="icon"><span class="material-symbols-outlined">groups</span></div>
+                    <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">groups</span></div>
                     <div class="info">
                         <span class="value"><?php echo $totalUsers; ?></span>
                         <span class="label">Total Users</span>
                     </div>
                 </div>
                 <div class="stat-card present-stat">
-                    <div class="icon"><span class="material-symbols-outlined">person_check</span></div>
+                    <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">person_check</span></div>
                     <div class="info">
                         <span class="value"><?php echo $usersPresentToday; ?></span>
                         <span class="label">Employees Present</span>
                     </div>
                 </div>
                 <div class="stat-card on-leave-stat">
-                    <div class="icon"><span class="material-symbols-outlined">event_busy</span></div>
+                    <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">event_busy</span></div>
                      <div class="info">
                         <span class="value"><?php echo $usersOnLeaveToday; ?></span>
                         <span class="label">Employees On Leave</span>
                     </div>
                 </div>
                 <div class="stat-card late-stat">
-                    <div class="icon"><span class="material-symbols-outlined">history_edu</span></div>
+                    <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">history_edu</span></div>
                     <div class="info">
                         <span class="value"><?php echo $lateDepartureCount; ?></span>
                         <span class="label">Late Exits Notified</span>
@@ -424,8 +424,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 </div>
 
                 <div class="filters-toggle-section <?php if($filtersExpanded) echo 'expanded'; ?>" id="filtersHeaderToggle">
-                    <h3><span class="material-symbols-outlined" style="font-size:1.2em; vertical-align:middle; margin-right:5px;">filter_list</span>Filter Users</h3>
-                    <span class="material-symbols-outlined toggle-icon">expand_more</span>
+                    <h3><span aria-hidden="true" translate="no" class="material-symbols-outlined" style="font-size:1.2em; vertical-align:middle; margin-right:5px;">filter_list</span>Filter Users</h3>
+                    <span aria-hidden="true" translate="no" class="material-symbols-outlined toggle-icon">expand_more</span>
                 </div>
                 <div class="filters-body <?php if($filtersExpanded) echo 'expanded'; ?>" id="filtersBody">
                     <form method="GET" action="admin-users-view.php" style="display:contents; width:100%;">
@@ -460,9 +460,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                             </select>
                         </div>
                         <div class="filter-buttons-group">
-                            <button type="submit"><span class="material-symbols-outlined">search</span>Filter</button>
+                            <button type="submit"><span aria-hidden="true" translate="no" class="material-symbols-outlined">search</span>Filter</button>
                             <?php if (!empty($filterName) || !empty($filterRole) || !empty($filterStatus) || !empty($filterLateDeparture)): ?>
-                                <a href="admin-users-view.php" class="button clear"><span class="material-symbols-outlined">clear_all</span>Clear</a>
+                                <a href="admin-users-view.php" class="button clear"><span aria-hidden="true" translate="no" class="material-symbols-outlined">clear_all</span>Clear</a>
                             <?php endif; ?>
                         </div>
                     </form>
@@ -500,7 +500,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                                     else if ($user['status_class_display'] === 'danger') $statusIcon = "gpp_maybe";
                                                     else if ($user['status_class_display'] === 'neutral') $statusIcon = "person_off";
                                                 ?>
-                                                <span class="material-symbols-outlined"><?php echo $statusIcon; ?></span>
+                                                <span aria-hidden="true" translate="no" class="material-symbols-outlined"><?php echo $statusIcon; ?></span>
                                                 <?php echo htmlspecialchars($user['current_status_display']); ?>
                                             </span>
                                         </td>
@@ -518,7 +518,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                 <?php if (!$dbErrorMessage): ?>
                                 <tr>
                                     <td colspan="5" class="no-users-msg" style="text-align: center; padding: 2rem;">
-                                        <span class="material-symbols-outlined" style="font-size: 3rem; display:block; margin-bottom:0.5rem;">search_off</span>
+                                        <span aria-hidden="true" translate="no" class="material-symbols-outlined" style="font-size: 3rem; display:block; margin-bottom:0.5rem;">search_off</span>
                                         No users found matching your criteria. Try adjusting the filters.
                                     </td>
                                 </tr>

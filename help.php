@@ -600,61 +600,7 @@ require_once "db.php";
     </main>
 
     <!-- Footer -->
-    <footer>
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-column">
-                    <h3>WavePass</h3>
-                    <p>Modern attendance tracking solutions for educational institutions of all sizes.</p>
-                    <div class="social-links">
-                        <a href="#"><i class="fab fa-facebook-f"></i></a>
-                        <a href="#"><i class="fab fa-twitter"></i></a>
-                        <a href="#"><i class="fab fa-linkedin-in"></i></a>
-                        <a href="#"><i class="fab fa-instagram"></i></a>
-                    </div>
-                </div>
-                
-                <div class="footer-column">
-                    <h3>Quick Links</h3>
-                    <ul class="footer-links">
-                        <li><a href="index.html#features"><i class="fas fa-chevron-right"></i> Features</a></li>
-                        <li><a href="index.html#how-it-works"><i class="fas fa-chevron-right"></i> How It Works</a></li>
-                        <li><a href="index.html#contact"><i class="fas fa-chevron-right"></i> Contact</a></li> 
-                        <li><a href="index.html#faq"><i class="fas fa-chevron-right"></i> FAQ</a></li> 
-                        <li><a href="help.php"><i class="fas fa-chevron-right"></i> Help Center</a></li>
-                        <li><a href="pricing.php"><i class="fas fa-chevron-right"></i> Pricing</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-column">
-                    <h3>Resources</h3>
-                    <ul class="footer-links">
-                        <li><a href="blog.php"><i class="fas fa-chevron-right"></i> Blog</a></li>
-                        <li><a href="help.php"><i class="fas fa-chevron-right"></i> Help Center</a></li>
-                        <li><a href="webinars.php"><i class="fas fa-chevron-right"></i> Webinars</a></li>
-                        <li><a href="api.php"><i class="fas fa-chevron-right"></i> API Documentation</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-column">
-                    <h3>Contact Info</h3>
-                    <ul class="footer-links">
-                        <li><a href="mailto:support@WavePass.com"><i class="fas fa-envelope"></i> support@WavePass.com</a></li> {/* Changed to support email */}
-                        <li><a href="tel:+15551234567"><i class="fas fa-phone"></i> +1 (555) 123-4567</a></li>
-                        <li>
-                             <a href="https://www.google.com/maps/search/?api=1&query=123%20Education%20St%2C%20Boston%2C%20MA%2002115" target="_blank" rel="noopener noreferrer" title="View on Google Maps">
-                                <i class="fas fa-map-marker-alt"></i> 123 Education St, Boston, MA
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-            
-            <div class="footer-bottom">
-                <p> <p>&copy; <?php echo date("Y"); ?> WavePass All rights reserved. | <a href="privacy.php">Privacy Policy</a> | <a href="terms.php">Terms of Service</a></p>
-            </div>
-        </div>
-    </footer>
+    <?php  require_once "components/footer-user.php"; ?>
 
     <script>
 

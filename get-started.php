@@ -43,7 +43,7 @@
         
         main {
             flex-grow: 1; 
-            padding-top: 80px; /* Height of the fixed header */
+            padding-top: 40px; /* Height of the fixed header */
         }
 
         h1, h2, h3, h4 {
@@ -266,10 +266,10 @@
                 <h1>Ready to Modernize Your School's Attendance?</h1>
                 <p>WavePass offers a simple, efficient, and reliable way to manage teacher attendance. By providing us with a few details about your institution, we can tailor a solution that perfectly fits your needs. Let's get started on transforming your attendance tracking process!</p>
                 <ul class="intro-benefits">
-                    <li><span class="material-symbols-outlined">timer</span> Save Administrative Time</li>
-                    <li><span class="material-symbols-outlined">paid</span> Reduce Costs</li>
-                    <li><span class="material-symbols-outlined">analytics</span> Improve Accuracy & Reporting</li>
-                    <li><span class="material-symbols-outlined">cloud_upload</span> Cloud-Based & Accessible</li>
+                    <li><span aria-hidden="true" translate="no" class="material-symbols-outlined">timer</span> Save Administrative Time</li>
+                    <li><span aria-hidden="true" translate="no" class="material-symbols-outlined">paid</span> Reduce Costs</li>
+                    <li><span aria-hidden="true" translate="no" class="material-symbols-outlined">analytics</span> Improve Accuracy & Reporting</li>
+                    <li><span aria-hidden="true" translate="no" class="material-symbols-outlined">cloud_upload</span> Cloud-Based & Accessible</li>
                 </ul>
             </div>
         </section>
@@ -282,7 +282,7 @@
                     
                     <form action="process_service_request.php" method="POST">
                         <h3 style="margin-top: 0; margin-bottom: 1.5rem; font-size: 1.3rem; color: var(--dark-color); border-bottom: 1px solid var(--light-gray); padding-bottom: 0.5rem;">
-                            <span class="material-symbols-outlined" style="vertical-align: bottom; margin-right: 0.3em; font-size: 1.2em;">school</span>School Information
+                            <span aria-hidden="true" translate="no" class="material-symbols-outlined" style="vertical-align: bottom; margin-right: 0.3em; font-size: 1.2em;">school</span>School Information
                         </h3>
                         <div class="form-grid">
                             <div class="form-group">
@@ -316,7 +316,7 @@
 
                         <div class="form-group full-width">
                             <label for="school_address_street">
-                                <span class="material-symbols-outlined" style="font-size: 1.1em; vertical-align: text-bottom; margin-right: 0.2em;">location_on</span>Street Address <span style="color:var(--danger-color)">*</span>
+                                <span aria-hidden="true" translate="no" class="material-symbols-outlined" style="font-size: 1.1em; vertical-align: text-bottom; margin-right: 0.2em;">location_on</span>Street Address <span style="color:var(--danger-color)">*</span>
                             </label>
                             <input type="text" id="school_address_street" name="school_address_street" required>
                         </div>
@@ -337,7 +337,7 @@
                         </div>
 
                         <h3 style="margin-top: 2.5rem; margin-bottom: 1.5rem; font-size: 1.3rem; color: var(--dark-color); border-bottom: 1px solid var(--light-gray); padding-bottom: 0.5rem;">
-                             <span class="material-symbols-outlined" style="vertical-align: bottom; margin-right: 0.3em; font-size: 1.2em;">badge</span>Contact Person
+                             <span aria-hidden="true" translate="no" class="material-symbols-outlined" style="vertical-align: bottom; margin-right: 0.3em; font-size: 1.2em;">badge</span>Contact Person
                         </h3>
 
                         <div class="form-grid">
@@ -347,14 +347,14 @@
                             </div>
                             <div class="form-group">
                                 <label for="contact_person_email">
-                                     <span class="material-symbols-outlined" style="font-size: 1.1em; vertical-align: text-bottom; margin-right: 0.2em;">contact_mail</span>Email Address <span style="color:var(--danger-color)">*</span>
+                                     <span aria-hidden="true" translate="no" class="material-symbols-outlined" style="font-size: 1.1em; vertical-align: text-bottom; margin-right: 0.2em;">contact_mail</span>Email Address <span style="color:var(--danger-color)">*</span>
                                 </label>
                                 <input type="email" id="contact_person_email" name="contact_person_email" required>
                             </div>
                         </div>
                         <div class="form-group full-width">
                             <label for="contact_person_phone">
-                                <span class="material-symbols-outlined" style="font-size: 1.1em; vertical-align: text-bottom; margin-right: 0.2em;">contact_phone</span>Phone Number (Optional)
+                                <span aria-hidden="true" translate="no" class="material-symbols-outlined" style="font-size: 1.1em; vertical-align: text-bottom; margin-right: 0.2em;">contact_phone</span>Phone Number (Optional)
                             </label>
                             <input type="tel" id="contact_person_phone" name="contact_person_phone">
                         </div>
@@ -365,7 +365,7 @@
                         </div>
                         
                         <button type="submit" class="btn">
-                            <span class="material-symbols-outlined">send</span> Send Request
+                            <span aria-hidden="true" translate="no" class="material-symbols-outlined">send</span> Send Request
                         </button>
                     </form>
                 </div>
@@ -373,7 +373,8 @@
         </section>
     </main>
 
-    <?php require "components/footer-admin.php"; ?>
+    <!-- Footer -->
+    <?php  require_once "components/footer-user.php"; ?>
 
     <script>
         // Smooth scrolling for on-page anchors

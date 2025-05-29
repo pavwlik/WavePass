@@ -399,29 +399,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
 
                         <div class="form-actions" style="text-align:left;">
                             <button type="submit" class="btn-submit">
-                                <span class="material-symbols-outlined">save</span> Update Announcement
+                                <span aria-hidden="true" translate="no" class="material-symbols-outlined">save</span> Update Announcement
                             </button>
                             <a href="admin-messages.php?section=history" class="btn-cancel">Cancel</a>
                         </div>
                     </form>
 
                     <div class="read-status-container">
-                        <h3><span class="material-symbols-outlined">visibility</span> Message Read Status</h3>
+                        <h3><span aria-hidden="true" translate="no" class="material-symbols-outlined">visibility</span> Message Read Status</h3>
                         <div class="read-status-columns">
                             <div class="read-status-column">
-                                <h4><span class="material-symbols-outlined">task_alt</span>Read By (<?php echo count($readByUserList); ?>)</h4>
+                                <h4><span aria-hidden="true" translate="no" class="material-symbols-outlined">task_alt</span>Read By (<?php echo count($readByUserList); ?>)</h4>
                                 <?php if (!empty($readByUserList)): ?>
-                                    <ul><?php foreach($readByUserList as $reader) { echo '<li><span class="material-symbols-outlined">person</span>' . $reader['name'] . '</li>'; } ?></ul>
+                                    <ul><?php foreach($readByUserList as $reader) { echo '<li><span aria-hidden="true" translate="no" class="material-symbols-outlined">person</span>' . $reader['name'] . '</li>'; } ?></ul>
                                 <?php else: ?>
-                                    <p><span class="material-symbols-outlined">mark_email_unread</span>No users have read this message yet.</p>
+                                    <p><span aria-hidden="true" translate="no" class="material-symbols-outlined">mark_email_unread</span>No users have read this message yet.</p>
                                 <?php endif; ?>
                             </div>
                             <div class="read-status-column">
-                                <h4><span class="material-symbols-outlined">mark_email_unread</span>Not Read By (<?php echo count($notReadByUserList); ?>)</h4>
+                                <h4><span aria-hidden="true" translate="no" class="material-symbols-outlined">mark_email_unread</span>Not Read By (<?php echo count($notReadByUserList); ?>)</h4>
                                  <?php if (!empty($notReadByUserList)): ?>
-                                    <ul><?php foreach($notReadByUserList as $nonReader) { echo '<li><span class="material-symbols-outlined">person_off</span>' . $nonReader['name'] . '</li>'; } ?></ul>
+                                    <ul><?php foreach($notReadByUserList as $nonReader) { echo '<li><span aria-hidden="true" translate="no" class="material-symbols-outlined">person_off</span>' . $nonReader['name'] . '</li>'; } ?></ul>
                                 <?php else: ?>
-                                    <p><span class="material-symbols-outlined">checklist</span>All targeted users have read this message.</p>
+                                    <p><span aria-hidden="true" translate="no" class="material-symbols-outlined">checklist</span>All targeted users have read this message.</p>
                                 <?php endif; ?>
                             </div>
                         </div>

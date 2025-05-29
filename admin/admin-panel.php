@@ -319,21 +319,21 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
             <section class="admin-stats-grid">
                 <div class="stat-card total-employees">
-                    <div class="icon"><span class="material-symbols-outlined">groups</span></div>
+                    <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">groups</span></div>
                     <div class="info">
                         <span class="value"><?php echo $stats['total_employees']; ?></span>
                         <span class="label">Total Employees</span>
                     </div>
                 </div>
                  <div class="stat-card total-employees" style="--primary-color: var(--secondary-color); --primary-color-rgb: 63,55,201;">
-                    <div class="icon"><span class="material-symbols-outlined">how_to_reg</span></div>
+                    <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">how_to_reg</span></div>
                         <div class="info">
                             <span class="value"><?php echo $stats['assigned_rfid_cards']; ?></span>
                             <span class="label">Assigned RFID Cards</span>
                         </div>
                 </div>
                 <div class="stat-card present-employees">
-                    <div class="icon"><span class="material-symbols-outlined">person_check</span></div>
+                    <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">person_check</span></div>
                     <div class="info">
                         <span class="value"><?php echo $stats['employees_present']; ?></span>
                         <span class="label">Employees Currently Present</span>
@@ -341,7 +341,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 </div>
                 <!-- Stávající karta pro zaměstnance na schválené absenci -->
                 <div class="stat-card absent-employees"> <!-- Můžete si ponechat třídu .absent-employees nebo ji změnit -->
-                    <div class="icon"><span class="material-symbols-outlined">event_busy</span></div> <!-- Ikona pro plánovanou absenci -->
+                    <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">event_busy</span></div> <!-- Ikona pro plánovanou absenci -->
                     <div class="info">
                         <span class="value"><?php echo $stats['employees_on_approved_absence']; ?></span>
                         <span class="label">Employees on Absence</span>
@@ -349,28 +349,28 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 </div>
                 <!-- ODSTRANĚNÝ BLOK PRO TOTAL RFID CARDS -->
                 <div class="stat-card rfid-cards">
-                <div class="icon"><span class="material-symbols-outlined">admin_panel_settings</span></div>
+                <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">admin_panel_settings</span></div>
                     <div class="info">
                         <span class="value"><?php echo $stats['total_admins']; ?></span>
                         <span class="label">Total Admins</span>
                     </div>
                 </div>
                  <div class="stat-card rfid-cards">
-                    <div class="icon"><span class="material-symbols-outlined">unpublished</span></div>
+                    <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">unpublished</span></div>
                     <div class="info">
                         <span class="value"><?php echo $stats['unassigned_rfid_cards']; ?></span>
                         <span class="label">Unassigned RFID Cards</span>
                     </div>
                 </div>
                  <div class="stat-card rfid-cards" style="--secondary-color: var(--present-color);">
-                    <div class="icon"><span class="material-symbols-outlined">rss_feed</span></div>
+                    <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">rss_feed</span></div>
                     <div class="info">
                         <span class="value"><?php echo $stats['active_rfid_cards']; ?></span>
                         <span class="label">Active RFID Cards</span>
                     </div>
                 </div>
                 <div class="stat-card pending-absences">
-                    <div class="icon"><span class="material-symbols-outlined">event_busy</span></div>
+                    <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">event_busy</span></div>
                     <div class="info">
                         <span class="value"><?php echo $stats['pending_absences']; ?></span>
                         <span class="label">Pending Absence Requests</span>
@@ -382,49 +382,49 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <h2>Quick Actions & Management</h2>
                 <div class="action-links-grid">
                 <a href="admin-users-view.php" class="action-link-card">
-                        <div class="icon"><span class="material-symbols-outlined">manage_accounts</span></div>
+                        <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">manage_accounts</span></div>
                         <div class="text">
                             <h3>All users views</h3>
                             <p>View all..</p>
                         </div>
                     </a>
                     <a href="admin-manage-users.php" class="action-link-card">
-                        <div class="icon"><span class="material-symbols-outlined">manage_accounts</span></div>
+                        <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">manage_accounts</span></div>
                         <div class="text">
                             <h3>Manage Employees</h3>
                             <p>Add, edit, and view employee details.</p>
                         </div>
                     </a>
                     <a href="admin-manage-rfid.php" class="action-link-card">
-                        <div class="icon"><span class="material-symbols-outlined">contactless</span></div>
+                        <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">contactless</span></div>
                         <div class="text">
                             <h3>Manage RFID Cards</h3>
                             <p>Assign, activate, or deactivate RFID cards.</p>
                         </div>
                     </a>
                     <a href="admin-messages.php" class="action-link-card">
-                        <div class="icon"><span class="material-symbols-outlined">chat</span></div>
+                        <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">chat</span></div>
                         <div class="text">
                             <h3>Manage Messages</h3>
                             <p>Send announcements and warnings to users.</p>
                         </div>
                     </a>
                      <a href="admin-manage-absence.php" class="action-link-card">
-                        <div class="icon"><span class="material-symbols-outlined">rule</span></div>
+                        <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">rule</span></div>
                         <div class="text">
                             <h3>Approve Absences</h3>
                             <p>Review and approve/reject leave requests.</p>
                         </div>
                     </a>
                     <a href="admin-system-logs.php" class="action-link-card">
-                        <div class="icon"><span class="material-symbols-outlined">receipt_long</span></div>
+                        <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">receipt_long</span></div>
                         <div class="text">
                             <h3>System Logs</h3>
                             <p>View important system activity and audit trails.</p>
                         </div>
                     </a>
                     <a href="admin-settings.php" class="action-link-card">
-                        <div class="icon"><span class="material-symbols-outlined">settings</span></div>
+                        <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">settings</span></div>
                         <div class="text">
                             <h3>System Settings</h3>
                             <p>Configure application-wide settings.</p>

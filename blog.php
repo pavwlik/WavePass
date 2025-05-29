@@ -501,7 +501,7 @@ require_once "db.php";
                     <li><a href="index.php#about-us">About Us</a></li>
                     <li><a href="index.php#contact">Contact</a></li> 
                     <li><a href="index.php#faq">FAQ</a></li> 
-                    <li><a href="login.php" class="btn"><span class="material-symbols-outlined">account_circle</span> Login</a></li>
+                    <li><a href="login.php" class="btn"><span aria-hidden="true" translate="no" class="material-symbols-outlined">account_circle</span> Login</a></li>
                 </ul>
                 
                 <div class="hamburger" id="hamburger">
@@ -522,7 +522,7 @@ require_once "db.php";
                 <li><a href="index.php#contact">Contact</a></li>
                 <li><a href="index.php#faq">FAQ</a></li> 
             </ul>
-            <a href="login.php" class="btn"><span class="material-symbols-outlined">person</span> Login</a>
+            <a href="login.php" class="btn"><span aria-hidden="true" translate="no" class="material-symbols-outlined">person</span> Login</a>
         </div>
     </header>
 
@@ -635,11 +635,11 @@ require_once "db.php";
     </main>
 
     <!-- Footer -->
-    <?php  require_once "footer.php"; ?>
+    <?php  require_once "components/footer-user.php"; ?>
 
      <!-- Scroll to Top Button -->
     <button id="scrollToTopBtn" title="Go to top" aria-label="Scroll to top">
-        <span class="material-symbols-outlined">arrow_upward</span>
+        <span aria-hidden="true" translate="no" class="material-symbols-outlined">arrow_upward</span>
     </button>
 
     <script>

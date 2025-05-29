@@ -228,7 +228,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <ul class="filter-list">
                     <li>
                         <a href="admin-settings.php?section=general" class="<?php if ($currentSection == 'general') echo 'active-filter'; ?>">
-                            <span class="material-symbols-outlined">settings</span> General Settings
+                            <span aria-hidden="true" translate="no" class="material-symbols-outlined">settings</span> General Settings
                         </a>
                     </li>
                     <li>
@@ -238,12 +238,12 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     </li>
                     <li>
                         <a href="admin-settings.php?section=notifications" class="<?php if ($currentSection == 'notifications') echo 'active-filter'; ?>">
-                            <span class="material-symbols-outlined">notifications_active</span> Notifications
+                            <span aria-hidden="true" translate="no" class="material-symbols-outlined">notifications_active</span> Notifications
                         </a>
                     </li>
                     <li>
                         <a href="admin-settings.php?section=security" class="<?php if ($currentSection == 'security') echo 'active-filter'; ?>">
-                            <span class="material-symbols-outlined">security</span> Security
+                            <span aria-hidden="true" translate="no" class="material-symbols-outlined">security</span> Security
                         </a>
                     </li>
                     <!-- Add more sections as needed -->
@@ -282,7 +282,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                             <p class="form-text">If checked, non-admin users will see a maintenance page.</p>
                         </div>
                         <button type="submit" name="save_general_settings" class="btn-save-settings">
-                            <span class="material-symbols-outlined">save</span> Save General Settings
+                            <span aria-hidden="true" translate="no" class="material-symbols-outlined">save</span> Save General Settings
                         </button>
                     </form>
 
@@ -305,7 +305,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                             <p class="form-text">Users can still override this in their profile (if feature exists).</p>
                         </div>
                         <button type="submit" name="save_appearance_settings" class="btn-save-settings">
-                            <span class="material-symbols-outlined">save</span> Save Appearance Settings
+                            <span aria-hidden="true" translate="no" class="material-symbols-outlined">save</span> Save Appearance Settings
                         </button>
                     </form>
 
@@ -330,7 +330,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                             <p class="form-text">Allow users to receive emails (e.g., password reset, absence request updates).</p>
                         </div>
                         <button type="submit" name="save_notification_settings" class="btn-save-settings">
-                            <span class="material-symbols-outlined">save</span> Save Notification Settings
+                            <span aria-hidden="true" translate="no" class="material-symbols-outlined">save</span> Save Notification Settings
                         </button>
                     </form>
                 

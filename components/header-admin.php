@@ -94,7 +94,7 @@ $logo_path_for_img_tag = htmlspecialchars($asset_prefix . "imgs/logo.png");
 <header>
     <div class="container">
     <nav class="navbar">
-            <a href="<?php echo $index_link; ?>" class="logo-block">
+            <a href="<?php echo $index_link; ?>" class="logo-block" translate="no">
                 <img src="<?php echo $logo_path_for_img_tag; ?>" alt="WavePass Logo" class="logo-img">
                 <div class="logo-text-content"> 
                     Wave<span>Pass</span>
@@ -137,12 +137,12 @@ $logo_path_for_img_tag = htmlspecialchars($asset_prefix . "imgs/logo.png");
                     <?php endif; ?>
                     
 
-                    <li><a href="<?php echo htmlspecialchars($logout_path); ?>" class="btn"><span class="material-symbols-outlined">logout</span> Logout</a></li>
+                    <li><a href="<?php echo htmlspecialchars($logout_path); ?>" class="btn"><span aria-hidden="true" translate="no" class="material-symbols-outlined">logout</span> Logout</a></li>
                 <?php else: // Guest Links ?>
                     <li><a href="<?php echo htmlspecialchars($asset_prefix); ?>index.php#features" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#features') !== false) echo 'active-link'; ?>">Features</a></li>
                     <li><a href="<?php echo htmlspecialchars($asset_prefix); ?>pricing.php" class="<?php if ($currentPage === 'pricing.php') echo 'active-link'; ?>">Pricing</a></li>
                     <li><a href="<?php echo htmlspecialchars($asset_prefix); ?>index.php#faq" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#faq') !== false) echo 'active-link'; ?>">FAQ</a></li>
-                    <li><a href="<?php echo htmlspecialchars($asset_prefix); ?>login.php" class="btn <?php if ($currentPage === 'login.php') echo 'active-link'; ?>"><span class="material-symbols-outlined">account_circle</span> Login</a></li>
+                    <li><a href="<?php echo htmlspecialchars($asset_prefix); ?>login.php" class="btn <?php if ($currentPage === 'login.php') echo 'active-link'; ?>"><span aria-hidden="true" translate="no" class="material-symbols-outlined">account_circle</span> Login</a></li>
                 <?php endif; ?>
             </ul>
             <div class="hamburger" id="hamburger"><span></span><span></span><span></span></div>
@@ -181,12 +181,12 @@ $logo_path_for_img_tag = htmlspecialchars($asset_prefix . "imgs/logo.png");
                     </li>
                 <?php endif; ?>
 
-                <li><a href="<?php echo htmlspecialchars($logout_path); ?>" class="btn"><span class="material-symbols-outlined">logout</span> Log out</a></li>
+                <li><a href="<?php echo htmlspecialchars($logout_path); ?>" class="btn"><span aria-hidden="true" translate="no" class="material-symbols-outlined">logout</span> Log out</a></li>
             <?php else: // Guest Links ?>
                 <li><a href="<?php echo htmlspecialchars($asset_prefix); ?>index.php#features" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#features') !== false) echo 'active-link'; ?>">Features</a></li>
                 <li><a href="<?php echo htmlspecialchars($asset_prefix); ?>pricing.php" class="<?php if ($currentPage === 'pricing.php') echo 'active-link'; ?>">Pricing</a></li>
                 <li><a href="<?php echo htmlspecialchars($asset_prefix); ?>index.php#faq" class="<?php if ($currentPage === 'index.php' && strpos($_SERVER['REQUEST_URI'], '#faq') !== false) echo 'active-link'; ?>">FAQ</a></li>
-                <li><a href="<?php echo htmlspecialchars($asset_prefix); ?>login.php" class="btn <?php if ($currentPage === 'login.php') echo 'active-link'; ?>"><span class="material-symbols-outlined">account_circle</span> Login</a></li>
+                <li><a href="<?php echo htmlspecialchars($asset_prefix); ?>login.php" class="btn <?php if ($currentPage === 'login.php') echo 'active-link'; ?>"><span aria-hidden="true" translate="no" class="material-symbols-outlined">account_circle</span> Login</a></li>
             <?php endif; ?>
         </ul>
     </div>

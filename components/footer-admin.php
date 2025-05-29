@@ -26,7 +26,7 @@
                     <ul class="footer-links">
                         <li><a href="blog.php"><i class="fas fa-chevron-right"></i> Blog</a></li>
                         <li><a href="webinars.php"><i class="fas fa-chevron-right"></i> Webinars</a></li>
-                        <li><a href="api.php"><i class="fas fa-chevron-right"></i> API Documentation</a></li>
+                        <li><a href="documentation.php"><i class="fas fa-chevron-right"></i> Documentation</a></li>
                     </ul>
                 </div>
                 

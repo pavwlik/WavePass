@@ -295,15 +295,15 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             <aside class="absences-sidebar">
                 <h3>Absence Options</h3>
                 <button type="button" class="btn-request-absence-toggle" id="toggleRequestFormBtn" style="margin-bottom:1.5rem;" aria-expanded="<?php echo $showRequestForm ? 'true' : 'false'; ?>" aria-controls="request-form">
-                    <span class="material-symbols-outlined" id="toggleIcon"><?php echo $showRequestForm ? 'remove_circle' : 'add_circle'; ?></span>
+                    <span aria-hidden="true" translate="no" class="material-symbols-outlined" id="toggleIcon"><?php echo $showRequestForm ? 'remove_circle' : 'add_circle'; ?></span>
                     <span id="toggleText"><?php echo $showRequestForm ? 'Hide Request Form' : 'Request New Absence'; ?></span>
                 </button>
                 <h3>Filter Requests</h3>
                 <ul class="filter-list">
-                    <li><a href="absences.php?filter=all" class="<?php if ($currentFilter == 'all') echo 'active-filter'; ?>"><span class="material-symbols-outlined">list_alt</span> All My Requests</a></li>
-                    <li><a href="absences.php?filter=pending" class="<?php if ($currentFilter == 'pending') echo 'active-filter'; ?>"><span class="material-symbols-outlined">pending_actions</span> Pending</a></li>
-                    <li><a href="absences.php?filter=approved" class="<?php if ($currentFilter == 'approved') echo 'active-filter'; ?>"><span class="material-symbols-outlined">check_circle</span> Approved</a></li>
-                    <li><a href="absences.php?filter=rejected" class="<?php if ($currentFilter == 'rejected') echo 'active-filter'; ?>"><span class="material-symbols-outlined">cancel</span> Rejected</a></li>
+                    <li><a href="absences.php?filter=all" class="<?php if ($currentFilter == 'all') echo 'active-filter'; ?>"><span aria-hidden="true" translate="no" class="material-symbols-outlined">list_alt</span> All My Requests</a></li>
+                    <li><a href="absences.php?filter=pending" class="<?php if ($currentFilter == 'pending') echo 'active-filter'; ?>"><span aria-hidden="true" translate="no" class="material-symbols-outlined">pending_actions</span> Pending</a></li>
+                    <li><a href="absences.php?filter=approved" class="<?php if ($currentFilter == 'approved') echo 'active-filter'; ?>"><span aria-hidden="true" translate="no" class="material-symbols-outlined">check_circle</span> Approved</a></li>
+                    <li><a href="absences.php?filter=rejected" class="<?php if ($currentFilter == 'rejected') echo 'active-filter'; ?>"><span aria-hidden="true" translate="no" class="material-symbols-outlined">cancel</span> Rejected</a></li>
                 </ul>
             </aside>
 
@@ -352,7 +352,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                             <textarea id="notes" name="notes" placeholder="Any extra information for the approver."><?php echo isset($_POST['notes']) ? htmlspecialchars($_POST['notes']) : ''; ?></textarea>
                         </div>
                         <div class="form-actions">
-                            <button type="submit" class="btn-primary"><span class="material-symbols-outlined">send</span> Submit Request</button>
+                            <button type="submit" class="btn-primary"><span aria-hidden="true" translate="no" class="material-symbols-outlined">send</span> Submit Request</button>
                         </div>
                     </form>
                 </section>
@@ -380,9 +380,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                         </span>
                                     </div>
                                     <div class="absence-dates">
-                                        <span class="material-symbols-outlined">calendar_month</span>
+                                        <span aria-hidden="true" translate="no" class="material-symbols-outlined">calendar_month</span>
                                         <?php echo date("D, M j, Y H:i", strtotime($absence['absence_start_datetime'])); ?>
-                                        <span class="material-symbols-outlined" style="margin-left: 5px; margin-right: 5px;">arrow_forward</span>
+                                        <span aria-hidden="true" translate="no" class="material-symbols-outlined" style="margin-left: 5px; margin-right: 5px;">arrow_forward</span>
                                         <?php echo date("D, M j, Y H:i", strtotime($absence['absence_end_datetime'])); ?>
                                     </div>
                                     <div class="absence-details">
@@ -400,7 +400,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                             <input type="hidden" name="action" value="cancel_absence">
                                             <input type="hidden" name="absence_id" value="<?php echo $absence['absenceID']; ?>">
                                             <button type="submit" class="btn-cancel-absence">
-                                                <span class="material-symbols-outlined">delete_forever</span> Cancel Request
+                                                <span aria-hidden="true" translate="no" class="material-symbols-outlined">delete_forever</span> Cancel Request
                                             </button>
                                         </form>
                                     </div>
@@ -410,7 +410,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                         <?php else: ?>
                              <?php if (!isset($dbErrorMessage) || !$dbErrorMessage || ($_SERVER["REQUEST_METHOD"] != "POST" && empty($dbErrorMessage))): ?>
                             <div class="no-absences">
-                                <span class="material-symbols-outlined">event_busy</span>
+                                <span aria-hidden="true" translate="no" class="material-symbols-outlined">event_busy</span>
                                 You have no absence requests matching the filter "<?php echo htmlspecialchars(ucfirst($currentFilter)); ?>".
                             </div>
                             <?php endif; ?>

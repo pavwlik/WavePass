@@ -241,12 +241,12 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_users';
                     <h3>User Accounts</h3>
                     <li>
                         <a href="admin-manage-users.php?view=all_users" class="<?php if ($currentView == 'all_users') echo 'active-view'; ?>">
-                            <span class="material-symbols-outlined">group</span> All Users
+                            <span aria-hidden="true" translate="no" class="material-symbols-outlined">group</span> All Users
                         </a>
                     </li>
                     <li>
                         <a href="admin-manage-users.php?view=add_user" class="<?php if ($currentView == 'add_user') echo 'active-view'; ?>">
-                            <span class="material-symbols-outlined">person_add</span> Add New User
+                            <span aria-hidden="true" translate="no" class="material-symbols-outlined">person_add</span> Add New User
                         </a>
                     </li>
                 </ul>
@@ -300,7 +300,7 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_users';
                             </div>
                         </div>
                         <div class="form-actions">
-                            <button type="submit" class="btn-primary"><span class="material-symbols-outlined">person_add</span> Add User</button>
+                            <button type="submit" class="btn-primary"><span aria-hidden="true" translate="no" class="material-symbols-outlined">person_add</span> Add User</button>
                         </div>
                     </form>
                 </section>
@@ -346,14 +346,14 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_users';
                                             <td><?php echo date("M d, Y", strtotime($user['dateOfCreation'])); ?></td>
                                             <td class="actions-cell">
                                                 <a href="admin-edit-user.php?userID=<?php echo $user['userID']; ?>" class="btn-edit" title="Edit User">
-                                                    <span class="material-symbols-outlined">edit</span>
+                                                    <span aria-hidden="true" translate="no" class="material-symbols-outlined">edit</span>
                                                 </a>
                                                 <?php if ($user['userID'] != $sessionUserId): ?>
                                                 <form action="admin-manage-users.php?view=all_users" method="POST" onsubmit="return confirm('Are you sure you want to delete this user and unassign their RFID card? This action cannot be undone.');" style="display:inline;">
                                                     <input type="hidden" name="action" value="delete_user">
                                                     <input type="hidden" name="user_id_to_delete" value="<?php echo $user['userID']; ?>">
                                                     <button type="submit" class="btn-danger" title="Delete User">
-                                                        <span class="material-symbols-outlined">delete</span>
+                                                        <span aria-hidden="true" translate="no" class="material-symbols-outlined">delete</span>
                                                     </button>
                                                 </form>
                                                 <?php endif; ?>

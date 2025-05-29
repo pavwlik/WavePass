@@ -336,16 +336,16 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                         </select>
                     </div>
                     <button type="submit" class="btn-apply-filters">
-                        <span class="material-symbols-outlined">filter_alt</span> Apply Filters
+                        <span aria-hidden="true" translate="no" class="material-symbols-outlined">filter_alt</span> Apply Filters
                     </button>
                 </form>
                 <hr style="margin: 1.5rem 0;">
                 <h3>Export Log</h3>
                 <a href="my_attendance_log.php?<?php echo http_build_query(array_merge($_GET, ['export' => 'csv'])); ?>" class="btn-export">
-                    <span class="material-symbols-outlined">download</span> Export as CSV
+                    <span aria-hidden="true" translate="no" class="material-symbols-outlined">download</span> Export as CSV
                 </a>
                 <a href="my_attendance_log.php?<?php echo http_build_query(array_merge($_GET, ['export' => 'pdf'])); ?>" class="btn-export" style="background-color: var(--danger-color); margin-top: 0.5rem;" onclick="alert('PDF export is not yet implemented.'); return false;">
-                    <span class="material-symbols-outlined">picture_as_pdf</span> Export as PDF
+                    <span aria-hidden="true" translate="no" class="material-symbols-outlined">picture_as_pdf</span> Export as PDF
                 </a>
             </aside>
 
@@ -375,11 +375,11 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                             <td>
                                                 <span class="log-type-badge log-type-<?php echo htmlspecialchars(strtolower($log['logType'])); ?>">
                                                     <?php if (strtolower($log['logType']) == 'entry'): ?>
-                                                        <span class="material-symbols-outlined">login</span>
+                                                        <span aria-hidden="true" translate="no" class="material-symbols-outlined">login</span>
                                                     <?php elseif (strtolower($log['logType']) == 'exit'): ?>
-                                                        <span class="material-symbols-outlined">logout</span>
+                                                        <span aria-hidden="true" translate="no" class="material-symbols-outlined">logout</span>
                                                     <?php else: ?>
-                                                        <span class="material-symbols-outlined">help_outline</span>
+                                                        <span aria-hidden="true" translate="no" class="material-symbols-outlined">help_outline</span>
                                                     <?php endif; ?>
                                                     <?php echo htmlspecialchars(ucfirst($log['logType'])); ?>
                                                 </span>
@@ -393,7 +393,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                     <?php if (!$dbErrorMessage): ?>
                                     <tr>
                                         <td colspan="3" class="no-logs-message">
-                                            <span class="material-symbols-outlined">manage_search</span>
+                                            <span aria-hidden="true" translate="no" class="material-symbols-outlined">manage_search</span>
                                             No attendance records found matching your criteria.
                                         </td>
                                     </tr>

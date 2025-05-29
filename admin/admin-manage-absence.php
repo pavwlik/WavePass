@@ -343,10 +343,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             <aside class="sidebar">
                 <h3>Filter Requests</h3>
                 <ul class="filter-list">
-                    <li><a href="admin-manage-absence.php?filter=pending_approval" class="<?php if ($currentFilter == 'pending_approval') echo 'active-filter'; ?>"><span class="material-symbols-outlined">pending_actions</span> Pending</a></li>
-                    <li><a href="admin-manage-absence.php?filter=approved" class="<?php if ($currentFilter == 'approved') echo 'active-filter'; ?>"><span class="material-symbols-outlined">check_circle</span> Approved</a></li>
-                    <li><a href="admin-manage-absence.php?filter=rejected" class="<?php if ($currentFilter == 'rejected') echo 'active-filter'; ?>"><span class="material-symbols-outlined">cancel</span> Rejected</a></li>
-                    <li><a href="admin-manage-absence.php?filter=all" class="<?php if ($currentFilter == 'all') echo 'active-filter'; ?>"><span class="material-symbols-outlined">list_alt</span> All Requests</a></li>
+                    <li><a href="admin-manage-absence.php?filter=pending_approval" class="<?php if ($currentFilter == 'pending_approval') echo 'active-filter'; ?>"><span aria-hidden="true" translate="no" class="material-symbols-outlined">pending_actions</span> Pending</a></li>
+                    <li><a href="admin-manage-absence.php?filter=approved" class="<?php if ($currentFilter == 'approved') echo 'active-filter'; ?>"><span aria-hidden="true" translate="no" class="material-symbols-outlined">check_circle</span> Approved</a></li>
+                    <li><a href="admin-manage-absence.php?filter=rejected" class="<?php if ($currentFilter == 'rejected') echo 'active-filter'; ?>"><span aria-hidden="true" translate="no" class="material-symbols-outlined">cancel</span> Rejected</a></li>
+                    <li><a href="admin-manage-absence.php?filter=all" class="<?php if ($currentFilter == 'all') echo 'active-filter'; ?>"><span aria-hidden="true" translate="no" class="material-symbols-outlined">list_alt</span> All Requests</a></li>
                 </ul>
             </aside>
 
@@ -401,7 +401,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                         <td data-label="Notes">
                                             <?php if (!empty($request['notes'])): ?>
                                                 <div class="notes-tooltip">
-                                                    <span class="material-symbols-outlined">chat_bubble</span>
+                                                    <span aria-hidden="true" translate="no" class="material-symbols-outlined">chat_bubble</span>
                                                     <span class="tooltip-text"><?php echo nl2br(htmlspecialchars($request['notes'])); ?></span>
                                                 </div>
                                             <?php else: ?>
@@ -415,13 +415,13 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                                 <form action="admin-manage-absence.php?filter=<?php echo htmlspecialchars($currentFilter); ?>" method="POST" style="display:inline-block; margin-bottom:0.3rem;">
                                                     <input type="hidden" name="action_absence_id" value="<?php echo $request['absenceID']; ?>">
                                                     <button type="submit" name="action_type" value="approve" class="btn-approve" onclick="return confirm('Are you sure you want to approve this absence request?');">
-                                                        <span class="material-symbols-outlined" style="font-size:1em;">check</span> Approve
+                                                        <span aria-hidden="true" translate="no" class="material-symbols-outlined" style="font-size:1em;">check</span> Approve
                                                     </button>
                                                 </form>
                                                 <form action="admin-manage-absence.php?filter=<?php echo htmlspecialchars($currentFilter); ?>" method="POST" style="display:inline-block;">
                                                     <input type="hidden" name="action_absence_id" value="<?php echo $request['absenceID']; ?>">
                                                     <button type="submit" name="action_type" value="reject" class="btn-reject" onclick="return confirm('Are you sure you want to reject this absence request?');">
-                                                        <span class="material-symbols-outlined" style="font-size:1em;">close</span> Reject
+                                                        <span aria-hidden="true" translate="no" class="material-symbols-outlined" style="font-size:1em;">close</span> Reject
                                                     </button>
                                                 </form>
                                             <?php else: ?>

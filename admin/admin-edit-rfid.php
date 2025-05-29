@@ -293,12 +293,12 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     <div class="form-actions">
                         <div>
                             <button type="button" class="btn-danger" onclick="confirmDelete()">
-                                <span class="material-symbols-outlined">delete</span> Delete Card
+                                <span aria-hidden="true" translate="no" class="material-symbols-outlined">delete</span> Delete Card
                             </button>
                         </div>
                         <div style="display: flex; gap: 1rem;">
-                            <a href="admin-manage-rfid.php" class="btn-secondary"><span class="material-symbols-outlined">arrow_back</span> Cancel</a>
-                            <button type="submit" class="btn-primary"><span class="material-symbols-outlined">save</span> Update RFID Card</button>
+                            <a href="admin-manage-rfid.php" class="btn-secondary"><span aria-hidden="true" translate="no" class="material-symbols-outlined">arrow_back</span> Cancel</a>
+                            <button type="submit" class="btn-primary"><span aria-hidden="true" translate="no" class="material-symbols-outlined">save</span> Update RFID Card</button>
                         </div>
                     </div>
                 </form>
@@ -317,7 +317,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                 <input type="hidden" name="action" value="delete_rfid">
                                 <input type="hidden" name="rfid_pk_id" value="<?php echo $rfidToEdit['RFID']; ?>">
                                 <button type="submit" class="btn-danger">
-                                    <span class="material-symbols-outlined">delete_forever</span> Delete Permanently
+                                    <span aria-hidden="true" translate="no" class="material-symbols-outlined">delete_forever</span> Delete Permanently
                                 </button>
                             </form>
                         </div>
@@ -326,7 +326,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             </section>
             <?php elseif(!$dbErrorMessage): ?>
                 <div class="db-error-message" role="alert"><i class="fas fa-exclamation-triangle"></i> RFID Card with the specified ID could not be found.</div>
-                <a href="admin-manage-rfid.php" class="btn-secondary" style="margin-top:1rem;"><span class="material-symbols-outlined">arrow_back</span> Back to RFID List</a>
+                <a href="admin-manage-rfid.php" class="btn-secondary" style="margin-top:1rem;"><span aria-hidden="true" translate="no" class="material-symbols-outlined">arrow_back</span> Back to RFID List</a>
             <?php endif; ?>
         </div>
     </main>

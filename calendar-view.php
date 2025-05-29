@@ -309,7 +309,7 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                     <li><a href="calendar-view.php" class="active">Calendar</a></li>
                     <li><a href="my_attendance_log.php">Attendance Log</a></li>
                     <li><a href="request_leave.php">Request Leave</a></li>
-                    <li><a href="profile.php"><span class="material-symbols-outlined">account_circle</span><?php echo $sessionFirstName; ?></a></li>
+                    <li><a href="profile.php"><span aria-hidden="true" translate="no" class="material-symbols-outlined">account_circle</span><?php echo $sessionFirstName; ?></a></li>
                     <li><a href="logout.php" class="btn btn-outline">Logout</a></li> 
                 </ul>
                 <div class="hamburger" id="hamburger">
@@ -349,8 +349,8 @@ if (isset($pdo) && $pdo instanceof PDO && $sessionUserId) {
                 <div class="calendar-header">
                     <h2><?php echo $monthName . " " . $year; ?></h2>
                     <div class="calendar-nav">
-                        <a href="?month=<?php echo $prevMonth; ?>&year=<?php echo $prevYear; ?>" title="Previous Month"><span class="material-symbols-outlined">chevron_left</span> Prev</a>
-                        <a href="?month=<?php echo $nextMonth; ?>&year=<?php echo $nextYear; ?>" title="Next Month">Next <span class="material-symbols-outlined">chevron_right</span></a>
+                        <a href="?month=<?php echo $prevMonth; ?>&year=<?php echo $prevYear; ?>" title="Previous Month"><span aria-hidden="true" translate="no" class="material-symbols-outlined">chevron_left</span> Prev</a>
+                        <a href="?month=<?php echo $nextMonth; ?>&year=<?php echo $nextYear; ?>" title="Next Month">Next <span aria-hidden="true" translate="no" class="material-symbols-outlined">chevron_right</span></a>
                     </div>
                 </div>
 

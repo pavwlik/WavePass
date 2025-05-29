@@ -368,8 +368,8 @@ $pathPrefix = "../";
                 <aside class="account-sidebar">
                     <h3>Messages Menu</h3>
                     <ul>
-                        <li><a href="?section=compose" class="<?php if ($activeSection === 'compose') echo 'active'; ?>"><span class="material-symbols-outlined">edit_square</span> Compose New</a></li>
-                        <li><a href="?section=history" class="<?php if ($activeSection === 'history') echo 'active'; ?>"><span class="material-symbols-outlined">history</span> Sent History</a></li>
+                        <li><a href="?section=compose" class="<?php if ($activeSection === 'compose') echo 'active'; ?>"><span aria-hidden="true" translate="no" class="material-symbols-outlined">edit_square</span> Compose New</a></li>
+                        <li><a href="?section=history" class="<?php if ($activeSection === 'history') echo 'active'; ?>"><span aria-hidden="true" translate="no" class="material-symbols-outlined">history</span> Sent History</a></li>
                     </ul>
                 </aside>
                 <section class="account-content">
@@ -416,7 +416,7 @@ $pathPrefix = "../";
                             <div class="form-group">
                                 <label class="checkbox-label"><input type="checkbox" name="is_urgent" value="1" <?php echo isset($_POST['is_urgent']) ? 'checked' : ''; ?>> Mark as Urgent</label>
                             </div>
-                            <div class="form-actions" style="text-align:left;"><button type="submit" class="btn-submit"><span class="material-symbols-outlined">send</span> Send Announcement</button></div>
+                            <div class="form-actions" style="text-align:left;"><button type="submit" class="btn-submit"><span aria-hidden="true" translate="no" class="material-symbols-outlined">send</span> Send Announcement</button></div>
                         </form>
                     </div>
                     <div id="history-section" class="content-section <?php if ($activeSection === 'history') echo 'active'; ?>">
@@ -432,7 +432,7 @@ $pathPrefix = "../";
                                     <tbody>
                                         <?php foreach ($sentMessagesDetails as $msg): ?>
                                             <tr>
-                                                <td><?php if ($msg['is_urgent']): ?><span class="material-symbols-outlined" style="color:var(--danger-color); font-size:1.1em; vertical-align:middle;" title="Urgent">priority_high</span><?php endif; ?><?php echo htmlspecialchars($msg['title']); ?></td>
+                                                <td><?php if ($msg['is_urgent']): ?><span aria-hidden="true" translate="no" class="material-symbols-outlined" style="color:var(--danger-color); font-size:1.1em; vertical-align:middle;" title="Urgent">priority_high</span><?php endif; ?><?php echo htmlspecialchars($msg['title']); ?></td>
                                                 <td><span class="content-snippet" title="<?php echo htmlspecialchars($msg['content']); ?>"><?php echo htmlspecialchars(mb_substr($msg['content'], 0, 40) . (mb_strlen($msg['content']) > 40 ? '...' : '')); ?></span></td>
                                                 <td><?php if ($msg['recipientRole']) { echo "Role: " . htmlspecialchars(ucfirst($msg['recipientRole'])); } elseif ($msg['specific_recipient_username']) { echo "User: " . htmlspecialchars($msg['specific_recipient_username']); } else { echo "N/A"; } ?></td>
                                                 <td><?php echo date("M d, Y H:i", strtotime($msg['created_at'])); ?></td>
@@ -448,10 +448,10 @@ $pathPrefix = "../";
                                                     </div>
                                                 </td>
                                                 <td class="actions-cell">
-                                                    <a href="admin-message-edit.php?id=<?php echo $msg['messageID']; ?>" class="action-btn edit-btn" title="Edit Message"><span class="material-symbols-outlined">edit</span></a>
+                                                    <a href="admin-message-edit.php?id=<?php echo $msg['messageID']; ?>" class="action-btn edit-btn" title="Edit Message"><span aria-hidden="true" translate="no" class="material-symbols-outlined">edit</span></a>
                                                     <form method="POST" action="admin-messages.php?section=history" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this announcement? This will also remove all read statuses for it. This action cannot be undone.');">
                                                         <input type="hidden" name="action" value="delete_message_from_history"><input type="hidden" name="message_id" value="<?php echo $msg['messageID']; ?>">
-                                                        <button type="submit" class="action-btn delete-btn" title="Delete Message"><span class="material-symbols-outlined">delete</span></button>
+                                                        <button type="submit" class="action-btn delete-btn" title="Delete Message"><span aria-hidden="true" translate="no" class="material-symbols-outlined">delete</span></button>
                                                     </form>
                                                 </td>
                                             </tr>

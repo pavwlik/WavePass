@@ -334,7 +334,7 @@ $currentPage = "admin-manage-users.php";
                         </div>
                     </div>
                     <div class="form-actions">
-                        <button type="submit" class="btn-submit"><span class="material-symbols-outlined">save</span> Save Changes</button>
+                        <button type="submit" class="btn-submit"><span aria-hidden="true" translate="no" class="material-symbols-outlined">save</span> Save Changes</button>
                         <a href="admin-manage-users.php?view=all_users" class="btn-cancel">Cancel</a>
                     </div>
                 </form>

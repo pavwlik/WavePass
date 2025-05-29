@@ -1,5 +1,11 @@
 <?php
-require_once "db.php"; 
+// --- SESSION MANAGEMENT ---
+// THIS MUST BE THE VERY FIRST THING IN YOUR SCRIPT
+if (session_status() == PHP_SESSION_NONE) {
+    session_start(); // Spustí session, pokud ještě neběží
+}
+
+require_once "db.php";
 ?>
 
 <!DOCTYPE html>
@@ -337,62 +343,40 @@ require_once "db.php";
         .form-group textarea { min-height: 130px; resize: vertical; }
         .contact-form .btn { width: 100%; padding: 0.9rem 2rem; }
 
-        /* FAQ Section Specifics */
+        /* FAQ Section Specifics -- UPDATED */
         .faq-section { background-color: var(--white); }
         .faq-container { max-width: 800px; margin: 0 auto; }
-        .faq-item { 
-            background-color: var(--white); margin-bottom: 1rem; border-radius: 8px; 
-            overflow: hidden; box-shadow: var(--shadow); transition: var(--transition); 
-            border: 1px solid var(--light-gray); 
+        .faq-item {
+            background-color: var(--white); margin-bottom: 1rem; border-radius: 8px;
+            overflow: hidden;
+            box-shadow: var(--shadow); transition: box-shadow var(--transition);
+            border: 1px solid var(--light-gray);
         }
         .faq-item:hover { box-shadow: 0 6px 25px rgba(0, 0, 0, 0.1); }
-        .faq-question { 
-            padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; 
-            cursor: pointer; font-weight: 600; color: var(--dark-color); transition: var(--transition); 
+        .faq-question {
+            padding: 1.5rem; display: flex; justify-content: space-between; align-items: center;
+            cursor: pointer; font-weight: 600; color: var(--dark-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
         .faq-question:hover { color: var(--primary-color); background-color: rgba(67, 97, 238, 0.03); }
-        .faq-question i { transition: var(--transition); }
-        
+        .faq-question i { transition: transform var(--transition); }
+
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s ease-out;
+            background-color: rgba(67, 97, 238, 0.02);
+        }
         .faq-answer-content {
-            padding: 0 1.5rem; 
+            padding: 1.5rem;
             color: var(--gray-color);
             line-height: 1.6;
             font-size: 0.95rem;
         }
-        .faq-item.active .faq-answer-content {
-            padding: 1.5rem; 
-        }
-        .faq-answer {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.35s ease-out; 
-            background-color: rgba(67, 97, 238, 0.03);
-        }
-
         .faq-item.active .faq-question i { transform: rotate(180deg); }
-        .faq-item.active .faq-question { color: var(--primary-color); }
+        .faq-item.active .faq-question { color: var(--primary-color); background-color: rgba(67, 97, 238, 0.05); }
 
 
-        /* Footer */
-        footer { background-color: var(--dark-color); color: var(--white); padding: 5rem 0 2rem; }
-        .footer-content { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 3rem; margin-bottom: 3rem; }
-        .footer-column h3 { font-size: 1.3rem; margin-bottom: 1.8rem; position: relative; padding-bottom: 0.8rem; }
-        .footer-column h3::after { content: ''; position: absolute; left: 0; bottom: 0; width: 50px; height: 3px; background-color: var(--primary-color); border-radius: 3px; }
-        .footer-links { list-style: none; }
-        .footer-links li { margin-bottom: 0.8rem; }
-        .footer-links a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); font-size: 0.95rem; display: inline-block; padding: 0.2rem 0; }
-        .footer-links a:hover { color: var(--white); transform: translateX(5px); }
-        .footer-links a i { margin-right: 0.5rem; width: 20px; text-align: center; }
-        .social-links { display: flex; gap: 1.2rem; margin-top: 1.5rem; }
-        .social-links a { 
-            display: inline-flex; align-items: center; justify-content: center; 
-            width: 40px; height: 40px; background-color: rgba(255, 255, 255, 0.1); 
-            color: var(--white); border-radius: 50%; font-size: 1.1rem; transition: var(--transition); 
-        }
-        .social-links a:hover { background-color: var(--primary-color); transform: translateY(-3px); }
-        .footer-bottom { text-align: center; padding-top: 3rem; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.9rem; color: rgba(255, 255, 255, 0.6); }
-        .footer-bottom a { color: rgba(255, 255, 255, 0.8); text-decoration: none; transition: var(--transition); }
-        .footer-bottom a:hover { color: var(--primary-color); }
 
         /* Responsive Styles */
         @media (max-width: 992px) {
@@ -473,7 +457,7 @@ require_once "db.php";
 <body>
     
     <!-- Header -->
-    <?php require_once "components/header-main.php" ?>
+    <?php require "components/header-main.php" ?>
 
     <main>
         <!-- Hero Section -->
@@ -580,7 +564,7 @@ require_once "db.php";
                                 <img src="imgs/krystof1.jpg" alt="Kryštof Topinka"> 
                             </div>
                             <h3 class="member-name">Kryštof Topinka</h3>
-                            <p class="member-role">Backend Developer <span class="greySymbol">|</span> Documentation <span class="greySymbol">|</span>Database</p>
+                            <p class="member-role">Backend Developer <span class="greySymbol">|</span> Documentation <span class="greySymbol">|</span> Database</p>
                             <div class="member-social-links">
                                 <a href="#" target="_blank" title="Kryštof Topinka Instagram" aria-label="Kryštof Topinka Instagram"><i class="fab fa-instagram"></i></a>
                                 <a href="#" target="_blank" title="Kryštof Topinka LinkedIn" aria-label="Kryštof Topinka LinkedIn"><i class="fab fa-linkedin-in"></i></a>
@@ -592,7 +576,7 @@ require_once "db.php";
                                 <img src="imgs/IMG_2321.png" alt="Filip Elznic"> 
                             </div>
                             <h3 class="member-name">Filip Elznic</h3>
-                            <p class="member-role">Operating systems <span class="greySymbol">|</span> Project Manager</p>
+                            <p class="member-role">Operating Systems <span class="greySymbol">|</span> Project Manager</p>
                             <div class="member-social-links">
                                 <a href="#" target="_blank" title="Filip Elznic Instagram" aria-label="Filip Elznic Instagram"><i class="fab fa-instagram"></i></a>
                                 <a href="#" target="_blank" title="Filip Elznic LinkedIn" aria-label="Filip Elznic LinkedIn"><i class="fab fa-linkedin-in"></i></a>
@@ -695,24 +679,59 @@ require_once "db.php";
                 </div>
                 <div class="faq-container">
                     <div class="faq-item">
-                        <div class="faq-question"><span>How secure is my school's data?</span><i class="fas fa-chevron-down"></i></div>
-                        <div class="faq-answer"><div class="faq-answer-content"><p>We take data security very seriously. All data is encrypted both in transit and at rest using industry-standard protocols. Our servers are hosted in secure, SOC 2 compliant data centers with regular security audits.</p></div></div>
+                        <div class="faq-question">
+                            <span>How secure is my school's data?</span>
+                            <i class="fas fa-chevron-down" aria-hidden="true" translate="no"></i>
+                        </div>
+                        <div class="faq-answer">
+                            <div class="faq-answer-content">
+                                <p>We take data security very seriously. All data is encrypted both in transit and at rest using industry-standard protocols. Our servers are hosted in secure, SOC 2 compliant data centers with regular security audits.</p>
+                            </div>
+                        </div>
                     </div>
                     <div class="faq-item">
-                        <div class="faq-question"><span>Can I integrate with our existing school management system?</span><i class="fas fa-chevron-down"></i></div>
-                        <div class="faq-answer"><div class="faq-answer-content"><p>Yes! WavePass offers API integration with most popular school management systems. We also support CSV imports/exports for easy data transfer. Our support team can assist with setting up integrations.</p></div></div>
+                        <div class="faq-question">
+                            <span>Can I integrate with our existing school management system?</span>
+                            <i class="fas fa-chevron-down" aria-hidden="true" translate="no"></i>
+                        </div>
+                        <div class="faq-answer">
+                            <div class="faq-answer-content">
+                                <p>Yes! WavePass offers API integration with most popular school management systems. We also support CSV imports/exports for easy data transfer. Our support team can assist with setting up integrations.</p>
+                            </div>
+                        </div>
                     </div>
                     <div class="faq-item">
-                        <div class="faq-question"><span>What happens if our internet goes down?</span><i class="fas fa-chevron-down"></i></div>
-                        <div class="faq-answer"><div class="faq-answer-content"><p>change question and answer</p></div></div>
+                        <div class="faq-question">
+                            <span>What happens if our internet goes down?</span>
+                            <i class="fas fa-chevron-down" aria-hidden="true" translate="no"></i>
+                        </div>
+                        <div class="faq-answer">
+                            <div class="faq-answer-content">
+                                <p>WavePass primarily operates as a cloud-based system, requiring an internet connection for real-time check-ins and administrative access. For critical situations, we are exploring offline capabilities for future updates. Currently, attendance would need to be recorded manually and entered once connectivity is restored.</p>
+                            </div>
+                        </div>
                     </div>
                     <div class="faq-item">
-                        <div class="faq-question"><span>How much training is required for staff?</span><i class="fas fa-chevron-down"></i></div>
-                        <div class="faq-answer"><div class="faq-answer-content"><p>WavePass is designed to be intuitive and user-friendly. Most teachers can start using it with minimal instruction. We provide comprehensive onboarding materials and training videos for administrators, and our support team is always available to help.</p></div></div>
+                        <div class="faq-question">
+                            <span>How much training is required for staff?</span>
+                            <i class="fas fa-chevron-down" aria-hidden="true" translate="no"></i>
+                        </div>
+                        <div class="faq-answer">
+                            <div class="faq-answer-content">
+                                <p>WavePass is designed to be intuitive and user-friendly. Most teachers can start using it with minimal instruction. We provide comprehensive onboarding materials and training videos for administrators, and our support team is always available to help.</p>
+                            </div>
+                        </div>
                     </div>
                     <div class="faq-item">
-                        <div class="faq-question"><span>What kind of support do you offer?</span><i class="fas fa-chevron-down"></i></div>
-                        <div class="faq-answer"><div class="faq-answer-content"><p>We offer 24/7 email support with a guaranteed response time of under 4 hours during business days. Premium support packages with phone support and dedicated account managers are also available for larger institutions.</p></div></div>
+                        <div class="faq-question">
+                            <span>What kind of support do you offer?</span>
+                            <i class="fas fa-chevron-down" aria-hidden="true" translate="no"></i>
+                        </div>
+                        <div class="faq-answer">
+                            <div class="faq-answer-content">
+                                <p>We offer 24/7 email support with a guaranteed response time of under 4 hours during business days. Premium support packages with phone support and dedicated account managers are also available for larger institutions.</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -720,194 +739,269 @@ require_once "db.php";
     </main>
 
     <!-- Footer -->
-    <?php  require_once "components/footer-admin.php"; ?>
+    <?php  require_once "components/footer-user.php"; ?>
 
     <!-- Scroll to Top Button -->
     <button id="scrollToTopBtn" title="Go to top">
-        <span class="material-symbols-outlined">arrow_upward</span>
+        <span class="material-symbols-outlined" aria-hidden="true" translate="no" >arrow_upward</span>
     </button>
 
 
     <script>
-        // Mobile Menu Toggle
-        const hamburger = document.getElementById('hamburger');
-        const mobileMenu = document.getElementById('mobileMenu');
-        const closeMenu = document.getElementById('closeMenu');
-        const body = document.body;
-        
-        if (hamburger && mobileMenu && closeMenu) { 
-            hamburger.addEventListener('click', () => {
-                hamburger.classList.toggle('active');
-                mobileMenu.classList.toggle('active');
-                body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
-            });
-            
-            closeMenu.addEventListener('click', () => {
-                hamburger.classList.remove('active');
-                mobileMenu.classList.remove('active');
-                body.style.overflow = '';
-            });
-            
-            const mobileNavLinksList = document.querySelectorAll('.mobile-menu a'); // Changed variable name
-            mobileNavLinksList.forEach(link => {
-                link.addEventListener('click', () => {
-                    if (link.getAttribute('href').startsWith('#') || link.classList.contains('btn')) {
-                        hamburger.classList.remove('active');
-                        mobileMenu.classList.remove('active');
-                        body.style.overflow = '';
+        document.addEventListener('DOMContentLoaded', function () {
+            // Mobile Menu Toggle (předpokládáme, že prvky jsou v header-main.php)
+            const hamburger = document.getElementById('hamburger');
+            const mobileMenu = document.getElementById('mobileMenu');
+            const closeMenu = document.getElementById('closeMenu');
+            const body = document.body;
+
+            if (hamburger && mobileMenu && closeMenu) {
+                if (closeMenu.innerHTML.includes('×') || closeMenu.querySelector('i')) {
+                    closeMenu.setAttribute('translate', 'no');
+                }
+                if (hamburger.querySelectorAll('span')) {
+                    hamburger.querySelectorAll('span').forEach(span => {
+                        span.setAttribute('translate', 'no');
+                        // aria-hidden by mělo být již nastaveno v HTML
+                    });
+                }
+
+                hamburger.addEventListener('click', () => {
+                    const isActive = hamburger.classList.toggle('active');
+                    mobileMenu.classList.toggle('active');
+                    body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
+                    hamburger.setAttribute('aria-expanded', isActive ? 'true' : 'false');
+                });
+
+                closeMenu.addEventListener('click', () => {
+                    hamburger.classList.remove('active');
+                    mobileMenu.classList.remove('active');
+                    body.style.overflow = '';
+                    hamburger.setAttribute('aria-expanded', 'false');
+                });
+
+                const mobileNavLinksList = document.querySelectorAll('.mobile-menu a');
+                mobileNavLinksList.forEach(link => {
+                    link.addEventListener('click', () => {
+                        if (!link.target || link.target === '_self') {
+                            hamburger.classList.remove('active');
+                            mobileMenu.classList.remove('active');
+                            body.style.overflow = '';
+                            if (hamburger) hamburger.setAttribute('aria-expanded', 'false');
+                        }
+                    });
+                });
+            }
+
+            // Shared header element and height for scroll calculations
+            const pageHeader = document.querySelector('header');
+            const headerHeight = pageHeader ? pageHeader.offsetHeight : 0;
+
+            // Smooth scrolling for anchor links
+            document.querySelectorAll('a[href^="#"], a[href^="index.php#"]').forEach(anchor => {
+                anchor.addEventListener('click', function(e) {
+                    const href = this.getAttribute('href');
+                    if (href === '#' || (href.startsWith('#') && href.length === 1) ) return;
+
+                    let targetId;
+                    let onIndexPage = window.location.pathname.endsWith('index.php') || window.location.pathname === '/' || window.location.pathname.endsWith('/');
+
+                    if (href.startsWith('index.php#')) {
+                        targetId = href.substring(href.indexOf('#'));
+                        if (!onIndexPage) {
+                            window.location.href = href;
+                            return;
+                        }
+                    } else if (href.startsWith('#')) {
+                        targetId = href;
+                        if (!onIndexPage) {
+                            window.location.href = 'index.php' + href;
+                            return;
+                        }
+                    } else { return; }
+
+                    try {
+                        const targetElement = document.querySelector(targetId);
+                        if (targetElement) {
+                            e.preventDefault();
+                            const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset - headerHeight;
+                            window.scrollTo({
+                                top: targetPosition,
+                                behavior: 'smooth'
+                            });
+                        }
+                    } catch (error) {
+                        console.warn("Smooth scroll target not found or invalid selector:", targetId, error);
                     }
                 });
             });
-        }
-        
-        // Shared header element and height for scroll calculations
-        const pageHeader = document.querySelector('header');
-        const headerHeight = pageHeader ? pageHeader.offsetHeight : 0;
 
-        // Smooth scrolling for anchor links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function(e) {
-                if (this.getAttribute('href') === '#') return; 
-                
-                const targetId = this.getAttribute('href');
-                if (targetId.startsWith('#') && document.querySelector(targetId)) {
-                    e.preventDefault();
-                    const targetElement = document.querySelector(targetId);
-                    // Use the globally defined headerHeight
-                    const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset - headerHeight;
-                    
-                    window.scrollTo({
-                        top: targetPosition,
-                        behavior: 'smooth'
+            // Add shadow to header on scroll
+            if (pageHeader) {
+                window.addEventListener('scroll', () => {
+                    if (window.scrollY > 10) {
+                        pageHeader.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.05)';
+                    } else {
+                        pageHeader.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.05)';
+                    }
+                });
+            }
+
+            // FAQ Accordion Functionality
+            const faqItems = document.querySelectorAll('.faq-item');
+            faqItems.forEach(item => {
+                const question = item.querySelector('.faq-question');
+                const answer = item.querySelector('.faq-answer');
+
+                if (question && answer) {
+                    question.addEventListener('click', () => {
+                        const isActive = item.classList.contains('active');
+                        // Otevřít/zavřít aktuální položku
+                        item.classList.toggle('active');
+                        if (item.classList.contains('active')) {
+                            answer.style.maxHeight = answer.scrollHeight + "px";
+                        } else {
+                            answer.style.maxHeight = null;
+                        }
+
+                        // Zavřít ostatní položky (accordion efekt)
+                        if (!isActive) { // Pokud jsme právě otevřeli tuto položku
+                             faqItems.forEach(otherItem => {
+                                if (otherItem !== item && otherItem.classList.contains('active')) {
+                                    otherItem.classList.remove('active');
+                                    otherItem.querySelector('.faq-answer').style.maxHeight = null;
+                                }
+                            });
+                        }
                     });
                 }
             });
-        });
-        
-        // Add shadow to header on scroll
-        if (pageHeader) { // Use the globally defined pageHeader
-            window.addEventListener('scroll', () => {
-                if (window.scrollY > 10) {
-                    pageHeader.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.05)'; 
-                } else {
-                    pageHeader.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.05)'; 
-                }
-            });
-        }
 
-// FAQ Accordion Functionality
-const faqItems = document.querySelectorAll('.faq-item');
-        faqItems.forEach(item => {
-            const question = item.querySelector('.faq-question');
-            const answer = item.querySelector('.faq-answer');
-            const answerContent = item.querySelector('.faq-answer-content');
-
-            if(question && answer && answerContent) {
-                question.addEventListener('click', () => {
-                    const isActive = item.classList.contains('active');
-
-                    // Zavrieť všetky ostatné otvorené odpovede (voliteľné, pre "accordion" efekt)
-                    // Ak chcete, aby mohlo byť otvorených viacero naraz, tento blok odstráňte
-                    /*
-                    if (!isActive) { // Iba ak otvárame novú
-                        faqItems.forEach(otherItem => {
-                            if (otherItem !== item && otherItem.classList.contains('active')) {
-                                otherItem.classList.remove('active');
-                                otherItem.querySelector('.faq-answer').style.maxHeight = null;
-                            }
-                        });
+            // Contact Form Submission (Basic example)
+            const contactForm = document.querySelector('.contact-form');
+            if (contactForm) {
+                contactForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const name = contactForm.querySelector('#name').value;
+                    const email = contactForm.querySelector('#email').value;
+                    const message = contactForm.querySelector('#message').value;
+                    if (!name || !email || !message) {
+                        alert('Please fill in all required fields.');
+                        return;
                     }
-                    */
-
-                    item.classList.toggle('active'); // Prepne triedu 'active' na .faq-item
-
-                    if (item.classList.contains('active')) {
-                        // Nastavíme max-height na skutočnú výšku obsahu
-                        answer.style.maxHeight = answerContent.scrollHeight + "px";
-                    } else {
-                        // Nastavíme max-height na null (alebo '0px'), aby sa odpoveď skryla s animáciou
-                        answer.style.maxHeight = null;
-                    }
+                    // Simulace odeslání
+                    console.log('Form submitted (demo):', { name, email, message });
+                    alert('Thank you for your message! (This is a demo, data not actually sent)');
+                    contactForm.reset();
                 });
             }
-        });
 
-        // Contact Form Submission (Basic example)
-        const contactForm = document.querySelector('.contact-form');
-        if (contactForm) {
-            contactForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                alert('Thank you for your message! (This is a demo, data not actually sent)');
-                contactForm.reset(); 
-            });
-        }
-
-        // Scroll to Top Button Functionality
-        const scrollToTopBtn = document.getElementById("scrollToTopBtn");
-        if (scrollToTopBtn) {
-            window.onscroll = function() {
-                if (document.body.scrollTop > 200 || document.documentElement.scrollTop > 200) {
-                    scrollToTopBtn.classList.add("show");
-                } else {
-                    scrollToTopBtn.classList.remove("show");
-                }
-            };
-            scrollToTopBtn.addEventListener("click", function() {
-                window.scrollTo({ top: 0, behavior: "smooth" });
-            });
-        }
-
-        // Active Nav Link Highlighting on Scroll
-        const allNavLinksForHighlight = document.querySelectorAll('.nav-links a[href^="#"]:not(.btn), .mobile-menu .mobile-links a[href^="#"]:not(.btn)');
-        const pageSections = [];
-
-        allNavLinksForHighlight.forEach(link => {
-            const sectionId = link.getAttribute('href');
-            if (sectionId && sectionId.length > 1 && sectionId !== '#') {
-                try {
-                    const section = document.querySelector(sectionId);
-                    if (section && !pageSections.some(s => s.id === section.id)) { // Ensure unique sections
-                        pageSections.push(section);
+            // Scroll to Top Button Functionality
+            const scrollToTopBtn = document.getElementById("scrollToTopBtn");
+            if (scrollToTopBtn) {
+                window.addEventListener('scroll', function() { // Použijeme addEventListener pro konzistenci
+                    if (document.body.scrollTop > 200 || document.documentElement.scrollTop > 200) {
+                        scrollToTopBtn.classList.add("show");
+                    } else {
+                        scrollToTopBtn.classList.remove("show");
                     }
-                } catch (e) {
-                    console.warn(`Invalid selector for nav link: ${sectionId}`, e);
+                });
+                scrollToTopBtn.addEventListener("click", function() {
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                });
+            }
+
+            // Active Nav Link Highlighting on Scroll (and load/hashchange)
+            function highlightActiveNavLinkOnScroll() {
+                if (!pageHeader) return;
+
+                const scrollPosition = window.pageYOffset;
+                let currentActiveSectionId = null;
+                const sections = [];
+
+                // Sbíráme sekce pouze z odkazů, které jsou pro aktuální stránku (index.php)
+                const navLinksToConsider = document.querySelectorAll('header .nav-links a[href^="index.php#"]:not(.btn), header .mobile-links a[href^="index.php#"]:not(.btn), header .nav-links a[href^="#"]:not(.btn), header .mobile-links a[href^="#"]:not(.btn)');
+
+                navLinksToConsider.forEach(link => {
+                    const href = link.getAttribute('href');
+                    let sectionIdSelector;
+
+                    if (href.startsWith('index.php#')) {
+                        sectionIdSelector = href.substring(href.indexOf('#'));
+                    } else if (href.startsWith('#') && window.location.pathname.match(/index\.php$|\/$/)) {
+                        // Pokud je odkaz jen #hash a jsme na index.php (nebo root)
+                        sectionIdSelector = href;
+                    }
+
+                    if (sectionIdSelector && sectionIdSelector.length > 1) {
+                        try {
+                            const sectionElement = document.querySelector(sectionIdSelector);
+                            if (sectionElement && !sections.some(s => s.id === sectionElement.id)) {
+                                sections.push(sectionElement);
+                            }
+                        } catch (e) { console.warn("Invalid selector for active link highlighting: " + sectionIdSelector); }
+                    }
+                });
+
+                sections.sort((a, b) => a.offsetTop - b.offsetTop);
+
+                for (let i = sections.length - 1; i >= 0; i--) {
+                    const section = sections[i];
+                    const sectionTop = section.offsetTop;
+                    const sectionHeight = section.offsetHeight;
+                    // Aktivní, pokud je horní část sekce viditelná pod headerem,
+                    // nebo pokud jsme uvnitř sekce (až do 2/3 její výšky shora)
+                    const triggerPointTop = sectionTop - headerHeight - Math.min(100, window.innerHeight * 0.1);
+                    const triggerPointBottom = sectionTop + sectionHeight * 0.66 - headerHeight;
+
+                    if (scrollPosition >= triggerPointTop && scrollPosition < triggerPointBottom) {
+                        currentActiveSectionId = section.getAttribute('id');
+                        break;
+                    }
                 }
+
+                if (sections.length > 0 && (window.innerHeight + scrollPosition >= document.body.offsetHeight - 20)) {
+                    currentActiveSectionId = sections[sections.length - 1].getAttribute('id');
+                }
+
+                navLinksToConsider.forEach(link => {
+                    link.classList.remove('active');
+                    const linkHref = link.getAttribute('href');
+                    let linkSectionId = '';
+
+                    if (linkHref.startsWith('index.php#')) {
+                        linkSectionId = linkHref.substring(linkHref.indexOf('#') + 1);
+                    } else if (linkHref.startsWith('#')) {
+                        linkSectionId = linkHref.substring(1);
+                    }
+
+                    if (linkSectionId && linkSectionId === currentActiveSectionId) {
+                        link.classList.add('active');
+                    }
+                });
+
+                // Aktivní stav pro Login/Dashboard (pokud nejsme na hash lince)
+                const currentPathBase = window.location.pathname.split('/').pop() || 'index.php';
+                const loginBtnDesktop = document.querySelector('header .nav-item-login a.btn'); // Používáme selektor z header-main.php
+                const loginBtnMobile = document.querySelector('header .mobile-menu a.btn[href*="login.php"], header .mobile-menu a.btn[href*="dashboard.php"]');
+
+
+                if (loginBtnDesktop) {
+                    const btnPath = loginBtnDesktop.getAttribute('href').split('/').pop();
+                    loginBtnDesktop.classList.toggle('active', btnPath === currentPathBase && !currentActiveSectionId);
+                }
+                if (loginBtnMobile) {
+                    const btnPathMobile = loginBtnMobile.getAttribute('href').split('/').pop();
+                    loginBtnMobile.classList.toggle('active', btnPathMobile === currentPathBase && !currentActiveSectionId);
+                }
+            }
+
+            if (pageHeader) {
+                window.addEventListener('scroll', highlightActiveNavLinkOnScroll);
+                window.addEventListener('load', highlightActiveNavLinkOnScroll);
+                window.addEventListener('hashchange', highlightActiveNavLinkOnScroll);
             }
         });
-        // Sort sections by their top offset to process them in order
-        pageSections.sort((a, b) => a.offsetTop - b.offsetTop);
-
-        function highlightActiveNavLink() {
-            let currentActiveSectionId = null;
-            const scrollPosition = window.pageYOffset;
-            // Use the globally defined headerHeight
-
-            for (let i = pageSections.length - 1; i >= 0; i--) {
-                const section = pageSections[i];
-                // Section becomes active if its top is above a point slightly below the header bottom (plus a buffer)
-                const sectionTriggerPoint = section.offsetTop - headerHeight - 60; // 60px buffer 
-
-                if (scrollPosition >= sectionTriggerPoint) {
-                    currentActiveSectionId = section.getAttribute('id');
-                    break; 
-                }
-            }
-            
-            // If scrolled to the very bottom of the page, ensure the last section's link is active
-            if (window.innerHeight + scrollPosition >= document.body.offsetHeight - 10 && pageSections.length > 0) {
-                currentActiveSectionId = pageSections[pageSections.length - 1].getAttribute('id');
-            }
-
-            allNavLinksForHighlight.forEach(link => {
-                link.classList.remove('active');
-                if (link.getAttribute('href') === `#${currentActiveSectionId}`) {
-                    link.classList.add('active');
-                }
-            });
-        }
-
-        window.addEventListener('scroll', highlightActiveNavLink);
-        window.addEventListener('load', highlightActiveNavLink); // Highlight on page load/refresh
     </script>
 </body>
 </html>
