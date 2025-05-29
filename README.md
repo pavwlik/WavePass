@@ -66,9 +66,11 @@ In a world that demands efficiency and reliability, WavePass stands out as the i
     We are constantly looking for ways to improve and add features that bring real value to schools, leveraging modern technology like RFID and cloud computing.
 
 **WavePass isn't just an attendance system; it's a partner in optimizing your school's operational efficiency and fostering a more secure and organized environment.**
-
+<p align="center">
+  *Thank you for considering WavePass!*
+</p>
 ---
 <p align="center">
   Copyright © <span id="currentYear">2025</span> Pavel Bureš. All Rights Reserved.
 </p>
-*Thank you for considering WavePass!*
+
