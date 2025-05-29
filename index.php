@@ -587,9 +587,9 @@ require_once "db.php";
                             <h3 class="member-name">Tomáš Kočí</h3>
                             <p class="member-role">QA & Testing <span class="greySymbol">|</span> Support</p>
                             <div class="member-social-links">
-                                <a href="#" target="_blank" title="Tomáš Kočí Instagram" aria-label="Tomáš Kočí Instagram"><i class="fab fa-instagram"></i></a>
+                                <a href="koci.to.2022@skola.spsrakovnik.cz" target="_blank" title="Tomáš Kočí Instagram" aria-label="Tomáš Kočí Instagram"><i class="fab fa-instagram"></i></a>
                                 <!-- <a href="#" target="_blank" title="Kryštof Topinka LinkedIn" aria-label="Kryštof Topinka LinkedIn"><i class="fab fa-linkedin-in"></i></a> !-->
-                                <a href="mailto:tomas.koci@example.com" title="Email Tomáš Kočí" aria-label="Email Tomáš Kočí"><i class="fas fa-envelope"></i></a>
+                                <a href="mailto:https://www.instagram.com/kotom_friends/" title="Email Tomáš Kočí" aria-label="Email Tomáš Kočí"><i class="fas fa-envelope"></i></a>
                             </div>
                         </div>
                         <div class="team-member-card">
@@ -599,9 +599,9 @@ require_once "db.php";
                             <h3 class="member-name">Zdeněk Čepelák</h3>
                             <p class="member-role">QA & Testing <span class="greySymbol">|</span> Support</p>
                             <div class="member-social-links">
-                                <a href="#" target="_blank" title="Zdeněk Čepelák Instagram" aria-label="Zdeněk Čepelák Instagram"><i class="fab fa-instagram"></i></a>
+                                <a href="https://www.instagram.com/cepelda/" target="_blank" title="Zdeněk Čepelák Instagram" aria-label="Zdeněk Čepelák Instagram"><i class="fab fa-instagram"></i></a>
                                 <!-- <a href="#" target="_blank" title="Kryštof Topinka LinkedIn" aria-label="Kryštof Topinka LinkedIn"><i class="fab fa-linkedin-in"></i></a> !-->
-                                <a href="mailto:zdenek.cepelak@example.com" title="Email Zdeněk Čepelák" aria-label="Email Zdeněk Čepelák"><i class="fas fa-envelope"></i></a>
+                                <a href="mailto:cepelak.zd.2022@skola.spsrakovnik.cz" title="Email Zdeněk Čepelák" aria-label="Email Zdeněk Čepelák"><i class="fas fa-envelope"></i></a>
                             </div>
                         </div>
                     </div>
@@ -734,17 +734,11 @@ require_once "db.php";
     </main>
 
     <!-- Footer -->
-    <?php  require_once "components/footer-user.php"; ?>
+    <?php  require_once "components/footer-main.php"; ?>
 
     <!-- Scroll to Top Button -->
     <button id="scrollToTopBtn" title="Go to top">
         <span class="material-symbols-outlined" aria-hidden="true" translate="no" >arrow_upward</span>
-    </button>
-
-
-    <!-- Scroll to Top Button -->
-    <button id="scrollToTopBtn" title="Go to top">
-        <span class="material-symbols-outlined" aria-hidden="true" translate="no">arrow_upward</span>
     </button>
 
     <script>

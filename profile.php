@@ -675,7 +675,7 @@ if (rtrim($currentScriptPath, '/') !== rtrim($projectRootPath, '/')) {
 
     <?php 
         // Dynamické načítání patičky
-        $footerComponent = $pathPrefix . "components/footer-user.php";
+        $footerComponent = $pathPrefix . "components/footer-main.php";
         if (strtolower($sessionRole) === 'admin') {
             // $footerComponent = $pathPrefix . "components/footer-admin.php"; // Admin může mít jiný footer
         }

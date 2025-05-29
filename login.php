@@ -239,7 +239,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </main>
 
     <!-- Footer -->
-    <?php  require_once "components/footer-user.php"; ?>
+    <?php  require_once "components/footer-main.php"; ?>
     
     <script>
         document.querySelectorAll('a[href^="#"], a[href^="index.php#"]').forEach(anchor => {

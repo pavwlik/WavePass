@@ -48,20 +48,18 @@ $filterLateDeparture = isset($_GET['late_departure']) ? trim($_GET['late_departu
 $filtersExpanded = !empty($filterName) || !empty($filterRole) || !empty($filterStatus) || !empty($filterLateDeparture);
 
 $totalUsers = 0;
-$usersPresentToday = 0;
-$usersOnLeaveToday = 0;
+$usersPresentToday = 0; // For display in stat card
+$usersOnLeaveToday = 0; // For display in stat card
 $lateDepartureCount = 0;
 
-$activeQuery = null; 
-$paramsUsers = []; // Initialize paramsUsers outside the try block
+$activeQuery = null;
+$paramsUsers = [];
 
 if (isset($pdo) && $pdo instanceof PDO) {
     try {
         $sqlUsers = "SELECT u.userID, u.firstName, u.lastName, u.username, u.roleID, u.profile_photo FROM users u WHERE 1=1";
-        // $paramsUsers is already initialized
 
         if (!empty($filterName)) {
-            // IMPORTANT: Bind wildcards with the parameter value for LIKE
             $sqlUsers .= " AND (u.firstName LIKE :name_fn OR u.lastName LIKE :name_ln OR u.username LIKE :name_un)";
             $paramsUsers[':name_fn'] = "%" . $filterName . "%";
             $paramsUsers[':name_ln'] = "%" . $filterName . "%";
@@ -81,23 +79,34 @@ if (isset($pdo) && $pdo instanceof PDO) {
             }
         }
         $sqlUsers .= " ORDER BY u.lastName, u.firstName";
-        $activeQuery = $sqlUsers; 
+        $activeQuery = $sqlUsers;
         
         $stmtUsers = $pdo->prepare($sqlUsers);
         $stmtUsers->execute($paramsUsers);
         $users = $stmtUsers->fetchAll(PDO::FETCH_ASSOC);
         
-        $stmtTotalAllUsers = $pdo->query("SELECT COUNT(*) FROM users");
+        // Total users overall (not just matching filter for this stat)
+        $stmtTotalAllUsers = $pdo->query("SELECT COUNT(*) FROM users WHERE LOWER(roleID) = 'employee'"); // Count only employees for this stat typically
         $totalUsers = $stmtTotalAllUsers->fetchColumn();
+        // If you want total of ALL users (admin + employee) then:
+        // $stmtTotalAllUsers = $pdo->query("SELECT COUNT(*) FROM users");
+        // $totalUsers = $stmtTotalAllUsers->fetchColumn();
+
 
         $stmtLateDepartureCountAll = $pdo->prepare("SELECT COUNT(DISTINCT userID) FROM late_departure_notifications WHERE notification_date = :today_date_stat");
         $stmtLateDepartureCountAll->execute([':today_date_stat' => $todayDate]);
         $lateDepartureCount = $stmtLateDepartureCountAll->fetchColumn();
 
-        $stmtRfids = $pdo->query("SELECT userID, name AS rfid_name, rfid_uid FROM rfids WHERE card_type = 'Primary Access Card' AND is_active = 1");
-        $primaryRfids = [];
-        foreach ($stmtRfids->fetchAll(PDO::FETCH_ASSOC) as $rfid) {
-            $primaryRfids[$rfid['userID']] = $rfid;
+        $stmtAbsences = $pdo->prepare(
+            "SELECT userID, absence_type
+             FROM absence
+             WHERE :today_date_absences BETWEEN DATE(absence_start_datetime) AND DATE(absence_end_datetime)
+               AND status = 'approved'"
+        );
+        $stmtAbsences->execute([':today_date_absences' => $todayDate]);
+        $approvedAbsences = [];
+        foreach ($stmtAbsences->fetchAll(PDO::FETCH_ASSOC) as $absence) {
+            $approvedAbsences[$absence['userID']] = $absence;
         }
 
         $stmtLatestLogs = $pdo->prepare(
@@ -116,18 +125,6 @@ if (isset($pdo) && $pdo instanceof PDO) {
             $latestLogs[$log['userID']] = $log;
         }
 
-        $stmtAbsences = $pdo->prepare(
-            "SELECT userID, absence_type
-             FROM absence
-             WHERE :today_date_absences BETWEEN DATE(absence_start_datetime) AND DATE(absence_end_datetime)
-               AND status = 'approved'"
-        );
-        $stmtAbsences->execute([':today_date_absences' => $todayDate]);
-        $approvedAbsences = [];
-        foreach ($stmtAbsences->fetchAll(PDO::FETCH_ASSOC) as $absence) {
-            $approvedAbsences[$absence['userID']] = $absence;
-        }
-
         $stmtLateDeparturesInfo = $pdo->prepare(
             "SELECT userID, planned_departure_time, notes
              FROM late_departure_notifications
@@ -140,8 +137,8 @@ if (isset($pdo) && $pdo instanceof PDO) {
         }
         
         $tempUsersData = [];
-        $currentUsersPresent = 0; 
-        $currentUsersOnLeave = 0; 
+        $currentUsersPresent_forStatCard = 0; // Specific for stat card counting (employees only)
+        $currentUsersOnLeave_forStatCard = 0; // Specific for stat card counting (employees only)
 
         foreach ($users as $user) {
             $userData = $user;
@@ -154,42 +151,56 @@ if (isset($pdo) && $pdo instanceof PDO) {
             $status = "Not Checked In"; $statusClass = "neutral";
             $lastAction = "N/A"; $lastActionTime = "--:--"; $rfidUsedForLastAction = "N/A";
             $isCurrentlyPresent = false; $isCurrentlyOnLeave = false; $isCurrentlyCheckedOut = false;
+            $isEmployee = (strtolower($user['roleID']) == 'employee');
 
             if (isset($approvedAbsences[$user['userID']])) {
-                $absenceItem = $approvedAbsences[$user['userID']]; // Renamed to avoid conflict
+                $absenceItem = $approvedAbsences[$user['userID']];
                 $absenceTypeDisplay = ucfirst(str_replace('_', ' ', $absenceItem['absence_type']));
-                $status = "On Leave"; 
-                $statusClass = "on-leave"; $lastAction = htmlspecialchars($absenceTypeDisplay);
-                if (strtolower($user['roleID']) == 'employee') $currentUsersOnLeave++;
+                $status = "On Leave";
+                $statusClass = "on-leave";
+                $lastAction = htmlspecialchars($absenceTypeDisplay);
+                if ($isEmployee) $currentUsersOnLeave_forStatCard++;
                 $isCurrentlyOnLeave = true;
             }
 
             if (isset($latestLogs[$user['userID']])) {
                 $log = $latestLogs[$user['userID']];
-                $lastActionTime = date("H:i", strtotime($log['logTime']));
-                $rfidUsedForLastAction = $log['rfid_uid_used'] ?? 'N/A';
+                $currentLastActionTime = date("H:i", strtotime($log['logTime']));
+                $currentRfidUsedForLastAction = $log['rfid_uid_used'] ?? 'N/A';
 
                 if ($log['logResult'] == 'granted') {
                     if ($log['logType'] == 'entry') {
                         if (!$isCurrentlyOnLeave) {
                             $status = "Present"; $statusClass = "present";
-                            if (strtolower($user['roleID']) == 'employee') $currentUsersPresent++;
+                            if ($isEmployee) $currentUsersPresent_forStatCard++;
                             $isCurrentlyPresent = true;
                         }
                         $lastAction = "Entry";
+                        $lastActionTime = $currentLastActionTime;
+                        $rfidUsedForLastAction = $currentRfidUsedForLastAction;
                     } elseif ($log['logType'] == 'exit') {
                         if (!$isCurrentlyOnLeave) {
                            $status = "Checked Out"; $statusClass = "checked-out";
                            $isCurrentlyCheckedOut = true;
                         }
                         $lastAction = "Exit";
+                        $lastActionTime = $currentLastActionTime;
+                        $rfidUsedForLastAction = $currentRfidUsedForLastAction;
                     }
                 } elseif ($log['logResult'] == 'denied') {
-                     if (!$isCurrentlyOnLeave) { $status = "Access Denied"; $statusClass = "danger"; }
+                     if (!$isCurrentlyOnLeave) {
+                        $status = "Access Denied"; $statusClass = "danger";
+                     }
                     $lastAction = ($log['logType'] == 'entry' ? "Entry Attempt" : "Exit Attempt");
-                } else { 
-                     if (!$isCurrentlyOnLeave) { $status = "Status Unknown"; $statusClass = "neutral"; }
+                    $lastActionTime = $currentLastActionTime;
+                    $rfidUsedForLastAction = $currentRfidUsedForLastAction;
+                } else {
+                     if (!$isCurrentlyOnLeave) {
+                        $status = "Status Unknown"; $statusClass = "neutral";
+                     }
                     $lastAction = ucfirst($log['logType']);
+                    $lastActionTime = $currentLastActionTime;
+                    $rfidUsedForLastAction = $currentRfidUsedForLastAction;
                 }
             }
             
@@ -219,8 +230,9 @@ if (isset($pdo) && $pdo instanceof PDO) {
             $tempUsersData[] = $userData;
         }
         $usersData = $tempUsersData;
-        $usersPresentToday = $currentUsersPresent; 
-        $usersOnLeaveToday = $currentUsersOnLeave;
+        // Assign calculated counts for stat cards
+        $usersPresentToday = $currentUsersPresent_forStatCard;
+        $usersOnLeaveToday = $currentUsersOnLeave_forStatCard; // CORRECTED ASSIGNMENT
 
     } catch (PDOException $e) {
         error_log("Admin Users View DB Error: " . $e->getMessage() . " --- SQL: " . ($activeQuery ?? 'Could not get active query') . " --- Params: " . json_encode($paramsUsers));
@@ -265,7 +277,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             --stat-primary-color-val: var(--primary-color-rgb); 
             --stat-success-color-val: 67, 170, 139; 
             --stat-info-color-val: 23, 162, 184;    
-            --late-departure-icon-color-val: 23, 162, 184; 
+            --late-departure-icon-color-val: 240, 173, 78; /* Example: Warning Yellow/Orange */
             
             --stat-total-users-color: var(--primary-color);
             --stat-present-color: rgb(var(--stat-success-color-val));
@@ -316,7 +328,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .filter-group label { font-size: 0.8rem; color: var(--gray-color); margin-bottom: 0.4rem; font-weight: 500; }
         .filter-group input[type="text"], .filter-group select { padding: 0.7rem 0.9rem; border: 1px solid #ced4da; border-radius: 6px; font-size: 0.9rem; background-color: var(--white); }
         .filter-group input[type="text"]:focus, .filter-group select:focus { border-color: var(--primary-color); box-shadow: 0 0 0 0.2rem rgba(var(--primary-color-rgb), 0.25); outline: 0; }
-        .filter-buttons-group { display: flex; gap: 0.8rem; align-items: flex-end; flex-grow: 0.3; margin-top: 1.2rem; }
+        .filter-buttons-group { display: flex; gap: 0.8rem; align-items: flex-end; flex-grow: 0.3; margin-top: 1.2rem; } 
         .filter-buttons-group button, .filter-buttons-group a.button { padding: 0.7rem 1.3rem; color: var(--white); border: none; border-radius: 6px; cursor: pointer; font-weight: 500; transition: background-color 0.2s ease; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; }
         .filter-buttons-group button { background-color: var(--primary-color); }
         .filter-buttons-group button:hover { background-color: var(--primary-dark); }
@@ -325,7 +337,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .filter-buttons-group .material-symbols-outlined { font-size: 1.2em;}
 
         .users-table-wrapper { overflow-x: auto; padding: 0.5rem; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;}
-        .users-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.9rem; min-width: 700px; /* Ensure table has a min-width for scrolling */ }
+        .users-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.9rem; min-width: 800px; } 
         .users-table th, .users-table td { padding: 0.9rem 1.1rem; text-align: left; border-bottom: 1px solid var(--light-gray); white-space: nowrap; vertical-align: middle; }
         .users-table th { background-color: #f8f9fc; font-weight: 600; color: var(--dark-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px; }
         .users-table tbody tr:last-child td { border-bottom:none; }
@@ -336,23 +348,25 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .users-table .user-name-role .user-role-badge { font-size: 0.8rem; padding: 0.25rem 0.8rem; border-radius: 12px; font-weight: 500; text-transform: capitalize; display: inline-block; margin-top: 4px; line-height: 1.2; }
         .users-table .user-role-badge.admin { background-color: var(--admin-badge-bg); color: var(--admin-badge-text); }
         .users-table .user-role-badge.employee { background-color: var(--employee-badge-bg); color: var(--employee-badge-text); }
-        .status-badge { display: inline-flex; align-items:center; gap: 0.4rem; padding: 0.4rem 0.9rem; border-radius: 16px; font-size: 0.8rem; font-weight: 500; white-space: nowrap; text-align: center; min-width: 125px; }
+        
+        .status-badge { display: inline-flex; align-items:center; gap: 0.4rem; padding: 0.4rem 0.9rem; border-radius: 16px; font-size: 0.8rem; font-weight: 500; white-space: nowrap; text-align: center; min-width: 125px; justify-content: center; } 
         .status-badge .material-symbols-outlined { font-size: 1.1em; margin-right:2px;}
         .status-badge.present { background-color: rgba(var(--present-color-val), 0.15); color: rgb(var(--present-color-val)); }
         .status-badge.checked-out { background-color: rgba(var(--checked-out-color-val), 0.2); color: rgb(var(--checked-out-color-val));}
         .status-badge.on-leave { background-color: rgba(var(--on-leave-color-val), 0.15); color: rgb(var(--on-leave-color-val));}
         .status-badge.danger { background-color: rgba(var(--danger-color-val),0.15); color: rgb(var(--danger-color-val));}
         .status-badge.neutral { background-color: rgba(var(--neutral-color-val),0.15); color: rgb(var(--neutral-color-val));}
+        
         .users-table td.rfid-uid-cell { color: #555; font-size: 0.85rem; }
         .users-table td.last-action-time { color: var(--gray-color); font-size: 0.85rem; }
         .planned-departure-cell .fa-sticky-note, .planned-departure-cell .tooltip-trigger .fa-sticky-note { margin-left: 6px; cursor: help; color: var(--primary-color); font-size: 1em; opacity: 0.7; }
         .planned-departure-cell .fa-sticky-note:hover { opacity: 1; }
+        
         .tooltip-trigger { position: relative; display: inline-block; cursor: help; }
         .tooltip-content { visibility: hidden; opacity: 0; background-color: var(--dark-color); color: var(--light-color); text-align: left; border-radius: 6px; padding: 10px 14px; position: absolute; z-index: 10; bottom: 130%; left: 50%; transform: translateX(-50%); font-size: 0.85rem; white-space: normal; width: 220px; transition: opacity 0.25s, visibility 0.25s; box-shadow: 0 3px 12px rgba(0,0,0,0.2); line-height: 1.5; }
         .tooltip-content::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -6px; border-width: 6px; border-style: solid; border-color: var(--dark-color) transparent transparent transparent; }
         .tooltip-trigger:hover .tooltip-content, .tooltip-trigger:focus .tooltip-content { visibility: visible; opacity: 1; }
 
-        /* No JS card transformation - rely on table wrapper's overflow-x: auto */
         @media screen and (max-width: 1024px) { 
             .filter-group { min-width: calc(33.33% - 1rem); }
         }
@@ -392,7 +406,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">groups</span></div>
                     <div class="info">
                         <span class="value"><?php echo $totalUsers; ?></span>
-                        <span class="label">Total Users</span>
+                        <span class="label">Total Employees</span>
                     </div>
                 </div>
                 <div class="stat-card present-stat">
@@ -410,7 +424,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     </div>
                 </div>
                 <div class="stat-card late-stat">
-                    <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">history_edu</span></div>
+                    <div class="icon"><span aria-hidden="true" translate="no" class="material-symbols-outlined">schedule_send</span></div>
                     <div class="info">
                         <span class="value"><?php echo $lateDepartureCount; ?></span>
                         <span class="label">Late Exits Notified</span>
@@ -423,11 +437,11 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     <h2 class="panel-title">User Status List (<?php echo count($usersData); ?> matching)</h2>
                 </div>
 
-                <div class="filters-toggle-section <?php if($filtersExpanded) echo 'expanded'; ?>" id="filtersHeaderToggle">
+                <div class="filters-toggle-section <?php if($filtersExpanded) echo 'expanded'; ?>" id="filtersHeaderToggle" role="button" aria-expanded="<?php echo $filtersExpanded ? 'true' : 'false'; ?>" aria-controls="filtersBody" tabindex="0">
                     <h3><span aria-hidden="true" translate="no" class="material-symbols-outlined" style="font-size:1.2em; vertical-align:middle; margin-right:5px;">filter_list</span>Filter Users</h3>
                     <span aria-hidden="true" translate="no" class="material-symbols-outlined toggle-icon">expand_more</span>
                 </div>
-                <div class="filters-body <?php if($filtersExpanded) echo 'expanded'; ?>" id="filtersBody">
+                <div class="filters-body <?php if($filtersExpanded) echo 'expanded'; ?>" id="filtersBody" role="region" aria-labelledby="filtersHeaderToggle">
                     <form method="GET" action="admin-users-view.php" style="display:contents; width:100%;">
                         <div class="filter-group">
                             <label for="filterName">Name/Username</label>
@@ -493,12 +507,14 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                         <td data-label="Current Status">
                                             <span class="status-badge <?php echo htmlspecialchars($user['status_class_display']); ?>">
                                                 <?php 
-                                                    $statusIcon = "help_outline";
-                                                    if ($user['status_class_display'] === 'present') $statusIcon = "person_check";
-                                                    else if ($user['status_class_display'] === 'checked-out') $statusIcon = "logout";
-                                                    else if ($user['status_class_display'] === 'on-leave') $statusIcon = "event_busy";
-                                                    else if ($user['status_class_display'] === 'danger') $statusIcon = "gpp_maybe";
-                                                    else if ($user['status_class_display'] === 'neutral') $statusIcon = "person_off";
+                                                    $statusIcon = "help_outline"; 
+                                                    switch ($user['status_class_display']) {
+                                                        case 'present': $statusIcon = "person_check"; break;
+                                                        case 'checked-out': $statusIcon = "logout"; break;
+                                                        case 'on-leave': $statusIcon = "event_busy"; break;
+                                                        case 'danger': $statusIcon = "gpp_maybe"; break;
+                                                        case 'neutral': $statusIcon = "person_off"; break;
+                                                    }
                                                 ?>
                                                 <span aria-hidden="true" translate="no" class="material-symbols-outlined"><?php echo $statusIcon; ?></span>
                                                 <?php echo htmlspecialchars($user['current_status_display']); ?>
@@ -539,14 +555,17 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         const filtersBody = document.getElementById('filtersBody');
 
         if (filtersHeaderToggle && filtersBody) {
-            filtersHeaderToggle.addEventListener('click', function() {
-                const isExpanded = filtersBody.classList.contains('expanded');
-                if (isExpanded) {
-                    filtersBody.classList.remove('expanded');
-                    filtersHeaderToggle.classList.remove('expanded');
-                } else {
-                    filtersBody.classList.add('expanded');
-                    filtersHeaderToggle.classList.add('expanded');
+            const toggleFilters = () => {
+                const isExpanded = filtersBody.classList.toggle('expanded');
+                filtersHeaderToggle.classList.toggle('expanded', isExpanded);
+                filtersHeaderToggle.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+            };
+
+            filtersHeaderToggle.addEventListener('click', toggleFilters);
+            filtersHeaderToggle.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleFilters();
                 }
             });
         }
@@ -558,6 +577,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 const isExpanded = mobileNavToggle.getAttribute('aria-expanded') === 'true' || false;
                 mobileNavToggle.setAttribute('aria-expanded', !isExpanded);
                 mainNav.classList.toggle('active'); 
+                 document.body.classList.toggle('mobile-nav-active');
             });
         }
 
@@ -566,12 +586,12 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             trigger.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    if (document.activeElement === trigger) {
-                        // Could try to blur and re-focus to trigger CSS if needed,
-                        // but pure CSS :focus should generally work.
-                    } else {
+                    // This simply ensures the element is focused if not already,
+                    // relying on CSS :focus for tooltip visibility.
+                    if (document.activeElement !== trigger) {
                         trigger.focus();
                     }
+                    // If your tooltips are JS-driven, you'd toggle visibility here.
                 }
             });
         });

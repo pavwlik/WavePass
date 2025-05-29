@@ -43,7 +43,7 @@
         
         main {
             flex-grow: 1; 
-            padding-top: 80px; /* Height of the fixed header */
+            padding-top: 40px; /* Height of the fixed header */
         }
 
         h1, h2, h3, h4 {
@@ -402,46 +402,7 @@
 </head>
 <body>
     <!-- Header -->
-    <header>
-        <div class="container">
-            <nav class="navbar">
-                <a href="index.html" class="logo"> 
-                    <i class="fas fa-chalkboard-teacher"></i>
-                    Wave<span>Pass</span>
-                </a>
-                
-                <ul class="nav-links">
-                    <li><a href="index.html#features">Features</a></li>
-                    <li><a href="index.html#how-it-works">How It Works</a></li>
-                    <li><a href="pricing.html" class="active">Pricing</a></li> 
-                    <li><a href="index.html#contact">Contact</a></li> 
-                    <li><a href="index.html#faq">FAQ</a></li> 
-                    <li><a href="help.php">Help Center</a></li>
-                    <li><a href="login.php" class="btn btn-outline">Login</a></li> 
-                </ul>
-                
-                <div class="hamburger" id="hamburger">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </div>
-            </nav>
-        </div>
-        
-        <!-- Mobile Menu -->
-        <div class="mobile-menu" id="mobileMenu">
-            <span class="close-btn" id="closeMenu"><i class="fas fa-times"></i></span>
-            <ul class="mobile-links">
-                 <li><a href="index.html#features">Features</a></li>
-                 <li><a href="index.html#how-it-works">How It Works</a></li>
-                 <li><a href="pricing.html" class="active">Pricing</a></li>
-                 <li><a href="index.html#contact">Contact</a></li>
-                 <li><a href="index.html#faq">FAQ</a></li> 
-                 <li><a href="help.php">Help Center</a></li>
-            </ul>
-            <a href="login.php" class="btn" style="margin-top:1rem;">Login</a>
-        </div>
-    </header>
+    <?php require "components/header-main.php" ?>
 
     <!-- Main Content for Pricing Page -->
     <main>
@@ -481,7 +442,7 @@
                             <li><span class="material-symbols-outlined">remove</span> API Access</li>
                         </ul>
                         <div class="plan-cta">
-                            <a href="get-started.html?plan=starter" class="btn btn-outline">Choose Starter</a>
+                            <a href="get-started.php?plan=starter" class="btn btn-outline">Choose Starter</a>
                         </div>
                     </div>
 
@@ -505,7 +466,7 @@
                             <li><span class="material-symbols-outlined">remove</span> API Access</li>
                         </ul>
                         <div class="plan-cta">
-                            <a href="get-started.html?plan=pro" class="btn">Choose Pro</a>
+                            <a href="get-started.php?plan=pro" class="btn">Choose Pro</a>
                         </div>
                     </div>
 
@@ -528,7 +489,7 @@
                             <li><span class="material-symbols-outlined">check_circle</span> SLA Agreement</li>
                         </ul>
                         <div class="plan-cta">
-                            <a href="get-started.html?plan=enterprise" class="btn btn-outline">Choose Enterprise</a>
+                            <a href="get-started.php?plan=enterprise" class="btn btn-outline">Choose Enterprise</a>
                         </div>
                     </div>
                 </div>
@@ -539,67 +500,13 @@
             <div class="container">
                 <h2>Not Sure Which Plan is Right for You?</h2>
                 <p>Our team is happy to help you find the perfect fit for your school's unique requirements. Contact us for a personalized consultation or a custom quote.</p>
-                <a href="index.html#contact" class="btn"><span class="material-symbols-outlined">contact_support</span> Contact Sales</a>
+                <a href="index.php#contact" class="btn"><span class="material-symbols-outlined">contact_support</span> Contact Sales</a>
             </div>
         </section>
     </main>
 
     <!-- Footer -->
-    <footer>
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-column">
-                    <h3>WavePass</h3>
-                    <p>Modern attendance tracking solutions for educational institutions of all sizes.</p>
-                    <div class="social-links">
-                        <a href="#"><i class="fab fa-facebook-f"></i></a>
-                        <a href="#"><i class="fab fa-twitter"></i></a>
-                        <a href="#"><i class="fab fa-linkedin-in"></i></a>
-                        <a href="#"><i class="fab fa-instagram"></i></a>
-                    </div>
-                </div>
-                
-                <div class="footer-column">
-                    <h3>Quick Links</h3>
-                    <ul class="footer-links">
-                        <li><a href="index.html#features"><i class="fas fa-chevron-right"></i> Features</a></li>
-                        <li><a href="index.html#how-it-works"><i class="fas fa-chevron-right"></i> How It Works</a></li>
-                        <li><a href="pricing.html"><i class="fas fa-chevron-right"></i> Pricing</a></li>
-                        <li><a href="index.html#contact"><i class="fas fa-chevron-right"></i> Contact</a></li> 
-                        <li><a href="index.html#faq"><i class="fas fa-chevron-right"></i> FAQ</a></li> 
-                        <li><a href="help.php"><i class="fas fa-chevron-right"></i> Help Center</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-column">
-                    <h3>Resources</h3>
-                    <ul class="footer-links">
-                        <li><a href="blog.php"><i class="fas fa-chevron-right"></i> Blog</a></li>
-                        <li><a href="help.php"><i class="fas fa-chevron-right"></i> Help Center</a></li>
-                        <li><a href="webinars.php"><i class="fas fa-chevron-right"></i> Webinars</a></li>
-                        <li><a href="api.php"><i class="fas fa-chevron-right"></i> API Documentation</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-column">
-                    <h3>Contact Info</h3>
-                    <ul class="footer-links">
-                        <li><a href="mailto:info@WavePass.com"><i class="fas fa-envelope"></i> info@WavePass.com</a></li>
-                        <li><a href="tel:+15551234567"><i class="fas fa-phone"></i> +1 (555) 123-4567</a></li>
-                        <li>
-                             <a href="https://www.google.com/maps/search/?api=1&query=123%20Education%20St%2C%20Boston%2C%20MA%2002115" target="_blank" rel="noopener noreferrer" title="View on Google Maps">
-                                <i class="fas fa-map-marker-alt"></i> 123 Education St, Boston, MA
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-            
-            <div class="footer-bottom">
-                <p>© <?php echo date("Y"); ?> WavePass. All rights reserved. | <a href="privacy.php">Privacy Policy</a> | <a href="terms.php">Terms of Service</a></p>
-            </div>
-        </div>
-    </footer>
+    <?php require "components/footer-main.php" ?>
 
     <script>
         

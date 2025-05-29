@@ -136,6 +136,6 @@ error_reporting(E_ALL);
         
     </style>
 
-    <script src="../script/header-main-menu.js" defer>
+    <script src="../script/header-main-menu.js">
 
     </script>

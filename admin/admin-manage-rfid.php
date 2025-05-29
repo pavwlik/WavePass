@@ -172,7 +172,7 @@ $currentView = isset($_GET['view']) ? $_GET['view'] : 'all_cards';
         header { background-color: var(--white); box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: fixed; width: 100%; top: 0; z-index: 1000; }
         header .container .navbar { display: flex; justify-content: space-between; align-items: center; height: 80px; }
 
-        .page-header { padding: 1.8rem 0; margin-bottom: 1.5rem; background-color:var(--white); box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+        .page-header { padding: 1.8rem 0; margin: 1.5rem 0 1.5rem 0; background-color:var(--white); box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
         .page-header .container {max-width: 1400px; margin: 0 auto; padding: 0 20px;}
         .page-header h1 { font-size: 1.7rem; margin: 0; }
         .page-header .sub-heading { font-size: 0.9rem; color: var(--gray-color); }

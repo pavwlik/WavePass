@@ -407,7 +407,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         </div>
     </main>
 
-    <?php require "components/footer-admin.php"; // Nebo footer-user.php ?>
+    <?php require "components/footer-admin.php"; // Nebo footer-main.php ?>
 
     <script>
         // ... (váš JavaScript pro date pickery a případně hamburger menu) ...

@@ -635,7 +635,7 @@ require_once "db.php";
     </main>
 
     <!-- Footer -->
-    <?php  require_once "components/footer-user.php"; ?>
+    <?php  require_once "components/footer-main.php"; ?>
 
      <!-- Scroll to Top Button -->
     <button id="scrollToTopBtn" title="Go to top" aria-label="Scroll to top">

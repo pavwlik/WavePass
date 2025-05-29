@@ -321,7 +321,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     </main>
 
     <!-- Footer !-->
-    <?php require_once "components/footer-user.php"; ?>
+    <?php require_once "components/footer-main.php"; ?>
 
     <script>
         // Skript pro mobilní menu - stejný jako na index.php nebo jiných stránkách

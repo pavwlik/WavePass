@@ -401,8 +401,8 @@ if (isset($pdo) && $pdo instanceof PDO) {
     </div>
 
     <?php 
-    if (file_exists("components/footer-user.php")) { 
-        require_once "components/footer-user.php";
+    if (file_exists("components/footer-main.php")) { 
+        require_once "components/footer-main.php";
     } else {
         echo "<!-- Footer component not found -->";
     }

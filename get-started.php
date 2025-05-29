@@ -374,7 +374,7 @@
     </main>
 
     <!-- Footer -->
-    <?php  require_once "components/footer-user.php"; ?>
+    <?php  require_once "components/footer-main.php"; ?>
 
     <script>
         // Smooth scrolling for on-page anchors
